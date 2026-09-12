@@ -64,6 +64,9 @@ h1{font-size:24px;line-height:1.2} h2{font-size:17px;line-height:1.3} h3{font-si
 .nav a .key{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
 .ico{width:17px;height:17px;flex:none;color:var(--ink-3)}
 .nav a:hover .ico{color:var(--ink-2)} .nav a.on .ico{color:var(--accent-text)}
+.vhead h1{display:flex;align-items:center;gap:10px}
+.h1ico{width:30px;height:30px;border-radius:8px;background:var(--accent-soft);display:inline-grid;place-items:center;flex:none}
+.h1ico .ico{width:18px;height:18px;color:var(--accent-text)}
 .iconbtn{display:inline-flex;align-items:center;gap:6px} .iconbtn .ico{width:15px;height:15px;color:currentColor}
 .guide{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--accent-soft);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--ink-2)}
 .guide .gi{width:26px;height:26px;border-radius:7px;background:var(--surface);display:grid;place-items:center} .guide .gi .ico{color:var(--accent-text)}
@@ -924,7 +927,7 @@ function render() {
   const cur = location.hash.slice(1) || 'now';
   const v = { now:viewNow, inbox:viewInbox, programs:viewPrograms, waiting:viewWaiting, delegated:viewDelegated, people:viewPeople, review:viewReview, flow:viewFlow }[cur] || viewNow;
   $('#view').innerHTML = v();
-  const vh = $('#view .vhead'); if (vh) vh.insertAdjacentHTML('afterend', guideBox(cur));
+  const vh = $('#view .vhead'); if (vh) { const h1 = vh.querySelector('h1'); if (h1 && icons[cur]) h1.insertAdjacentHTML('afterbegin', `<span class="h1ico">${icons[cur]}</span>`); vh.insertAdjacentHTML('afterend', guideBox(cur)); }
   renderNav();
   window.scrollTo({ top:0 });
 }
