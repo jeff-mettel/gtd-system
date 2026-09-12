@@ -417,6 +417,10 @@ const wikiLint = [
   { page:'program-fall-launch-risks', what:'Go/no-go risk has no owner; ledger project J6 has no next action either', fix:'Assign owner in review step 2' },
   { page:'person-sam-reyes', what:'No inbound links from a hub Stakeholders table other than P3', fix:'Fine — single program' },
 ];
+const slug = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const wikiStub = (g) => ({ page:'program-' + slug(g.name), compiled:null, health:'good', status:'Not compiled yet — the compile job runs Friday, or on the first health change.', links:[], milestones:[], decisions:[], pending:[], risks:[] });
+const active = () => programs.filter(g => !g.retired);
+const activeProjects = (gid) => projects.filter(j => j.program === gid && !j.dropped);
 const wikiOf = (pid) => wiki[pid] || wiki[projOf(pid)?.program] || null;
 const aiLog = [
   { at:d(-3), what:'Compiled status, commitments and history sections on 3 program wiki pages', cap:'wiki', mode:'auto' },
@@ -447,11 +451,14 @@ const cycle = [
 
 /* ---------- state (persisted lightly) ---------- */
 const STORE = 'commitment-ledger-demo-v1';
-let state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
+let state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, programs:[], retired:{}, projOverrides:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
 try { const s = localStorage.getItem(STORE); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
 function applyState() {
+  for (const g of state.programs) if (!programs.find(x => x.id === g.id)) { programs.push(g); wiki[g.id] = wiki[g.id] || wikiStub(g); }
   for (const j of state.projects) if (!projects.find(x => x.id === j.id)) projects.push(j);
+  for (const id in state.projOverrides) { const j = projects.find(x => x.id === id); if (j) Object.assign(j, state.projOverrides[id]); }
+  for (const id in state.retired) { const g = programs.find(x => x.id === id); if (g) g.retired = state.retired[id]; }
   for (const c of state.captured) if (!items.find(i => i.id === c.id)) items.unshift(Object.assign({}, c, c.captured ? { captured:new Date(c.captured) } : {}, c.createdAt ? { createdAt:new Date(c.createdAt) } : {}));
   for (const it of items) {
     if (state.kinds[it.id]) it.kind = state.kinds[it.id];
@@ -522,7 +529,7 @@ const icons = {
 const guides = {
   now: { stage:'Engage', text:'Work from here. Red tiles are promises the system can\'t keep for you — clear them first. Next actions are grouped by <b>context</b>: pick the group that matches where you are and the energy you have, not the item that looks most urgent. Tick <span class="kbd">x</span> when done — it logs movement on the project. Anything with a Hand to AI button, consider delegating.' },
   inbox: { stage:'Clarify', text:'The one habit that makes the system trustworthy: get this to zero daily. For each item, GTD\'s question: <b>is it actionable?</b> No → reference, someday, or trash. Yes → what is the very next physical action, and who owns it? The AI has already answered; you confirm with <span class="kbd">a</span> or correct it. Never leave something here "to think about later" — that is what Someday is for.' },
-  programs: { stage:'Organize', text:'A project is any outcome that needs more than one step. Every project must show a next action, a waiting-for, or AI work in progress — otherwise it is flagged and cannot move. <b>Stalled</b> means nothing in the ledger has moved in 7 days. The status paragraph is compiled from the ledger into the wiki; <b>Wiki</b> opens links, decisions and risks. Click a project name for its history.' },
+  programs: { stage:'Organize', text:'A project is any outcome that needs more than one step. Every project must show a next action, a waiting-for, or AI work in progress — otherwise it is flagged and cannot move. <b>Stalled</b> means nothing in the ledger has moved in 7 days. The status paragraph is compiled from the ledger into the wiki; <b>Wiki</b> opens links, decisions and risks. Click a project name for its history. <b>Add program</b> is deliberately rare — a program is an area of responsibility with a purpose; <b>Retire</b> it when that purpose is met.' },
   waiting: { stage:'Organize · the PM\'s real list', text:'Everything owed to you, aged like receivables. A follow-up date is a promise to yourself to chase. <b>Draft nudge</b> writes the follow-up from the history — nothing sends until you approve. Read this list oldest-first and ask of each item: still needed, or drop or escalate?' },
   delegated: { stage:'Delegate', text:'Hand work to the assistant the way you would hand it to a person: it does the work, you review. Queued → Working → Ready. Approving executes exactly the declared side effect; <b>Take it back</b> returns the item to your list. Autonomy sets what it may do unasked — raise one capability at a time as the weekly audit earns trust.' },
   people: { stage:'Organize · stakeholders', text:'Both directions for every person: what they owe you and what you owe them. Before a 1:1, open the agenda — it is what you queued with <span class="chip ctx">@1:1/name</span> plus everything open between you. The assistant is listed as a person on purpose: delegation is delegation.' },
@@ -544,7 +551,7 @@ function guideDrawer() {
 const views = [
   { id:'now', label:'Now', key:'1' },
   { id:'inbox', label:'Inbox', key:'2', count:() => by('inbox').length, hot:true },
-  { id:'programs', label:'Programs', key:'3', count:() => projects.filter(p => projHealth(p).noNext).length, hot:true },
+  { id:'programs', label:'Programs', key:'3', count:() => projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, hot:true },
   { id:'waiting', label:'Waiting for', key:'4', count:() => by('waiting').filter(w => until(w.followUp) < 0).length, hot:true },
   { id:'delegated', label:'Delegated to AI', key:'5', count:() => delegated('ready').length, ai:true },
   { id:'people', label:'People', key:'6' },
@@ -556,7 +563,7 @@ function renderNav() {
   $('#nav').innerHTML = `<div class="group">Engage</div>` + views.slice(0, 1).map(v => navLink(v, cur)).join('') +
     `<div class="group">Lists</div>` + views.slice(1, 6).map(v => navLink(v, cur)).join('') +
     `<div class="group">Reflect</div>` + views.slice(6).map(v => navLink(v, cur)).join('');
-  const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => projHealth(p).noNext).length, lr = days(state.lastReview);
+  const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lr = days(state.lastReview);
   $('#healthbar').innerHTML = `<span class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></span><span class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></span><span class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></span><span class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr}d</b></span><span class="ai">AI for review <b>${delegated('ready').length}</b></span>`;
 }
 function navLink(v, cur) {
@@ -583,7 +590,7 @@ function viewNow() {
   const actions = mine(), ready = delegated('ready');
   const over = by('waiting').filter(w => until(w.followUp) < 0);
   const dueSoon = actions.filter(a => a.due && until(a.due) <= 1);
-  const noNext = projects.filter(p => projHealth(p).noNext);
+  const noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext);
   const groups = {};
   for (const a of actions) (groups[a.ctx] ||= []).push(a);
   const order = ['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@agenda/steering'];
@@ -614,7 +621,7 @@ function viewInbox() {
   if (!inbox.length) return `<div class="vhead"><div><h1>Inbox</h1><p>Every ask from every surface lands here. AI proposes what each one is; you confirm in one keystroke.</p></div></div><div class="panel"><div class="empty"><b>Inbox zero</b>Nothing waiting to be clarified. Capture something above or reset the demo from Flow.</div></div>`;
   if (!inbox.find(i => i.id === sel)) sel = inbox[0].id;
   const it = inbox.find(i => i.id === sel), p = it.p;
-  const kinds = [['action', 'Next action'], ['waiting', 'Waiting for'], ['project', 'New project'], ['someday', 'Someday'], ['reference', 'Reference'], ['trash', 'Trash']];
+  const kinds = [['action', 'Next action'], ['waiting', 'Waiting for'], ['project', 'New project'], ['program', 'New program'], ['someday', 'Someday'], ['reference', 'Reference'], ['trash', 'Trash']];
   const low = p.conf < .75;
   return `<div class="vhead"><div><h1>Inbox</h1><p>Every ask from every surface lands here. AI proposes what each one is; you confirm in one keystroke. Low-confidence guesses are flagged.</p></div>
     <div class="shortcuts"><span><span class="kbd">j</span>/<span class="kbd">k</span> move</span><span><span class="kbd">a</span> accept</span><span><span class="kbd">w</span> waiting</span><span><span class="kbd">s</span> someday</span><span><span class="kbd">t</span> trash</span><span><span class="kbd">e</span> edit</span></div></div>
@@ -626,11 +633,14 @@ function viewInbox() {
       <div class="src"><div class="eyebrow">${srcLabel[it.source]}${it.from ? ' from ' + esc(person(it.from)?.name) : ''} · ${fmtDate(it.captured)}</div><div class="raw">${esc(it.raw)}</div></div>
       <div class="prop">
         <label>What is it?</label><div class="kinds">${kinds.map(k => `<button data-kind="${k[0]}" class="${p.kind === k[0] ? 'on' : ''}">${k[1]}</button>`).join('')}</div>
-        <label for="pNext">${p.kind === 'waiting' ? 'Waiting on' : p.kind === 'project' ? 'First action' : 'Next action'}</label><input id="pNext" value="${esc(p.next)}">
+        ${p.kind === 'program' ? `<label for="pProgName">Program</label><input id="pProgName" value="${esc(p.programName || '')}" placeholder="Short name">
+        <label for="pPurpose">Purpose</label><input id="pPurpose" value="${esc(p.purpose || '')}" placeholder="Why it exists — one checkable sentence">
+        <label for="pFirstProj">First project</label><input id="pFirstProj" value="${esc(p.firstProject || '')}" placeholder="Optional">` : ''}
+        <label for="pNext">${p.kind === 'waiting' ? 'Waiting on' : p.kind === 'project' || p.kind === 'program' ? 'First action' : 'Next action'}</label><input id="pNext" value="${esc(p.next)}">
         ${p.ai && (p.kind === 'action' || p.kind === 'project') ? `<label>AI can</label><div class="aican"><span class="chip aichip">${levelLabel[p.ai.level]}</span><span>${esc(p.ai.what)}</span><label class="dlg"><input type="checkbox" data-delegate ${delegateOnAccept ? 'checked' : ''}> Hand to AI on accept <span class="kbd">d</span></label></div>` : ''}
         ${p.kind === 'waiting' ? `<label>From</label><select id="pOwner">${people.map(x => `<option value="${x.id}" ${x.id === p.owner ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''}
-        <label>Project</label><select id="pProj"><option value="">— none —</option>${programs.map(g => `<optgroup label="${esc(g.name)}">${projects.filter(j => j.program === g.id).map(j => `<option value="${j.id}" ${j.id === p.project ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}<option value="${g.id}" ${g.id === p.project ? 'selected' : ''}>(program level)</option></optgroup>`).join('')}</select>
-        ${p.kind === 'action' || p.kind === 'project' ? `<label>Context</label><select id="pCtx">${['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@1:1/marcus', '@agenda/steering', '@errand'].map(c => `<option ${c === p.ctx ? 'selected' : ''}>${c}</option>`).join('')}</select>
+        ${p.kind === 'program' ? '' : `<label>Project</label><select id="pProj"><option value="">— none —</option>${active().map(g => `<optgroup label="${esc(g.name)}">${projects.filter(j => j.program === g.id).map(j => `<option value="${j.id}" ${j.id === p.project ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}<option value="${g.id}" ${g.id === p.project ? 'selected' : ''}>(program level)</option></optgroup>`).join('')}</select>`}
+        ${p.kind === 'action' || p.kind === 'project' || p.kind === 'program' ? `<label>Context</label><select id="pCtx">${['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@1:1/marcus', '@agenda/steering', '@errand'].map(c => `<option ${c === p.ctx ? 'selected' : ''}>${c}</option>`).join('')}</select>
         <label>Estimate</label><input id="pMin" type="number" value="${p.min ?? ''}" placeholder="minutes">
         <label>Due</label><input id="pDue" type="date" value="${p.due ? iso(p.due) : ''}">` : ''}
         ${p.kind === 'waiting' ? `<label>Follow up on</label><input id="pFollow" type="date" value="${p.followUp ? iso(p.followUp) : iso(d(3))}">` : ''}
@@ -642,16 +652,17 @@ function viewInbox() {
 }
 
 function viewPrograms() {
-  return `<div class="vhead"><div><h1>Programs</h1><p>Every project must have a next action or a waiting-for. Last movement is computed from ledger activity — accepted, done, nudged — never typed in. Stalled means nothing has moved in more than 7 days. Click a project for its history.</p></div><div class="note">Health rolls up: any blocked project blocks the program</div></div>
-  ${programs.map(g => { const js = projects.filter(j => j.program === g.id); const h = js.some(j => j.health === 'crit') ? 'crit' : js.some(j => j.health === 'warn') ? 'warn' : 'good';
-    return `<div class="prog"><div class="head">${healthPill(h)}<div><h2>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-wiki="${g.id}">Wiki</button><button class="btn sm" data-addproj="${g.id}">Add project</button></div>
+  return `<div class="vhead"><div><h1>Programs</h1><p>Every project must have a next action or a waiting-for. Last movement is computed from ledger activity — accepted, done, nudged — never typed in. Stalled means nothing has moved in more than 7 days. Click a project for its history.</p></div><div style="display:flex;gap:10px;align-items:center"><span class="note">Health rolls up: any blocked project blocks the program</span><button class="btn" data-addprog>Add program</button></div></div>
+  ${active().map(g => { const js = activeProjects(g.id); const h = js.some(j => j.health === 'crit') ? 'crit' : js.some(j => j.health === 'warn') ? 'warn' : 'good';
+    return `<div class="prog"><div class="head">${healthPill(h)}<div><h2>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-wiki="${g.id}">Wiki</button><button class="btn sm" data-addproj="${g.id}">Add project</button><button class="btn sm ghost" data-retire="${g.id}" title="Retire this program">Retire</button></div>
     ${wiki[g.id] ? `<div class="wstatus"><span class="eyebrow">Status · compiled ${fmtDate(wiki[g.id].compiled)}${days(wiki[g.id].compiled) > 7 ? ' <span class="flag">stale</span>' : ''}</span><p>${esc(wiki[g.id].status)}</p><div class="wlinks">${wiki[g.id].links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>` : ''}
     <div class="tablewrap"><table><thead><tr><th>Project</th><th>Health</th><th>Next action</th><th>Last movement</th><th>Flags</th></tr></thead><tbody>
     ${js.map(j => { const s = projHealth(j); const n = openActions(j.id).length;
       return `<tr><td><button class="linkish" data-proj="${j.id}">${esc(j.name)}</button><div class="sub">${esc(j.outcome)}</div></td><td>${healthPill(j.health)}</td>
       <td>${s.na ? esc(s.na.next) + `<div class="sub"><span class="chip ctx">${esc(s.na.ctx)}</span>${n > 1 ? ` <span class="faint">+${n - 1} more open</span>` : ''}</div>` : s.dl ? `<span class="muted">Delegated to AI</span><div class="sub">${esc(s.dl.next)} · ${s.dl.del.status === 'ready' ? '<b>ready for review</b>' : s.dl.del.status}</div>` : s.w ? `<span class="muted">Waiting on ${esc(pname(s.w.owner))}</span><div class="sub">${esc(s.w.next)}</div>` : `<button class="btn sm" data-proj="${j.id}">Decide next action</button>`}</td>
       <td class="num"><span class="age ${s.stalled ? 'over' : ''}">${s.lm ? s.age + 'd' : '—'}</span>${s.lm ? `<div class="sub">${esc(s.lm.what)}</div>` : '<div class="sub">No activity</div>'}</td><td>${[s.stalled ? '<span class="flag">Stalled</span>' : '', s.noNext ? '<span class="flag">No next action</span>' : ''].filter(Boolean).join('<br>') || '<span class="faint">—</span>'}</td></tr>`; }).join('') || `<tr><td colspan="5" class="muted">No projects yet.</td></tr>`}
-    </tbody></table></div></div>`; }).join('')}`;
+    </tbody></table></div></div>`; }).join('')}
+  ${programs.some(g => g.retired) ? `<div class="panel"><div class="ph"><h2>Retired</h2><span class="note">Purpose met or superseded. Wiki pages kept as history.</span></div><div class="pb">${programs.filter(g => g.retired).map(g => `<div class="row"><div class="t"><div class="muted">${esc(g.name)}</div><div class="m"><span class="faint">retired ${fmtDate(g.retired)}</span><span class="chip mono">wiki/${esc(wiki[g.id]?.page || '')}.md</span></div></div><button class="btn sm ghost" data-wiki="${g.id}">Wiki</button></div>`).join('')}</div></div>` : ''}`;
 }
 
 function viewWaiting() {
@@ -688,7 +699,7 @@ function viewPeople() {
 }
 
 function viewReview() {
-  const inbox = by('inbox').length, noNext = projects.filter(p => projHealth(p).noNext), aged = by('waiting').filter(w => days(w.since) > 14), some = by('someday'), done = by('done');
+  const inbox = by('inbox').length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext), aged = by('waiting').filter(w => days(w.since) > 14), some = by('someday'), done = by('done');
   const steps = [
     { id:'inbox', title:'Get the inbox to zero', auto: inbox === 0, status: inbox ? `${inbox} left` : 'Empty', body: inbox ? `<div class="row"><div class="t">${inbox} item${inbox > 1 ? 's' : ''} still need a decision.</div><a class="btn sm" href="#inbox">Open inbox</a></div>` : `<div class="row"><div class="t muted">Nothing unclarified. Good.</div></div>` },
     { id:'next', title:'Every project has a next action', auto: noNext.length === 0, status: noNext.length ? `${noNext.length} missing` : 'All covered', body: noNext.map(p => `<div class="row"><div class="t"><div>${esc(p.name)}</div><div class="m"><span class="chip proj">${esc(projName(p.program))}</span><span class="age over">${projHealth(p).lm ? projHealth(p).age + 'd since movement' : 'no activity'}</span></div></div><button class="btn sm" data-proj="${p.id}">Decide next action</button></div>`).join('') || `<div class="row"><div class="t muted">Every active project has an action or a waiting-for.</div></div>` },
@@ -697,7 +708,7 @@ function viewReview() {
     { id:'wins', title:'Wins this week → status draft', status: `${done.length} done`, body: done.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m"><span class="chip proj">${esc(projName(x.project))}</span><span class="faint">${fmtDate(x.doneAt || TODAY)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">These become the "done" section of Friday's status.</div><button class="btn sm" data-status>Draft status report</button></div>` },
     { id:'ai', title:'Audit what the AI did this week', status: `${aiLog.length} runs · ${items.filter(i => i.del?.status === 'approved').length + 3} approved`, body: aiLog.map(l => `<div class="row"><div class="t"><div>${esc(l.what)}</div><div class="m"><span class="chip ${l.mode === 'auto' ? 'aichip' : ''}">${l.mode === 'auto' ? 'automatic' : 'you approved'}</span><span class="faint">${fmtDate(l.at)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Automatic actions are the ones to eyeball: if any look wrong, lower that capability's autonomy.</div><a class="btn sm" href="#delegated">Autonomy settings</a></div>` },
     { id:'lint', title:'Wiki lint', status: `${wikiLint.length} findings`, body: wikiLint.map(l => `<div class="row"><div class="t"><div>${esc(l.what)}</div><div class="m"><span class="chip mono">${esc(l.page)}.md</span><span class="faint">${esc(l.fix)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Stale compiled sections, wiki–ledger contradictions, orphan pages. Fixes go through a reviewed ingest.</div></div>` },
-    { id:'horizons', title:'Look up: programs still serve their purpose?', status: '3 programs', body: programs.map(g => `<div class="row"><div class="t"><div>${esc(g.name)}</div><div class="m muted">${esc(g.purpose)}</div></div></div>`).join('') },
+    { id:'horizons', title:'Look up: programs still serve their purpose?', status: `${active().length} programs`, body: active().map(g => `<div class="row"><div class="t"><div>${esc(g.name)}</div><div class="m muted">${esc(g.purpose)}</div><div class="m"><span class="faint num">${activeProjects(g.id).length} projects · sponsor ${esc(pname(g.sponsor))}</span></div></div><button class="btn sm ghost" data-retire="${g.id}">Retire</button></div>`).join('') + `<div class="row"><div class="t muted">A program is an area of responsibility: rare, deliberate, with a purpose you can check projects against. Add one here or from Programs; retire one when its purpose is met.</div><button class="btn sm" data-addprog>Add program</button></div>` },
   ];
   const doneCount = steps.filter(s => s.auto || state.review[s.id]).length;
   return `<div class="vhead"><div><h1>Weekly review</h1><p>AI prepared the evidence; the decisions are yours. Last completed ${days(state.lastReview)} days ago.</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px"><div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
@@ -783,6 +794,40 @@ function projectDrawer(pid) {
     <div class="note">Movement is derived from these events. Nothing on this page is a status field someone remembered to update.</div>`,
     `<button class="btn" data-close>Close</button>`);
 }
+function createProgram(g, firstProject, firstAction, ctx) {
+  g.id = 'PN' + Date.now(); programs.push(g); state.programs.push(g); wiki[g.id] = wikiStub(g);
+  if (firstProject) {
+    const j = { id:'JN' + Date.now(), program:g.id, name:firstProject, outcome:'', health:'good', suggest:'Write the outcome — what does done look like?' };
+    projects.push(j); state.projects.push(j);
+    if (firstAction) { const aid = 'N' + Date.now(); const a = { id:aid, kind:'action', next:firstAction, project:j.id, ctx:ctx || '@deep', min:30, createdAt:TODAY }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); state.primary[j.id] = aid; }
+  } else if (firstAction) { const aid = 'N' + Date.now(); const a = { id:aid, kind:'action', next:firstAction, project:g.id, ctx:ctx || '@deep', min:30, createdAt:TODAY }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); }
+  save(); return g;
+}
+function addProgramDrawer() {
+  const field = (id, label, html) => `<div class="fld"><label for="${id}">${label}</label>${html}</div>`;
+  openDrawer('New program', `
+    <div class="note">A program is an <b>area of responsibility</b> — one of the handful of things you are accountable for over a long period. Projects come and go weekly; programs change a few times a year. Its purpose is the question every project underneath must answer.</div>
+    <div class="form">
+      ${field('ngName', 'Program', `<input id="ngName" class="in" placeholder="e.g. Vendor risk function" autocomplete="off">`)}
+      ${field('ngPurpose', 'Purpose — why does this exist?', `<textarea id="ngPurpose" class="in" rows="2" placeholder="One checkable sentence: 'Every tooling vendor has a risk rating and an owner by Q2, reviewed quarterly'"></textarea>`)}
+      ${field('ngSponsor', 'Sponsor', `<select id="ngSponsor" class="in">${people.map(x => `<option value="${x.id}" ${x.id === 'ingrid' ? 'selected' : ''}>${esc(x.name)} — ${esc(x.role)}</option>`).join('')}</select>`)}
+      ${field('ngCadence', 'Cadence', `<input id="ngCadence" class="in" value="Status Fri" placeholder="e.g. Steering Thu · status Fri">`)}
+      ${field('ngProj', 'First project (optional)', `<input id="ngProj" class="in" placeholder="Short name" autocomplete="off">`)}
+      ${field('ngNext', 'Its first next action', `<input id="ngNext" class="in" placeholder="Verb first" autocomplete="off">`)}
+      <div id="npErr" class="note" style="color:var(--crit)"></div>
+    </div>
+    <div class="sec"><h3>What creating does</h3><ul><li>Adds the program to the rail counts and every project picker</li><li>Creates <code class="mono">wiki/program-&lt;slug&gt;.md</code> with the purpose and empty compiled sections, plus its <code class="mono">index.md</code> line</li><li>Creates the <code class="mono">@agenda/&lt;program&gt;</code> context from the cadence</li></ul></div>`,
+    `<button class="btn" data-close>Cancel</button><button class="btn primary" data-saveprog>Create program</button>`);
+  $('#ngName').focus();
+}
+function retireDrawer(gid) {
+  const g = programs.find(x => x.id === gid), js = activeProjects(gid), others = active().filter(x => x.id !== gid);
+  openDrawer(`Retire · ${esc(g.name)}`, `
+    <div class="sec"><div class="eyebrow">Purpose</div><p class="muted" style="margin:4px 0 0">${esc(g.purpose)}</p></div>
+    <div class="sec"><h3>Open projects · ${js.length}</h3>${js.length ? `<div class="panel"><div class="pb">${js.map(j => `<div class="row"><div class="t"><div>${esc(j.name)}</div><div class="m">${healthPill(j.health)}</div></div><select class="in" style="width:auto" data-moveproj="${j.id}"><option value="">Move to…</option>${others.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select><button class="btn sm ghost" data-dropproj="${j.id}">Drop</button></div>`).join('')}</div></div><div class="note" style="margin-top:6px">A program can't retire with open projects. Move each to another program or drop it — dropping keeps its history.</div>` : '<div class="note">None. This program can be retired.</div>'}</div>
+    <div class="sec"><h3>What retiring does</h3><ul><li>Marks the program retired today; it leaves the rail counts and pickers</li><li>Keeps <code class="mono">wiki/${esc(wiki[gid]?.page || '')}.md</code> and its decisions and timeline as history</li><li>Nothing is deleted; a compensating event can un-retire it</li></ul></div>`,
+    `<button class="btn" data-close>Cancel</button><button class="btn primary" data-doretire="${gid}" ${js.length ? 'disabled' : ''}>Retire program</button>`);
+}
 function addProjectDrawer(gid) {
   const g = programs.find(x => x.id === gid);
   const ctxs = ['@deep', '@quick', '@1:1/priya', '@1:1/leo', '@1:1/marcus', '@agenda/steering'];
@@ -867,7 +912,7 @@ function wikiDrawer(pid) {
 }
 function statusDraft() {
   const done = by('done');
-  const text = programs.map(g => { const js = projects.filter(j => j.program === g.id); const h = js.some(j => j.health === 'crit') ? 'Blocked' : js.some(j => j.health === 'warn') ? 'At risk' : 'On track';
+  const text = active().map(g => { const js = activeProjects(g.id); const h = js.some(j => j.health === 'crit') ? 'Blocked' : js.some(j => j.health === 'warn') ? 'At risk' : 'On track';
     const wins = done.filter(x => js.some(j => j.id === x.project) || x.project === g.id).map(x => `  • ${x.next}`).join('\n');
     const risks = js.filter(j => j.health !== 'good').map(j => { const s = projHealth(j); return `  • ${j.name}: ${s.w ? `waiting on ${pname(s.w.owner)} for ${days(s.w.since)}d` : s.noNext ? 'no next action defined' : 'at risk'}`; }).join('\n');
     return `${g.name} — ${h}\nDone this week:\n${wins || '  • —'}\nRisks / asks:\n${risks || '  • none'}`; }).join('\n\n');
@@ -890,6 +935,12 @@ function acceptCurrent(overrideKind) {
   const kind = overrideKind || it.p.kind;
   const next = $('#pNext')?.value.trim() || it.p.next;
   if (kind === 'trash') { it.kind = 'trash'; state.kinds[it.id] = 'trash'; }
+  else if (kind === 'program') {
+    const name = $('#pProgName')?.value.trim(), purpose = $('#pPurpose')?.value.trim();
+    if (!name || !purpose) { toast('A program needs a name and a purpose'); ($('#pProgName').value ? $('#pPurpose') : $('#pProgName')).focus(); return; }
+    const g = createProgram({ name, purpose, sponsor: it.from && person(it.from) ? it.from : 'ingrid', cadence:'Status Fri' }, $('#pFirstProj')?.value.trim(), next, $('#pCtx')?.value || '@deep');
+    it.kind = 'reference'; it.project = g.id; state.kinds[it.id] = 'reference'; state.overrides[it.id] = { project:g.id };
+  }
   else {
     it.next = next; it.project = $('#pProj')?.value || it.p.project || null;
     if (kind === 'action' || kind === 'project') { it.ctx = $('#pCtx')?.value || it.p.ctx || '@quick'; it.min = +($('#pMin')?.value) || it.p.min; const dv = $('#pDue')?.value; it.due = dv ? new Date(dv + 'T08:00:00') : it.p.due; }
@@ -901,7 +952,7 @@ function acceptCurrent(overrideKind) {
     state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt };
   }
   save();
-  const labels = { action:'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
+  const labels = { action:'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
   toast((it.owner === 'ai' ? 'Filed and handed to AI' : labels[kind]) + ' · tagged ai-filed, confirmed by you');
   delegateOnAccept = false;
   const rest = by('inbox'); sel = rest[0]?.id ?? null; render();
@@ -909,7 +960,7 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
@@ -925,6 +976,17 @@ document.addEventListener('click', (e) => {
   else if (ds.proj) projectDrawer(ds.proj);
   else if (ds.wiki) wikiDrawer(ds.wiki);
   else if ('guide' in ds) guideDrawer();
+  else if ('addprog' in ds) addProgramDrawer();
+  else if ('saveprog' in ds) {
+    const name = $('#ngName').value.trim(), purpose = $('#ngPurpose').value.trim(), err = $('#npErr');
+    if (!name) { err.textContent = 'Give the program a name.'; $('#ngName').focus(); return; }
+    if (!purpose) { err.textContent = 'Write the purpose — the sentence every project must answer to.'; $('#ngPurpose').focus(); return; }
+    const g = createProgram({ name, purpose, sponsor:$('#ngSponsor').value, cadence:$('#ngCadence').value.trim() || 'Status Fri' }, $('#ngProj').value.trim(), $('#ngNext').value.trim(), '@deep');
+    closeDrawer(); toast(`Program created · wiki/${wiki[g.id].page}.md added`); location.hash = '#programs'; render();
+  }
+  else if (ds.retire) retireDrawer(ds.retire);
+  else if (ds.dropproj) { const j = projOf(ds.dropproj); j.dropped = true; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { dropped:true }); save(); toast(`Dropped "${j.name}" — history kept`); retireDrawer(j.program); render(); }
+  else if (ds.doretire) { const g = programs.find(x => x.id === ds.doretire); g.retired = TODAY; state.retired[g.id] = iso(TODAY); save(); closeDrawer(); toast(`${g.name} retired · wiki pages kept as history`); render(); }
   else if (ds.guideDismiss) { state.guides[ds.guideDismiss] = true; save(); t.closest('.guide').remove(); }
   else if ('guideReset' in ds) { state.guides = {}; save(); closeDrawer(); render(); toast('View tips are back'); }
   else if (ds.ingest) { const g = programs.find(x => x.id === ds.ingest); const id = 'N' + Date.now(); const a = { id, kind:'action', next:`Ingest this week's notes into ${g.name} wiki pages`, project:g.id, ctx:'@ai', min:30, createdAt:TODAY, ai:{ level:'do', cap:'wiki', what:'Read the notes, update hub sections and decisions, append to timeline and log' } }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); handOff(a, 'wiki', a.ai.what); a.del.effect = `Updates ${wiki[g.id].page}.md and -decisions.md; appends to log.md`; state.delegated[id].effect = a.del.effect; save(); closeDrawer(); toast('Handed to AI · wiki ingest queued for your review'); location.hash = '#delegated'; render(); }
@@ -957,6 +1019,7 @@ document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { it._prev = it.kind; it.kind = 'done'; it.doneAt = TODAY; state.done[it.id] = true; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { doneAt:TODAY }); toast('Done · logged for the weekly review'); } else { it.kind = it._prev || 'action'; delete state.done[it.id]; } save(); renderNav(); }
   if (t.dataset.step) { state.review[t.dataset.step] = t.checked; save(); render(); }
+  if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
   if ('delegate' in t.dataset) { delegateOnAccept = t.checked; render(); }
 });

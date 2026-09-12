@@ -4,6 +4,10 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Programs are created deliberately, retired never deleted.** Add program lives in
+  the Programs header and the review's horizons step (and the inbox can clarify an
+  ask as a new program); purpose is required; creation stubs the wiki hub. Retiring
+  requires every project moved or dropped, keeps wiki pages as history.
 - **Teach the system in the UI.** Each view carries a dismissable instruction card
   naming the GTD stage it serves and how to use it; `?` / Guide opens the full loop,
   the two-store model, trust rules and keys. Rail tabs get inline SVG icons (no icon

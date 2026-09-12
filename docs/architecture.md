@@ -47,8 +47,11 @@ GTD's lists are views over one set of entities:
   like — required), one *primary* next action, `status`, `program`, `health`,
   `stakeholders`, `milestones`. Last movement is **computed** from item activity,
   never stored.
-- **Program** — GTD's Area of Responsibility. `purpose`, `projects`, `cadences`, health
-  rolled up from projects. Has no next action of its own.
+- **Program** — GTD's Area of Responsibility. `purpose` (required), `sponsor`,
+  `cadences`, health rolled up from projects. Has no next action of its own. Created
+  rarely and deliberately (Programs header, review horizons step, or an inbox item
+  clarified as `kind: program`); creation stubs its wiki hub. Retired, never deleted:
+  requires all projects moved or dropped; wiki pages stay as history.
 - **Person** — the PM-specific addition. What I'm waiting on from them, what they're
   waiting on from me, last touched, queued 1:1 agenda.
 - **Decision**, **Risk** — lightweight, linked to project.
