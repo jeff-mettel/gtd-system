@@ -1,5 +1,5 @@
-import { programs, wiki } from '../data/example.js';
-import { days, fmtDate } from '../lib/dates.js';
+import { programs, wiki, items } from '../data/example.js';
+import { days, fmtDate, until, dueLabel } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, activeProjects, openActions, pname, projHealth } from '../model.js';
 import { healthPill, pcStyle } from '../ui/fragments.js';
@@ -14,6 +14,11 @@ export function viewPrograms() {
       return `<tr><td><button class="linkish" data-proj="${j.id}">${esc(j.name)}</button><div class="sub">${esc(j.outcome)}</div></td><td>${healthPill(j.health)}</td>
       <td>${s.na ? esc(s.na.next) + `<div class="sub"><span class="chip ctx">${esc(s.na.ctx)}</span>${n > 1 ? ` <span class="faint">+${n - 1} more open</span>` : ''}</div>` : s.dl ? `<span class="muted">Delegated to AI</span><div class="sub">${esc(s.dl.next)} · ${s.dl.del.status === 'ready' ? '<b>ready for review</b>' : s.dl.del.status}</div>` : s.w ? `<span class="muted">Waiting on ${esc(pname(s.w.owner))}</span><div class="sub">${esc(s.w.next)}</div>` : `<button class="btn sm" data-proj="${j.id}">Decide next action</button>`}</td>
       <td class="num"><span class="age ${s.stalled ? 'over' : ''}">${s.lm ? s.age + 'd' : '—'}</span>${s.lm ? `<div class="sub">${esc(s.lm.what)}</div>` : '<div class="sub">No activity</div>'}</td><td>${[s.stalled ? '<span class="flag">Stalled</span>' : '', s.noNext ? '<span class="flag">No next action</span>' : ''].filter(Boolean).join('<br>') || '<span class="faint">—</span>'}</td></tr>`; }).join('') || `<tr><td colspan="5" class="muted">No projects yet.</td></tr>`}
-    </tbody></table></div></div>`; }).join('')}
+    </tbody></table></div>
+    ${(() => { /* Program-level items: filed against the program, not a project. GTD wants every action inside a project (a program has no next action of its own), so these are shown, not hidden — they are the ones to re-home or to spin a project out of. */
+      const loose = items.filter(i => i.project === g.id && ((i.kind === 'action' && i.owner !== 'ai') || i.kind === 'waiting' || (i.owner === 'ai' && i.del && i.kind === 'action')));
+      if (!loose.length) return '';
+      return `<div class="pb" style="border-top:1px solid var(--line)"><div class="ctxgroup"><span class="chip">Program-level · not in a project</span><span class="n">${loose.length}</span><span class="faint" style="font-size:11px">· cadence work and asks filed against the program itself. Open one to move it into a project, or add a project for it.</span></div>
+        ${loose.map(i => `<div class="row"><div class="t clickable" data-item="${i.id}"><div>${esc(i.next)}</div><div class="m">${i.kind === 'waiting' ? `<span class="chip">${esc(pname(i.owner))}</span><span class="age ${until(i.followUp) < 0 ? 'over' : ''}">${days(i.since)}d waiting</span>` : i.owner === 'ai' ? `<span class="chip aichip">AI · ${i.del.status}</span>` : `<span class="chip ctx">${esc(i.ctx || '—')}</span>${i.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(i.hard)}</span>` : ''}${i.due ? `<span class="age ${until(i.due) < 0 ? 'over' : ''}">${dueLabel(i.due)}</span>` : ''}`}</div></div></div>`).join('')}</div>`; })()}</div>`; }).join('')}
   ${programs.some(g => g.retired) ? `<div class="panel"><div class="ph"><h2>Retired</h2><span class="note">Purpose met or superseded. Wiki pages kept as history.</span></div><div class="pb">${programs.filter(g => g.retired).map(g => `<div class="row"><div class="t"><div class="muted">${esc(g.name)}</div><div class="m"><span class="faint">retired ${fmtDate(g.retired)}</span><span class="chip mono">wiki/${esc(wiki[g.id]?.page || '')}.md</span></div></div><button class="btn sm ghost" data-wiki="${g.id}">Wiki</button></div>`).join('')}</div></div>` : ''}`;
 }
