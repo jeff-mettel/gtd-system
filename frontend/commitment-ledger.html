@@ -177,6 +177,9 @@ main{min-width:0;display:flex;flex-direction:column}
 .tile.crit .v{color:var(--crit)}
 .tile.warn .v{color:var(--warn)}
 .tile .spark{margin-top:6px;height:26px}
+.tile.link{text-decoration:none;color:inherit;cursor:pointer;text-align:left;font:inherit;transition:border-color .12s}
+.tile.link:hover{border-color:var(--accent)} .tile.link .go{font-size:12px;color:var(--accent-text);font-weight:500;margin-top:4px;opacity:0;transition:opacity .12s} .tile.link:hover .go,.tile.link:focus-visible .go{opacity:1}
+@media (prefers-reduced-motion:reduce){.tile.link,.tile.link .go{transition:none}}
 
 .agenda{display:flex;flex-direction:column}
 .slot{display:grid;grid-template-columns:52px 1fr auto;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);align-items:start}
@@ -693,10 +696,10 @@ function viewNow() {
   const free = 'Free 11:00–13:00 (2 h) · 14:00–15:30 (1.5 h)';
   return `<div class="vhead"><div><h1>Monday, 14 September</h1><p>${free}. Deep-work items fit the morning block; the two quick reviews fit before the 1:1.</p></div><div class="shortcuts"><span>Calendar items are the <b>hard landscape</b> — they must happen on the day, so they live in Today and the week strip, not in the context lists.</span></div></div>
   <div class="attn">
-    <div class="tile ${by('inbox').length ? 'warn' : ''}"><div class="v">${by('inbox').length}</div><div class="l">in the inbox to clarify</div></div>
-    <div class="tile ${over.length ? 'crit' : ''}"><div class="v">${over.length}</div><div class="l">waiting-fors past follow-up</div></div>
-    <div class="tile ${dueSoon.length ? 'warn' : ''}"><div class="v">${dueSoon.length}</div><div class="l">actions due by tomorrow</div></div>
-    <div class="tile ${noNext.length ? 'crit' : ''}"><div class="v">${noNext.length}</div><div class="l">projects with no next action</div></div>
+    <a href="#inbox" class="tile link ${by('inbox').length ? 'warn' : ''}"><div class="v">${by('inbox').length}</div><div class="l">in the inbox to clarify</div><div class="go">Clarify →</div></a>
+    <a href="#waiting" class="tile link ${over.length ? 'crit' : ''}"><div class="v">${over.length}</div><div class="l">waiting-fors past follow-up</div><div class="go">Chase →</div></a>
+    <button class="tile link ${dueSoon.length ? 'warn' : ''}" data-duelist><div class="v">${dueSoon.length}</div><div class="l">actions due by tomorrow</div><div class="go">See them →</div></button>
+    <a href="#programs" class="tile link ${noNext.length ? 'crit' : ''}"><div class="v">${noNext.length}</div><div class="l">projects with no next action</div><div class="go">Decide →</div></a>
   </div>
   ${ready.length ? `<div class="panel ready"><div class="ph"><h2>Ready for your review</h2><a href="#delegated" class="note">Delegated ledger →</a></div><div class="pb">${ready.map(readyRow).join('')}</div></div>` : ''}
   ${(() => { const days7 = [...Array(7)].map((_, i) => d(i)); return `<div class="panel"><div class="ph"><h2>Hard landscape · next 7 days</h2><div style="display:flex;gap:10px;align-items:center"><span class="note">${state.collapsed.strip ? '' : 'Meetings and day-specific actions — click a meeting today for its prep brief. Ticklers resurface into the inbox on their day.'}</span><button class="btn sm ghost" data-collapse="strip">${state.collapsed.strip ? 'Expand' : 'Collapse'}</button></div></div>
@@ -1129,7 +1132,7 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
@@ -1148,6 +1151,7 @@ document.addEventListener('click', (e) => {
   else if ('guide' in ds) guideDrawer();
   else if ('ftime' in ds) { nowTime = +ds.ftime; render(); }
   else if (ds.item) itemDrawer(ds.item);
+  else if ('duelist' in ds) { const list = mine().filter(a => a.due && until(a.due) <= 1).sort((a, b) => a.due - b.due); openDrawer('Due by tomorrow', list.length ? `<div class="panel"><div class="pb">${list.map(actionRow).join('')}</div></div><div class="note">Soft due dates — deadlines, not calendar pins. Click an item to open it, tick to mark done.</div>` : '<div class="empty">Nothing due by tomorrow.</div>', '<button class="btn" data-close>Close</button>'); }
   else if (ds.received) { const x = items.find(i => i.id === ds.received); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast(`Received from ${pname(x.owner)} · done`); render(); }
   else if (ds.markdone) { const x = items.find(i => i.id === ds.markdone); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast('Done · movement logged'); render(); }
   else if (ds.park) { const x = items.find(i => i.id === ds.park); x.kind = 'someday'; x.since = TODAY; state.kinds[x.id] = 'someday'; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { since:TODAY }); save(); closeDrawer(); toast('Parked in someday / maybe'); render(); }
