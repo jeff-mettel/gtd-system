@@ -612,7 +612,7 @@ function guideDrawer() {
     <div class="sec"><h3>The loop</h3><ol class="steps-l"><li><b>Capture</b> — anything, from anywhere, into the inbox. The capture box at the top, <span class="kbd">/</span>.</li><li><b>Clarify</b> — daily, to zero. Is it actionable? What is the next physical action? Who owns it? AI proposes, you confirm.</li><li><b>Organize</b> — nothing to file; Programs, Waiting for, People and Delegated are views over the same ledger.</li><li><b>Reflect</b> — the weekly review, Fridays. Steps tick themselves when the data says so.</li><li><b>Engage</b> — Now: what fits this hour, by context and energy.</li></ol></div>
     <div class="sec"><h3>Two stores</h3><p class="muted" style="margin:0">The <b>ledger</b> holds commitments — dates and owners. The <b>wiki</b> holds context — purpose, links, decisions with rationale, history. Status paragraphs are compiled from the ledger into the wiki; decisions and notes go in through a reviewed ingest.</p></div>
     <div class="sec"><h3>Trust rules</h3><ul><li>The AI never sends, books or deletes without your approval.</li><li>Every AI write is tagged and appears in the weekly audit.</li><li>"What approving does" is declared by the job, never written by the model.</li></ul></div>
-    <div class="sec"><h3>Keys</h3><ul><li><span class="kbd">1</span>–<span class="kbd">9</span>, <span class="kbd">0</span> switch view · <span class="kbd">/</span> capture · <span class="kbd">?</span> this guide</li><li>Inbox: <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">a</span> accept · <span class="kbd">w</span> waiting · <span class="kbd">s</span> someday · <span class="kbd">t</span> trash · <span class="kbd">e</span> edit · <span class="kbd">d</span> hand to AI · <span class="kbd">x</span> do it now (two-minute rule)</li><li><span class="kbd">Esc</span> close</li></ul></div>`,
+    <div class="sec"><h3>Keys</h3><ul><li><span class="kbd">1</span>–<span class="kbd">9</span>, <span class="kbd">0</span> switch view · <span class="kbd">/</span> capture · <span class="kbd">?</span> this guide</li><li>Inbox: <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">a</span> accept · <span class="kbd">w</span> waiting · <span class="kbd">s</span> someday · <span class="kbd">t</span> trash · <span class="kbd">e</span> edit · <span class="kbd">d</span> accept and hand to AI · <span class="kbd">x</span> do it now (two-minute rule)</li><li><span class="kbd">Esc</span> close</li></ul></div>`,
     `<button class="btn" data-guide-reset>Show view tips again</button><button class="btn primary" data-close>Close</button>`);
 }
 const views = [
@@ -716,7 +716,7 @@ function viewInbox() {
         <label for="pPurpose">Purpose</label><input id="pPurpose" value="${esc(p.purpose || '')}" placeholder="Why it exists — one checkable sentence">
         <label for="pFirstProj">First project</label><input id="pFirstProj" value="${esc(p.firstProject || '')}" placeholder="Optional">` : ''}
         <label for="pNext">${p.kind === 'waiting' ? 'Waiting on' : p.kind === 'project' || p.kind === 'program' ? 'First action' : 'Next action'}</label><input id="pNext" value="${esc(p.next)}">
-        ${p.ai && (p.kind === 'action' || p.kind === 'project') ? `<label>AI can</label><div class="aican"><span class="chip aichip">${levelLabel[p.ai.level]}</span><span>${esc(p.ai.what)}</span><label class="dlg"><input type="checkbox" data-delegate ${delegateOnAccept ? 'checked' : ''}> Hand to AI on accept <span class="kbd">d</span></label></div>` : ''}
+        ${p.ai && (p.kind === 'action' || p.kind === 'project') ? `<label>Who does it?</label><div class="aican"><div><span class="chip aichip">${levelLabel[p.ai.level]}</span> ${esc(p.ai.what)}</div><div class="faint">You choose below: <b>Accept</b> keeps it on your list; <b>Accept, hand to AI</b> files it and starts the assistant — you review before anything leaves.</div></div>` : ''}
         ${p.kind === 'waiting' ? `<label>From</label><select id="pOwner">${people.map(x => `<option value="${x.id}" ${x.id === p.owner ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''}
         ${p.kind === 'program' ? '' : `<label>Project</label><select id="pProj"><option value="">— none —</option>${active().map(g => `<optgroup label="${esc(g.name)}">${projects.filter(j => j.program === g.id).map(j => `<option value="${j.id}" ${j.id === p.project ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}<option value="${g.id}" ${g.id === p.project ? 'selected' : ''}>(program level)</option></optgroup>`).join('')}</select>`}
         ${p.kind === 'action' || p.kind === 'project' || p.kind === 'program' ? `<label>Context</label><select id="pCtx">${['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@1:1/marcus', '@agenda/steering', '@errand'].map(c => `<option ${c === p.ctx ? 'selected' : ''}>${c}</option>`).join('')}</select>
@@ -728,7 +728,7 @@ function viewInbox() {
         ${p.kind === 'waiting' ? `<label>Follow up on</label><input id="pFollow" type="date" value="${p.followUp ? iso(p.followUp) : iso(d(3))}">` : ''}
       </div>
       <div class="rationale"><div class="why ${low ? 'low' : ''}"><b>${low ? 'Flagged · ' : ''}${Math.round(p.conf * 100)}% confident.</b> ${esc(p.why)}</div></div>
-      <div class="acts"><button class="btn primary" data-accept>${delegateOnAccept && p.ai && (p.kind === 'action' || p.kind === 'project') ? 'Accept and hand to AI' : `Accept ${low ? 'as edited' : 'proposal'}`} <span class="kbd" style="margin-left:6px">a</span></button><button class="btn" data-draft>Draft reply</button><span class="sp"></span><button class="btn ghost" data-skip>Skip for now</button></div>
+      <div class="acts"><button class="btn primary" data-accept>Accept${p.ai && (p.kind === 'action' || p.kind === 'project') ? ' — I do it' : low ? ' as edited' : ''} <span class="kbd" style="margin-left:6px">a</span></button>${p.ai && (p.kind === 'action' || p.kind === 'project') ? `<button class="btn primary" style="background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent)" data-accept-ai>Accept, hand to AI <span class="kbd" style="margin-left:6px">d</span></button>` : ''}<button class="btn" data-draft>Draft reply</button><span class="sp"></span><button class="btn ghost" data-skip>Skip for now</button></div>
     </div>
   </div>
   ${trashPanel()}`;
@@ -991,7 +991,7 @@ function viewDelegated() {
     <div style="display:flex;gap:6px;margin-top:2px">${x.del.status === 'ready' ? `<button class="btn sm primary" data-review="${x.id}">Review</button>` : ''}<button class="btn sm ghost" data-takeback="${x.id}">Take it back</button></div></div>`;
   const lane = (title, list, hint) => `<div class="lane"><div class="lh"><h2>${title}</h2><span class="note num">${list.length}</span></div>${list.map(card).join('') || `<div class="empty" style="padding:22px 12px">${hint}</div>`}</div>`;
   const opts = (cap) => (cap === 'send' || cap === 'calendar' || cap === 'delete') ? ['never', 'ask'] : ['never', 'ask', 'draft', 'auto'];
-  return `<div class="vhead"><div><h1>Delegated to AI</h1><p>Handing work to the assistant is GTD delegation with a faster clock and a review gate. It works from the ledger and the source thread; anything with a side effect waits for your approval.</p></div><div class="shortcuts"><span>From any action: <b>Hand to AI</b></span><span>From the inbox: <span class="kbd">d</span> then <span class="kbd">a</span></span></div></div>
+  return `<div class="vhead"><div><h1>Delegated to AI</h1><p>Handing work to the assistant is GTD delegation with a faster clock and a review gate. It works from the ledger and the source thread; anything with a side effect waits for your approval.</p></div><div class="shortcuts"><span>From any action: <b>Hand to AI</b></span><span>From the inbox: <b>Accept, hand to AI</b> (<span class="kbd">d</span>)</span></div></div>
   <div class="attn">
     <div class="tile ${r.length ? 'ai' : ''}"><div class="v">${r.length}</div><div class="l">ready for your review</div></div>
     <div class="tile"><div class="v">${w.length + q.length}</div><div class="l">in progress or queued</div></div>
@@ -1076,12 +1076,13 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
   else if (ds.kind) { const it = items.find(i => i.id === sel); it.p.kind = ds.kind; if (ds.kind === 'waiting' && !it.p.owner) it.p.owner = it.from || 'priya'; render(); }
   else if ('accept' in ds) acceptCurrent();
+  else if ('acceptAi' in ds) { delegateOnAccept = true; acceptCurrent(); }
   else if ('skip' in ds) moveSel(1);
   else if ('draft' in ds) { const it = items.find(i => i.id === sel); openDrawer('Reply draft', `<textarea class="draft">Hi ${esc(pname(it.from) || 'there')},\n\nThanks — got it. ${it.p.kind === 'action' ? `I'll have this to you ${it.p.due ? 'by ' + fmtDate(it.p.due) : 'shortly'}.` : 'I\'ll follow up once I have what I need.'}\n\nJeff</textarea><div class="note">Two-minute rule: if the AI can do it, it drafts it. You still press send.</div>`, `<button class="btn" data-close>Discard</button><button class="btn primary" data-close>Approve and send</button>`); }
   else if (ds.prep) prepBrief(+ds.prep);
@@ -1142,7 +1143,6 @@ document.addEventListener('change', (e) => {
   if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
   if (t.dataset.revisit) { const x = items.find(i => i.id === t.dataset.revisit); x.revisit = t.value ? new Date(t.value + 'T08:00:00') : null; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { revisit:x.revisit }); save(); toast(x.revisit ? `Will resurface ${fmtDate(x.revisit)}` : 'Revisit date cleared'); renderNav(); }
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
-  if ('delegate' in t.dataset) { delegateOnAccept = t.checked; render(); }
 });
 $('#drawerBg').addEventListener('click', closeDrawer);
 document.addEventListener('submit', (e) => {
@@ -1171,7 +1171,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'j') moveSel(1); else if (e.key === 'k') moveSel(-1);
     else if (e.key === 'a') acceptCurrent(); else if (e.key === 'x') acceptCurrent('done'); else if (e.key === 'w') acceptCurrent('waiting'); else if (e.key === 's') acceptCurrent('someday'); else if (e.key === 't') acceptCurrent('trash');
     else if (e.key === 'e') { e.preventDefault(); $('#pNext')?.focus(); $('#pNext')?.select(); }
-    else if (e.key === 'd') { const it = items.find(i => i.id === sel); if (it?.p.ai) { delegateOnAccept = !delegateOnAccept; render(); } }
+    else if (e.key === 'd') { const it = items.find(i => i.id === sel); if (it?.p.ai) { delegateOnAccept = true; acceptCurrent(); } }
   }
 });
 /* chart tooltips */
