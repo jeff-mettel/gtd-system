@@ -114,6 +114,14 @@ The triage view is the single most important UI. If it's fast the system runs.
 6. **Flow** — captured / clarified / done per week, cycle time by list, inbox-zero
    streak. Tells you the *system* is decaying before you feel it.
 7. **Delegated to AI** — see `delegation.md`.
+8. **Someday / maybe** — parked items with optional revisit dates (ticklers).
+9. **Reference** — the wiki index: program hubs and key links, filed items, people pages.
+
+The **calendar / hard landscape** lives inside Now: actions with a `hard` date must
+happen on that day, so they appear in Today and the 7-day strip and leave the context
+lists. Ticklers (someday or reference items with a `revisit` date) re-enter the inbox
+on that morning. The inbox offers the human two-minute path ("Do it now") and
+reference filing into the wiki. Trash is kept 30 days and restorable.
 
 Programs, the project drawer and prep briefs also read from the **program wiki** —
 see `wiki.md`.

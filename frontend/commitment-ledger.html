@@ -241,6 +241,14 @@ td .sub{font-size:12px;color:var(--ink-2);margin-top:2px}
 .cal-item span{font-weight:400;color:var(--ink-3);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
 .cal-item.over{border-color:var(--crit)} .cal-item:hover{border-color:var(--accent)}
 @media (max-width:1000px){.cal{grid-template-columns:repeat(8,minmax(72px,1fr))}}
+.cal.week{grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-item.mtg{border-style:dashed;color:var(--ink-2);font-weight:400} .cal-item.hard{border-color:var(--warn)} .cal-item.tick{border-color:var(--accent);color:var(--accent-text)}
+.slot.hard .tm{color:var(--warn);font-weight:500}
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-right:1px solid var(--line);background:var(--surface);padding:3px 9px;font-size:12px;color:var(--ink-2)} .seg button:last-child{border-right:0}
+.seg button.on{background:var(--accent-soft);color:var(--accent-text);font-weight:500}
+.trig{display:flex;flex-wrap:wrap;gap:6px}
 .person-h{display:flex;align-items:center;gap:10px;padding:12px 18px 6px}
 .person-h .av{width:26px;height:26px;border-radius:50%;background:var(--surface-2);color:var(--ink-2);display:grid;place-items:center;font-size:11px;font-weight:600;font-family:var(--mono)}
 
@@ -392,10 +400,21 @@ let items = [
   { id:'X3', kind:'action', owner:'ai', next:'Draft Friday status for Fall launch readiness', project:'P2', cap:'draft', del:{ status:'ready', at:d(-1), readyAt:d(0), minutes:40, deliverable:'Fall launch readiness — On track\n\nDone this week\n• Launch comms calendar published\n• Draft go/no-go criteria circulated for comment\n\nRisks / asks\n• Go/no-go criteria: no next action since 5 Sep — owner needed\n• Launch-week on-call headcount: waiting on Leo for 16 days', effect:'Nothing is sent — a draft for you to paste' } },
   { id:'X4', kind:'action', owner:'ai', next:'Compile the decisions log for Billing migration from meeting notes since 1 Aug', project:'P1', cap:'wiki', del:{ status:'working', at:d(0), minutes:60, progress:.6, effect:'Updates program-billing-migration-decisions.md (2 entries) and appends to log.md' } },
   { id:'X5', kind:'action', owner:'ai', next:'Pre-read Dana\'s announcement draft and list open questions', project:'J4', cap:'draft', del:{ status:'queued', at:d(0), minutes:20, effect:'Nothing is sent — questions appear here for review' } },
-  // someday
-  { id:'S1', kind:'someday', next:'Launch retro template across programs', since:d(-30) },
+  // calendar — hard landscape: these must happen on the day, so they leave the context lists
+  { id:'A9', kind:'action', next:'Present cutover date options at steering', project:'P1', ctx:'@meeting/steering', min:15, hard:d(3), createdAt:d(-3), energy:'high' },
+  { id:'A10', kind:'action', next:'Sign off support macros with Leo before training', project:'J5', ctx:'@1:1/leo', min:20, hard:d(1), createdAt:d(-2) },
+  { id:'A11', kind:'action', next:'Walk Ingrid through the go/no-go strawman after readiness', project:'P2', ctx:'@meeting/readiness', min:10, hard:d(0), createdAt:d(-1) },
+  { id:'A12', kind:'action', next:'Send Q4 vendor exit notices (contract window opens)', project:'J8', ctx:'@deep', min:40, hard:d(8), createdAt:d(-5), energy:'high' },
+  // someday / maybe — incubating; revisit dates are ticklers that resurface into the inbox
+  { id:'S1', kind:'someday', next:'Launch retro template across programs', since:d(-30), revisit:d(30) },
   { id:'S2', kind:'someday', next:'Generate weekly status straight from the ledger', since:d(-52) },
-  { id:'S3', kind:'someday', next:'Vendor risk heatmap for the board', since:d(-18) },
+  { id:'S3', kind:'someday', next:'Vendor risk heatmap for the board', since:d(-18), revisit:d(12) },
+  // reference — filed into the wiki; a revisit date makes it a tickler
+  { id:'R1', kind:'reference', next:'Northstar contract auto-renews 1 Oct — renewal terms and notice period', refPage:'P3', filedAt:d(-20), revisit:d(0) },
+  { id:'R2', kind:'reference', next:'Auditor materiality memo (0.1% threshold)', refPage:'P1', filedAt:d(-11) },
+  { id:'R3', kind:'reference', next:'Priya out 28 Sep – 2 Oct', refPage:'priya', filedAt:d(-4) },
+  // trash — kept 30 days
+  { id:'T1', kind:'trash', next:'Webinar invite: vendor management trends 2027', trashedAt:d(-2), raw:'Webinar invite: vendor management trends 2027', source:'email' },
   // done this week
   { id:'D1', kind:'done', next:'Migration dry-run plan approved', project:'J1', doneAt:d(-3) },
   { id:'D2', kind:'done', next:'Launch comms calendar published', project:'J4', doneAt:d(-2) },
@@ -450,6 +469,23 @@ const aiLog = [
 const capLabel = { file:'File reference items', draft:'Draft replies, nudges, summaries', data:'Update ledger data', wiki:'Update the wiki', send:'Send email, chat, messages', calendar:'Book time on calendars', delete:'Delete or archive', clarify:'Clarify inbox items' };
 const levelLabel = { do:'Can do it', draft:'Can draft it', assist:'Can prep it' };
 const autonomyLabel = { never:'Never', ask:'Always ask first', draft:'Draft, then ask', auto:'Do it, tell me weekly' };
+const pastMeetings = [
+  { on:d(-7), title:'Billing sync', who:['priya','marcus'], captured:2 },
+  { on:d(-6), title:'Vendor consolidation steering', who:['ingrid','tomas','sam'], captured:1 },
+  { on:d(-5), title:'1:1 · Dana Whitfield', who:['dana'], captured:0 },
+  { on:d(-4), title:'Steering committee', who:['ingrid'], captured:1 },
+  { on:d(-3), title:'Launch readiness', who:['dana','leo','ingrid'], captured:0 },
+  { on:d(-3), title:'Skip-level with Ingrid', who:['ingrid'], captured:0 },
+];
+const calendarAhead = [
+  { on:d(1), time:'09:00', title:'Billing sync', who:['priya','marcus'] },
+  { on:d(3), time:'14:00', title:'Billing migration steering', who:['ingrid','priya','marcus'] },
+  { on:d(4), time:'11:00', title:'Status review', who:['ingrid'] },
+  { on:d(7), time:'13:00', title:'Launch readiness', who:['dana','leo','ingrid'] },
+  { on:d(8), time:'10:00', title:'Vendor consolidation steering', who:['ingrid','tomas','sam'] },
+  { on:d(10), time:'15:00', title:'Board prep with Ingrid', who:['ingrid'] },
+];
+const sweepTriggers = ['Projects started, not finished', 'Promises to Ingrid, peers, reports', 'Emails or messages to send', 'Meetings to schedule', 'Things I\'m waiting on', 'Decisions pending', 'Risks I\'m carrying in my head', 'Personal admin'];
 const meetings = [
   { time:'09:00', dur:30, title:'Billing sync', who:['priya','marcus'], projects:['J1','J3'], decisions:['Reconciliation tolerance set at 0.1% (3 Sep)'] },
   { time:'10:30', dur:30, title:'1:1 · Leo Okafor', who:['leo'], projects:['J5'], decisions:[] },
@@ -469,7 +505,7 @@ const cycle = [
 
 /* ---------- state (persisted lightly) ---------- */
 const STORE = 'commitment-ledger-demo-v1';
-let state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, programs:[], retired:{}, projOverrides:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
+let state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, programs:[], retired:{}, projOverrides:{}, resurfaced:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
 try { const s = localStorage.getItem(STORE); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
 function applyState() {
@@ -483,11 +519,18 @@ function applyState() {
     if (state.done[it.id]) it.kind = 'done';
     if (state.nudged[it.id]) { it.nudges = (it.nudges || 0) + state.nudged[it.id]; it.followUp = d(5); it.lastNudged = TODAY; }
     if (state.overrides[it.id]) Object.assign(it, state.overrides[it.id]);
+    /* Tickler: a someday or reference item whose revisit date has arrived re-enters the inbox as a decision. */
+    if ((it.kind === 'someday' || it.kind === 'reference') && it.revisit && new Date(it.revisit) <= TODAY && !state.kinds[it.id] && !state.resurfaced[it.id + ':' + new Date(it.revisit).toDateString()]) {
+      it.wasKind = it.kind; it.kind = 'inbox'; it.source = 'tickler'; it.from = null; it.captured = TODAY; it.raw = it.next;
+      it.p = { kind:'action', next:it.next, project: it.project || (wiki[it.refPage] ? it.refPage : null), ctx:'@quick', min:15, conf:.7, why:`Tickler — you asked to revisit this on ${new Date(it.revisit).toLocaleDateString('en-GB', { day:'numeric', month:'short' })}. Decide now: act on it, park it again with a new date, or drop it.` };
+    }
     const dg = state.delegated[it.id];
     if (dg) { if (dg.status === 'taken') { delete it.owner; delete it.del; } else { it.owner = 'ai'; it.cap = it.cap || dg.cap; it.del = Object.assign({}, it.del || {}, dg); if (dg.status === 'approved') it.kind = 'done'; if (dg.status === 'working') { it.del.status = 'ready'; it.del.readyAt = it.del.readyAt || TODAY; it.del.deliverable = it.del.deliverable || `${it.next}\n\n(Finished while you were away — in the live system the assistant's output appears here.)`; } } }
   }
 }
 applyState();
+/* Reference items filed under a program appear in that program's wiki key links. */
+for (const it of items) if (it.kind === 'reference' && wiki[it.refPage] && !wiki[it.refPage].links.some(l => l[0] === it.next)) wiki[it.refPage].links.push([it.next, '']);
 
 /* ---------- helpers ---------- */
 const $ = (s, el = document) => el.querySelector(s);
@@ -502,7 +545,8 @@ const projName = (id) => projOf(id)?.name ?? '—';
 const fmtDate = (x) => new Date(x).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
 const dueLabel = (x) => { const u = until(x); return u < 0 ? `${-u}d overdue` : u === 0 ? 'today' : u === 1 ? 'tomorrow' : fmtDate(x); };
 const healthPill = (h) => ({ good:'<span class="pill good"><i></i>On track</span>', warn:'<span class="pill warn"><i></i>At risk</span>', crit:'<span class="pill crit"><i></i>Blocked</span>' })[h];
-const srcLabel = { email:'Email', chat:'Chat', meeting:'Meeting note', voice:'Voice', calendar:'Calendar', capture:'Captured' };
+const srcLabel = { email:'Email', chat:'Chat', meeting:'Meeting note', voice:'Voice', calendar:'Calendar', capture:'Captured', tickler:'Tickler', sweep:'Mind sweep' };
+const energyOf = (a) => a.energy || (a.ctx === '@deep' ? 'high' : 'low');
 const by = (k) => items.filter(i => i.kind === k);
 const mine = () => items.filter(i => i.kind === 'action' && i.owner !== 'ai');
 const mine_ = mine;
@@ -538,6 +582,8 @@ const icons = {
   programs: I('<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>'),
   waiting: I('<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>'),
   delegated: I('<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>'),
+  someday: I('<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A7 7 0 0 0 4.7 12.2 3.5 3.5 0 0 0 6 19z"/>'),
+  reference: I('<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>'),
   people: I('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
   review: I('<path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>'),
   flow: I('<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>'),
@@ -550,6 +596,8 @@ const guides = {
   programs: { stage:'Organize', text:'A project is any outcome that needs more than one step. Every project must show a next action, a waiting-for, or AI work in progress — otherwise it is flagged and cannot move. <b>Stalled</b> means nothing in the ledger has moved in 7 days. The status paragraph is compiled from the ledger into the wiki; <b>Wiki</b> opens links, decisions and risks. Click a project name for its history. <b>Add program</b> is deliberately rare — a program is an area of responsibility with a purpose; <b>Retire</b> it when that purpose is met.' },
   waiting: { stage:'Organize · the PM\'s real list', text:'Everything owed to you, aged like receivables. A follow-up date is a promise to yourself to chase. <b>Draft nudge</b> writes the follow-up from the history — nothing sends until you approve. Read this list oldest-first and ask of each item: still needed, or drop or escalate?' },
   delegated: { stage:'Delegate', text:'Hand work to the assistant the way you would hand it to a person: it does the work, you review. Queued → Working → Ready. Approving executes exactly the declared side effect; <b>Take it back</b> returns the item to your list. Autonomy sets what it may do unasked — raise one capability at a time as the weekly audit earns trust.' },
+  someday: { stage:'Incubate', text:'Things you might do, not things you will. Parking here is a real decision — it keeps the idea without letting it clutter the action lists. Give an item a <b>revisit</b> date and it becomes a tickler: it re-enters the inbox that morning for a fresh decision. Everything here is reviewed weekly; promote it, re-date it, or drop it.' },
+  reference: { stage:'Reference', text:'Not actionable, worth keeping. Reference is filed <b>into the wiki</b> — under a program\'s key links, a person, or its own page — so this list is simply the wiki index. A reference item with a revisit date is a tickler ("contract renews 1 Oct"), and comes back to the inbox on that day.' },
   people: { stage:'Organize · stakeholders', text:'Both directions for every person: what they owe you and what you owe them. Before a 1:1, open the agenda — it is what you queued with <span class="chip ctx">@1:1/name</span> plus everything open between you. The assistant is listed as a person on purpose: delegation is delegation.' },
   review: { stage:'Reflect', text:'GTD\'s keystone habit: weekly, uninterrupted, top to bottom. The AI has gathered the evidence; you make the calls. Steps tick themselves when the data says so. Do not skip the AI audit — automatic actions are the ones to eyeball — or the wiki lint.' },
   flow: { stage:'Reflect · the system itself', text:'Is the system healthy, independent of the work in it? If <b>done</b> falls away from <b>captured</b>, lists are filling faster than you clear them. Cycle time shows where work waits. Watch this before you feel it.' },
@@ -563,7 +611,7 @@ function guideDrawer() {
     <div class="sec"><h3>The loop</h3><ol class="steps-l"><li><b>Capture</b> — anything, from anywhere, into the inbox. The capture box at the top, <span class="kbd">/</span>.</li><li><b>Clarify</b> — daily, to zero. Is it actionable? What is the next physical action? Who owns it? AI proposes, you confirm.</li><li><b>Organize</b> — nothing to file; Programs, Waiting for, People and Delegated are views over the same ledger.</li><li><b>Reflect</b> — the weekly review, Fridays. Steps tick themselves when the data says so.</li><li><b>Engage</b> — Now: what fits this hour, by context and energy.</li></ol></div>
     <div class="sec"><h3>Two stores</h3><p class="muted" style="margin:0">The <b>ledger</b> holds commitments — dates and owners. The <b>wiki</b> holds context — purpose, links, decisions with rationale, history. Status paragraphs are compiled from the ledger into the wiki; decisions and notes go in through a reviewed ingest.</p></div>
     <div class="sec"><h3>Trust rules</h3><ul><li>The AI never sends, books or deletes without your approval.</li><li>Every AI write is tagged and appears in the weekly audit.</li><li>"What approving does" is declared by the job, never written by the model.</li></ul></div>
-    <div class="sec"><h3>Keys</h3><ul><li><span class="kbd">1</span>–<span class="kbd">8</span> switch view · <span class="kbd">/</span> capture · <span class="kbd">?</span> this guide</li><li>Inbox: <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">a</span> accept · <span class="kbd">w</span> waiting · <span class="kbd">s</span> someday · <span class="kbd">t</span> trash · <span class="kbd">e</span> edit · <span class="kbd">d</span> hand to AI</li><li><span class="kbd">Esc</span> close</li></ul></div>`,
+    <div class="sec"><h3>Keys</h3><ul><li><span class="kbd">1</span>–<span class="kbd">9</span>, <span class="kbd">0</span> switch view · <span class="kbd">/</span> capture · <span class="kbd">?</span> this guide</li><li>Inbox: <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">a</span> accept · <span class="kbd">w</span> waiting · <span class="kbd">s</span> someday · <span class="kbd">t</span> trash · <span class="kbd">e</span> edit · <span class="kbd">d</span> hand to AI · <span class="kbd">x</span> do it now (two-minute rule)</li><li><span class="kbd">Esc</span> close</li></ul></div>`,
     `<button class="btn" data-guide-reset>Show view tips again</button><button class="btn primary" data-close>Close</button>`);
 }
 const views = [
@@ -572,15 +620,17 @@ const views = [
   { id:'programs', label:'Programs', key:'3', count:() => projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, hot:true },
   { id:'waiting', label:'Waiting for', key:'4', count:() => by('waiting').filter(w => until(w.followUp) < 0).length, hot:true },
   { id:'delegated', label:'Delegated to AI', key:'5', count:() => delegated('ready').length, ai:true },
-  { id:'people', label:'People', key:'6' },
-  { id:'review', label:'Weekly review', key:'7' },
-  { id:'flow', label:'Flow', key:'8' },
+  { id:'someday', label:'Someday / maybe', key:'6' },
+  { id:'reference', label:'Reference', key:'7' },
+  { id:'people', label:'People', key:'8' },
+  { id:'review', label:'Weekly review', key:'9' },
+  { id:'flow', label:'Flow', key:'0' },
 ];
 function renderNav() {
   const cur = location.hash.slice(1) || 'now';
   $('#nav').innerHTML = `<div class="group">Engage</div>` + views.slice(0, 1).map(v => navLink(v, cur)).join('') +
-    `<div class="group">Lists</div>` + views.slice(1, 6).map(v => navLink(v, cur)).join('') +
-    `<div class="group">Reflect</div>` + views.slice(6).map(v => navLink(v, cur)).join('');
+    `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
+    `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');
   const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lr = days(state.lastReview);
   $('#healthbar').innerHTML = `<span class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></span><span class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></span><span class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></span><span class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr}d</b></span><span class="ai">AI for review <b>${delegated('ready').length}</b></span>`;
 }
@@ -592,7 +642,7 @@ function navLink(v, cur) {
 /* ---------- shared fragments ---------- */
 function actionRow(a) {
   return `<div class="row ${a.kind === 'done' ? 'done' : ''}"><label class="lab"><input class="chk" type="checkbox" data-done="${a.id}" ${a.kind === 'done' ? 'checked' : ''}>
-    <div class="t"><div>${esc(a.next)}</div><div class="m">${a.project ? `<span class="chip proj">${esc(projName(a.project))}</span>` : ''}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div></label>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
+    <div class="t"><div>${esc(a.next)}</div><div class="m">${a.project ? `<span class="chip proj">${esc(projName(a.project))}</span>` : ''}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(a.hard)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div></label>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
 }
 function readyRow(x) {
   return `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m"><span class="chip aichip">AI · ${esc(capLabel[x.cap] || x.cap)}</span><span class="chip proj">${esc(projName(x.project))}</span><span class="effect">On approval: ${esc(x.del.effect)}</span></div></div><button class="btn sm primary" data-review="${x.id}">Review</button></div>`;
@@ -605,16 +655,18 @@ function waitingRow(w, opts = {}) {
 
 /* ---------- views ---------- */
 function viewNow() {
-  const actions = mine(), ready = delegated('ready');
+  const all = mine(), ready = delegated('ready');
+  const hardToday = all.filter(a => a.hard && until(a.hard) === 0);
+  const actions = all.filter(a => !a.hard || until(a.hard) < 0).filter(a => (nowTime === 0 || (a.min || 15) <= nowTime || (nowTime === 60 && (a.min || 15) >= 60)) && (nowEnergy === '' || energyOf(a) === nowEnergy));
   const over = by('waiting').filter(w => until(w.followUp) < 0);
-  const dueSoon = actions.filter(a => a.due && until(a.due) <= 1);
+  const dueSoon = all.filter(a => a.due && until(a.due) <= 1);
   const noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext);
   const groups = {};
   for (const a of actions) (groups[a.ctx] ||= []).push(a);
   const order = ['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@agenda/steering'];
   const keys = Object.keys(groups).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
   const free = 'Free 11:00–13:00 (2 h) · 14:00–15:30 (1.5 h)';
-  return `<div class="vhead"><div><h1>Monday, 14 September</h1><p>${free}. Deep-work items fit the morning block; the two quick reviews fit before the 1:1.</p></div><div class="shortcuts"><span><span class="kbd">j</span>/<span class="kbd">k</span> move</span><span><span class="kbd">x</span> done</span></div></div>
+  return `<div class="vhead"><div><h1>Monday, 14 September</h1><p>${free}. Deep-work items fit the morning block; the two quick reviews fit before the 1:1.</p></div><div class="shortcuts"><span>Calendar items are the <b>hard landscape</b> — they must happen on the day, so they live in Today and the week strip, not in the context lists.</span></div></div>
   <div class="attn">
     <div class="tile ${by('inbox').length ? 'warn' : ''}"><div class="v">${by('inbox').length}</div><div class="l">in the inbox to clarify</div></div>
     <div class="tile ${over.length ? 'crit' : ''}"><div class="v">${over.length}</div><div class="l">waiting-fors past follow-up</div></div>
@@ -624,19 +676,24 @@ function viewNow() {
   ${ready.length ? `<div class="panel ready"><div class="ph"><h2>Ready for your review</h2><a href="#delegated" class="note">Delegated ledger →</a></div><div class="pb">${ready.map(readyRow).join('')}</div></div>` : ''}
   <div class="cols">
     <div class="panel"><div class="ph"><h2>Today</h2><span class="note">Prep briefs pull related projects, open items and decisions</span></div>
-      <div class="agenda">${meetings.map((m, i) => `<div class="slot ${i === 0 ? 'now' : ''}"><div class="tm">${m.time}</div><div><div>${esc(m.title)}</div><div class="who">${m.who.map(pname).join(', ')} · ${m.dur} min</div></div><button class="btn sm" data-prep="${i}">Prep</button></div>`).join('')}</div>
+      <div class="agenda">${meetings.map((m, i) => `<div class="slot ${i === 0 ? 'now' : ''}"><div class="tm">${m.time}</div><div><div>${esc(m.title)}</div><div class="who">${m.who.map(pname).join(', ')} · ${m.dur} min</div></div><button class="btn sm" data-prep="${i}">Prep</button></div>`).join('')}
+      ${hardToday.length ? `<div class="ctxgroup" style="border-top:1px solid var(--line)"><span class="eyebrow">Must happen today</span></div>${hardToday.map(a => `<div class="slot hard"><div class="tm">day</div><label class="lab" style="gap:8px"><input class="chk" type="checkbox" data-done="${a.id}"><div><div>${esc(a.next)}</div><div class="who">${esc(projName(a.project))} · ${a.min} min</div></div></label></div>`).join('')}` : ''}</div>
     </div>
-    <div class="panel"><div class="ph"><h2>Next actions by context</h2><span class="note num">${actions.length} open · ${delegated().length} with AI</span></div>
+    <div class="panel"><div class="ph"><h2>Next actions by context</h2><span class="note num">${actions.length} shown · ${delegated().length} with AI</span></div>
+      <div class="filters"><span class="faint">I have</span><span class="seg">${[[0, 'any time'], [15, '≤ 15 min'], [30, '≤ 30 min'], [60, '60+ min']].map(f => `<button data-ftime="${f[0]}" class="${nowTime === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">energy</span><span class="seg">${[['', 'any'], ['low', 'low'], ['high', 'high']].map(f => `<button data-fenergy="${f[0]}" class="${nowEnergy === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span></div>
       <div class="pb">${keys.map(k => `<div class="ctxgroup"><span class="chip ctx">${esc(k)}</span><span class="n">${groups[k].length}</span></div>${groups[k].map(actionRow).join('')}`).join('')}</div>
     </div>
   </div>
+  ${(() => { const days7 = [...Array(7)].map((_, i) => d(i)); return `<div class="panel"><div class="ph"><h2>Hard landscape · next 7 days</h2><span class="note">Meetings and day-specific actions. Ticklers resurface into the inbox on their day.</span></div>
+    <div class="cal week">${days7.map((day, i) => { const ms = i === 0 ? meetings.map(m => ({ time:m.time, title:m.title })) : calendarAhead.filter(c => until(c.on) === i); const hs = all.filter(a => a.hard && until(a.hard) === i); const ts = items.filter(x => (x.kind === 'someday' || x.kind === 'reference') && x.revisit && until(x.revisit) === i); const dow = day.getDay(), wk = dow === 0 || dow === 6;
+      return `<div class="cal-col ${i === 0 ? 'today' : ''} ${wk ? 'wk' : ''}"><div class="cal-h"><b>${i === 0 ? 'Today' : day.toLocaleDateString('en-GB', { weekday:'short' })}</b><span>${day.getDate()}</span></div>${ms.map(m => `<div class="cal-item mtg"><span>${m.time} ${esc(m.title)}</span></div>`).join('')}${hs.map(a => `<button class="cal-item hard" data-proj="${a.project}" title="${esc(a.next)}">${esc(a.next)}<span>${esc(projName(a.project))}</span></button>`).join('')}${ts.map(t => `<div class="cal-item tick" title="Tickler: ${esc(t.next)}">↺ ${esc(t.next)}<span>resurfaces</span></div>`).join('')}</div>`; }).join('')}</div></div>`; })()}
   ${over.length ? `<div class="panel"><div class="ph"><h2>Past follow-up</h2><a href="#waiting" class="note">Full ledger →</a></div><div class="pb">${over.map(w => waitingRow(w, { showOwner:true })).join('')}</div></div>` : ''}`;
 }
 
-let sel = null, delegateOnAccept = false;
+let sel = null, delegateOnAccept = false, nowTime = 0, nowEnergy = '';
 function viewInbox() {
   const inbox = by('inbox');
-  if (!inbox.length) return `<div class="vhead"><div><h1>Inbox</h1><p>Every ask from every surface lands here. AI proposes what each one is; you confirm in one keystroke.</p></div></div><div class="panel"><div class="empty"><b>Inbox zero</b>Nothing waiting to be clarified. Capture something above or reset the demo from Flow.</div></div>`;
+  if (!inbox.length) return `<div class="vhead"><div><h1>Inbox</h1><p>Every ask from every surface lands here. AI proposes what each one is; you confirm in one keystroke.</p></div></div><div class="panel"><div class="empty"><b>Inbox zero</b>Nothing waiting to be clarified. Capture something above or reset the demo from Flow.</div></div>${trashPanel()}`;
   if (!inbox.find(i => i.id === sel)) sel = inbox[0].id;
   const it = inbox.find(i => i.id === sel), p = it.p;
   const kinds = [['action', 'Next action'], ['waiting', 'Waiting for'], ['project', 'New project'], ['program', 'New program'], ['someday', 'Someday'], ['reference', 'Reference'], ['trash', 'Trash']];
@@ -651,7 +708,7 @@ function viewInbox() {
       <div class="src"><div class="eyebrow">${srcLabel[it.source]}${it.from ? ' from ' + esc(person(it.from)?.name) : ''} · ${fmtDate(it.captured)}</div><div class="raw">${esc(it.raw)}</div></div>
       <div class="prop">
         <label>Is it actionable?</label><div class="kindgrid">
-          <div class="kg"><div class="kgh">Yes — who does what?</div>${[['action', 'Next action', 'I do it'], ['waiting', 'Waiting for', 'Someone else does it'], ['project', 'New project', 'More than one step'], ['program', 'New program', 'A new area of responsibility']].map(k => `<button data-kind="${k[0]}" class="${p.kind === k[0] ? 'on' : ''}"><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}</div>
+          <div class="kg"><div class="kgh">Yes — who does what?</div>${[['done', 'Do it now', 'Under 2 minutes — do it, mark done'], ['action', 'Next action', 'I do it'], ['waiting', 'Waiting for', 'Someone else does it'], ['project', 'New project', 'More than one step'], ['program', 'New program', 'A new area of responsibility']].map(k => `<button data-kind="${k[0]}" class="${p.kind === k[0] ? 'on' : ''}"><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}</div>
           <div class="kg"><div class="kgh">No — then what?</div>${[['reference', 'Reference', 'Keep it, nothing to do'], ['someday', 'Someday / maybe', 'Not now; review later'], ['trash', 'Trash', 'Nothing to keep']].map(k => `<button data-kind="${k[0]}" class="${p.kind === k[0] ? 'on' : ''}"><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}</div>
         </div>
         ${p.kind === 'program' ? `<label for="pProgName">Program</label><input id="pProgName" value="${esc(p.programName || '')}" placeholder="Short name">
@@ -663,13 +720,22 @@ function viewInbox() {
         ${p.kind === 'program' ? '' : `<label>Project</label><select id="pProj"><option value="">— none —</option>${active().map(g => `<optgroup label="${esc(g.name)}">${projects.filter(j => j.program === g.id).map(j => `<option value="${j.id}" ${j.id === p.project ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}<option value="${g.id}" ${g.id === p.project ? 'selected' : ''}>(program level)</option></optgroup>`).join('')}</select>`}
         ${p.kind === 'action' || p.kind === 'project' || p.kind === 'program' ? `<label>Context</label><select id="pCtx">${['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@1:1/marcus', '@agenda/steering', '@errand'].map(c => `<option ${c === p.ctx ? 'selected' : ''}>${c}</option>`).join('')}</select>
         <label>Estimate</label><input id="pMin" type="number" value="${p.min ?? ''}" placeholder="minutes">
-        <label>Due</label><input id="pDue" type="date" value="${p.due ? iso(p.due) : ''}">` : ''}
+        <label>Due</label><input id="pDue" type="date" value="${p.due ? iso(p.due) : ''}">
+        <label title="Hard landscape: only if it must happen on that day">On a specific day?</label><input id="pHard" type="date" value="${p.hard ? iso(p.hard) : ''}">` : ''}
+        ${p.kind === 'reference' ? `<label>File under</label><select id="pRef">${active().map(g => `<option value="${g.id}" ${(p.refPage || it.refPage || p.project) === g.id ? 'selected' : ''}>${esc(g.name)} — key links</option>`).join('')}${people.map(x => `<option value="${x.id}" ${(p.refPage || it.refPage) === x.id ? 'selected' : ''}>${esc(x.name)} — person page</option>`).join('')}<option value="new">New reference page</option></select>` : ''}
+        ${p.kind === 'reference' || p.kind === 'someday' ? `<label title="Tickler: it comes back to the inbox on this day">Revisit on</label><input id="pRevisit" type="date" value="${it.revisit && it.wasKind ? '' : (p.revisit ? iso(p.revisit) : '')}" placeholder="optional">` : ''}
         ${p.kind === 'waiting' ? `<label>Follow up on</label><input id="pFollow" type="date" value="${p.followUp ? iso(p.followUp) : iso(d(3))}">` : ''}
       </div>
       <div class="rationale"><div class="why ${low ? 'low' : ''}"><b>${low ? 'Flagged · ' : ''}${Math.round(p.conf * 100)}% confident.</b> ${esc(p.why)}</div></div>
       <div class="acts"><button class="btn primary" data-accept>${delegateOnAccept && p.ai && (p.kind === 'action' || p.kind === 'project') ? 'Accept and hand to AI' : `Accept ${low ? 'as edited' : 'proposal'}`} <span class="kbd" style="margin-left:6px">a</span></button><button class="btn" data-draft>Draft reply</button><span class="sp"></span><button class="btn ghost" data-skip>Skip for now</button></div>
     </div>
-  </div>`;
+  </div>
+  ${trashPanel()}`;
+}
+function trashPanel() {
+  const tr = by('trash').filter(x => !x.trashedAt || days(x.trashedAt) <= 30);
+  if (!tr.length) return '';
+  return `<div class="panel"><div class="ph"><h2>Trash</h2><span class="note num">${tr.length} · kept 30 days, then gone</span></div><div class="pb">${tr.map(x => `<div class="row"><div class="t"><div class="muted">${esc(x.raw || x.next)}</div><div class="m"><span class="chip src">${srcLabel[x.source] || 'Item'}</span><span class="faint">trashed ${x.trashedAt ? fmtDate(x.trashedAt) : 'earlier'}</span></div></div><button class="btn sm ghost" data-restore="${x.id}">Restore to inbox</button></div>`).join('')}</div></div>`;
 }
 
 function viewPrograms() {
@@ -712,6 +778,22 @@ function viewWaiting() {
   </div>`;
 }
 
+function viewSomeday() {
+  const some = by('someday').sort((a, b) => (a.revisit ? until(a.revisit) : 9e9) - (b.revisit ? until(b.revisit) : 9e9));
+  return `<div class="vhead"><div><h1>Someday / maybe</h1><p>Ideas and commitments you have deliberately not made yet. Reviewed weekly; a revisit date turns one into a tickler.</p></div><span class="note num">${some.length} parked · ${some.filter(x => x.revisit).length} with a revisit date</span></div>
+  <div class="panel"><div class="ph"><h2>Parked</h2><span class="note">Sorted by revisit date</span></div><div class="pb">${some.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m">${x.project ? `<span class="chip proj">${esc(projName(x.project))}</span>` : ''}<span class="age">${days(x.since)}d parked</span>${x.revisit ? `<span class="chip" style="color:var(--accent-text);background:var(--accent-soft)">↺ revisit ${dueLabel(x.revisit)}</span>` : '<span class="faint">no revisit date</span>'}</div></div><input type="date" class="in" style="width:auto;padding:4px 8px" value="${x.revisit ? iso(x.revisit) : ''}" data-revisit="${x.id}" title="Revisit on"><button class="btn sm" data-promote="${x.id}">Promote</button><button class="btn sm ghost" data-drop="${x.id}">Drop</button></div>`).join('') || '<div class="empty">Nothing parked.</div>'}</div></div>`;
+}
+function viewReference() {
+  const refs = by('reference');
+  const group = (pid) => refs.filter(r => r.refPage === pid);
+  const refRow = (r) => `<div class="row"><div class="t"><div>${esc(r.next)}</div><div class="m"><span class="faint">filed ${fmtDate(r.filedAt || TODAY)}</span>${r.revisit ? `<span class="chip" style="color:var(--accent-text);background:var(--accent-soft)">↺ tickler ${dueLabel(r.revisit)}</span>` : ''}</div></div><button class="btn sm ghost" data-drop="${r.id}">Drop</button></div>`;
+  return `<div class="vhead"><div><h1>Reference</h1><p>Not actionable, worth keeping. Reference lives in the wiki, so this list is the wiki index: program hubs with their key links and filed items, people pages, and standalone reference pages.</p></div><span class="note num">${refs.length} filed items · ${Object.keys(wiki).length + people.length} pages</span></div>
+  ${active().map(g => { const w = wiki[g.id]; const rs = group(g.id); return `<div class="panel"><div class="ph"><h2>${esc(g.name)}</h2><div style="display:flex;gap:8px;align-items:center"><span class="chip mono">wiki/${esc(w.page)}.md</span><button class="btn sm" data-wiki="${g.id}">Open hub</button></div></div>
+    <div class="wstatus" style="border-bottom:0"><span class="eyebrow">Key links</span><div class="wlinks">${w.links.filter(l => l[1]).map(l => `<a class="chip" href="${l[1]}">${esc(l[0])}</a>`).join('') || '<span class="faint">none yet</span>'}</div></div>
+    ${rs.length ? `<div class="pb" style="border-top:1px solid var(--line)">${rs.map(refRow).join('')}</div>` : ''}</div>`; }).join('')}
+  <div class="panel"><div class="ph"><h2>People pages</h2><span class="note">wiki/person-*.md</span></div><div class="pb">${people.map(x => { const rs = group(x.id); return `<div class="row"><div class="t"><div>${esc(x.name)} <span class="faint">· ${esc(x.role)}</span></div>${rs.length ? `<div class="m">${rs.map(r => `<span class="chip">${esc(r.next)}</span>`).join('')}</div>` : ''}</div><button class="btn sm ghost" data-agenda="${x.id}">Open</button></div>`; }).join('')}</div></div>
+  ${group('new').length ? `<div class="panel"><div class="ph"><h2>Reference pages</h2><span class="note">wiki/ref-*.md</span></div><div class="pb">${group('new').map(refRow).join('')}</div></div>` : ''}`;
+}
 function viewPeople() {
   return `<div class="vhead"><div><h1>People</h1><p>Each stakeholder in both directions: what they owe you, what you owe them, and the queue for your next conversation.</p></div></div>
   <div class="people"><div class="pcard aicard"><div class="top"><span class="av">AI</span><div><div><b>Assistant</b></div><div class="role">Delegate · works from the ledger · never sends unasked</div></div></div>
@@ -729,6 +811,9 @@ function viewReview() {
   const inbox = by('inbox').length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext), aged = by('waiting').filter(w => days(w.since) > 14), some = by('someday'), done = by('done');
   const steps = [
     { id:'inbox', title:'Get the inbox to zero', auto: inbox === 0, status: inbox ? `${inbox} left` : 'Empty', body: inbox ? `<div class="row"><div class="t">${inbox} item${inbox > 1 ? 's' : ''} still need a decision.</div><a class="btn sm" href="#inbox">Open inbox</a></div>` : `<div class="row"><div class="t muted">Nothing unclarified. Good.</div></div>` },
+    { id:'sweep', title:'Mind sweep — empty your head', status: `${items.filter(i => i.source === 'sweep' && i.captured && days(i.captured) === 0).length} captured today`, body: `<div class="row"><div class="t"><div class="muted" style="margin-bottom:6px">Walk the triggers; capture anything that surfaces. Don't clarify yet — that's the inbox's job.</div><div class="trig">${sweepTriggers.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div></div></div><div class="row"><form class="capture" data-sweepform style="max-width:none;flex:1"><span class="faint">+</span><input placeholder="What's on your mind?" aria-label="Mind sweep capture"><span class="hint">⏎</span></form></div>` },
+    { id:'pastcal', title:'Sweep last week\'s calendar', status: `${pastMeetings.filter(m => !m.captured).length} meetings with nothing captured`, body: pastMeetings.map(m => `<div class="row"><div class="t"><div>${esc(m.title)}</div><div class="m"><span class="faint">${fmtDate(m.on)} · ${m.who.map(pname).join(', ')}</span>${m.captured ? `<span class="chip">${m.captured} captured</span>` : '<span class="flag">nothing captured</span>'}</div></div>${m.captured ? '' : `<button class="btn sm" data-capfrom="${esc(m.title)}">Capture follow-ups</button>`}</div>`).join('') + `<div class="row"><div class="t muted">A meeting with no captured items usually means loose ends in your head, not a meeting with none.</div></div>` },
+    { id:'upcoming', title:'Preview the next two weeks', status: `${calendarAhead.length + mine().filter(a => a.hard && until(a.hard) > 0 && until(a.hard) <= 14).length} on the calendar`, body: [...calendarAhead.map(c => ({ on:c.on, txt:`${c.time} ${c.title}`, sub:c.who.map(pname).join(', '), mtg:true })), ...mine().filter(a => a.hard && until(a.hard) > 0 && until(a.hard) <= 14).map(a => ({ on:a.hard, txt:a.next, sub:projName(a.project), mtg:false }))].sort((a, b) => a.on - b.on).map(e => `<div class="row"><div class="t"><div>${esc(e.txt)}${e.mtg ? '' : ' <span class="chip" style="color:var(--warn);background:var(--warn-soft)">day-specific action</span>'}</div><div class="m"><span class="faint">${fmtDate(e.on)} · ${esc(e.sub)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Anything here that needs prep you haven't got a next action for? Capture it.</div></div>` },
     { id:'next', title:'Every project has a next action', auto: noNext.length === 0, status: noNext.length ? `${noNext.length} missing` : 'All covered', body: noNext.map(p => `<div class="row"><div class="t"><div>${esc(p.name)}</div><div class="m"><span class="chip proj">${esc(projName(p.program))}</span><span class="age over">${projHealth(p).lm ? projHealth(p).age + 'd since movement' : 'no activity'}</span></div></div><button class="btn sm" data-proj="${p.id}">Decide next action</button></div>`).join('') || `<div class="row"><div class="t muted">Every active project has an action or a waiting-for.</div></div>` },
     { id:'waiting', title:'Review waiting-fors older than 14 days', status: `${aged.length} aged`, body: aged.map(w => waitingRow(w, { showOwner:true })).join('') },
     { id:'someday', title:'Someday / maybe: promote or drop', status: `${some.length} parked`, body: some.map(s => `<div class="row"><div class="t"><div>${esc(s.next)}</div><div class="m"><span class="age">${days(s.since)}d parked</span></div></div><button class="btn sm" data-promote="${s.id}">Promote</button><button class="btn sm ghost" data-drop="${s.id}">Drop</button></div>`).join('') },
@@ -949,7 +1034,7 @@ function statusDraft() {
 /* ---------- render & events ---------- */
 function render() {
   const cur = location.hash.slice(1) || 'now';
-  const v = { now:viewNow, inbox:viewInbox, programs:viewPrograms, waiting:viewWaiting, delegated:viewDelegated, people:viewPeople, review:viewReview, flow:viewFlow }[cur] || viewNow;
+  const v = { now:viewNow, inbox:viewInbox, programs:viewPrograms, waiting:viewWaiting, delegated:viewDelegated, someday:viewSomeday, reference:viewReference, people:viewPeople, review:viewReview, flow:viewFlow }[cur] || viewNow;
   $('#view').innerHTML = v();
   const vh = $('#view .vhead'); if (vh) { const h1 = vh.querySelector('h1'); if (h1 && icons[cur]) h1.insertAdjacentHTML('afterbegin', `<span class="h1ico">${icons[cur]}</span>`); vh.insertAdjacentHTML('afterend', guideBox(cur)); }
   renderNav();
@@ -961,7 +1046,8 @@ function acceptCurrent(overrideKind) {
   const it = items.find(i => i.id === sel); if (!it) return;
   const kind = overrideKind || it.p.kind;
   const next = $('#pNext')?.value.trim() || it.p.next;
-  if (kind === 'trash') { it.kind = 'trash'; state.kinds[it.id] = 'trash'; }
+  if (kind === 'trash') { it.kind = 'trash'; it.trashedAt = TODAY; state.kinds[it.id] = 'trash'; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { trashedAt:TODAY }); }
+  else if (kind === 'done') { it.next = next; it.project = $('#pProj')?.value || it.p.project || null; it.kind = 'done'; it.doneAt = TODAY; it.createdAt = TODAY; it.min = Math.min(it.p.min || 2, 2); state.kinds[it.id] = 'done'; state.done[it.id] = true; state.overrides[it.id] = { next:it.next, project:it.project, doneAt:TODAY, createdAt:TODAY, min:it.min }; }
   else if (kind === 'program') {
     const name = $('#pProgName')?.value.trim(), purpose = $('#pPurpose')?.value.trim();
     if (!name || !purpose) { toast('A program needs a name and a purpose'); ($('#pProgName').value ? $('#pPurpose') : $('#pProgName')).focus(); return; }
@@ -972,14 +1058,16 @@ function acceptCurrent(overrideKind) {
     it.next = next; it.project = $('#pProj')?.value || it.p.project || null;
     if (kind === 'action' || kind === 'project') { it.ctx = $('#pCtx')?.value || it.p.ctx || '@quick'; it.min = +($('#pMin')?.value) || it.p.min; const dv = $('#pDue')?.value; it.due = dv ? new Date(dv + 'T08:00:00') : it.p.due; }
     if (kind === 'waiting') { it.owner = $('#pOwner')?.value || it.p.owner || it.from; it.since = TODAY; const fv = $('#pFollow')?.value; it.followUp = fv ? new Date(fv + 'T08:00:00') : d(3); it.nudges = 0; }
-    if (kind === 'someday') it.since = TODAY;
-    if (kind === 'action' || kind === 'project') it.createdAt = TODAY;
+    if (kind === 'someday') { it.since = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; }
+    if (kind === 'reference') { it.refPage = $('#pRef')?.value || null; it.filedAt = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; if (wiki[it.refPage] && !wiki[it.refPage].links.some(l => l[0] === next)) wiki[it.refPage].links.push([next, '']); }
+    if (kind === 'action' || kind === 'project') { it.createdAt = TODAY; const hv = $('#pHard')?.value; it.hard = hv ? new Date(hv + 'T08:00:00') : null; }
+    if (it.wasKind) { state.resurfaced[it.id + ':' + new Date(it.revisit || TODAY).toDateString()] = true; delete it.wasKind; }
     if (delegateOnAccept && it.p.ai && (kind === 'action' || kind === 'project')) handOff(it, it.p.ai.cap, it.p.ai.what);
     it.kind = kind === 'project' ? 'action' : kind;
-    state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt };
+    state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, hard:it.hard, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt, revisit:it.revisit, refPage:it.refPage, filedAt:it.filedAt, energy:it.energy };
   }
   save();
-  const labels = { action:'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
+  const labels = { action:'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', done:'Done — two-minute rule; movement logged', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
   toast((it.owner === 'ai' ? 'Filed and handed to AI' : labels[kind]) + ' · tagged ai-filed, confirmed by you');
   delegateOnAccept = false;
   const rest = by('inbox'); sel = rest[0]?.id ?? null; render();
@@ -987,7 +1075,7 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
@@ -1003,6 +1091,10 @@ document.addEventListener('click', (e) => {
   else if (ds.proj) projectDrawer(ds.proj);
   else if (ds.wiki) wikiDrawer(ds.wiki);
   else if ('guide' in ds) guideDrawer();
+  else if ('ftime' in ds) { nowTime = +ds.ftime; render(); }
+  else if (ds.restore) { const x = items.find(i => i.id === ds.restore); x.kind = 'inbox'; x.captured = TODAY; if (!x.p) x.p = { kind:'action', next:x.next, project:null, ctx:'@quick', min:15, conf:.5, why:'Restored from trash — clarify again.' }; delete state.kinds[x.id]; save(); sel = x.id; toast('Restored to inbox'); render(); }
+  else if (ds.capfrom) { const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'meeting', from:null, captured:TODAY, raw:`Follow-ups from ${ds.capfrom} (last week)`, p:{ kind:'action', next:`Write up follow-ups from ${ds.capfrom}`, project:null, ctx:'@quick', min:10, conf:.6, why:'Captured from the past-calendar sweep; no notes to read yet.' } }; items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); toast('Captured — clarify it in the inbox'); render(); }
+  else if ('fenergy' in ds) { nowEnergy = ds.fenergy; render(); }
   else if ('addprog' in ds) addProgramDrawer();
   else if ('saveprog' in ds) {
     const name = $('#ngName').value.trim(), purpose = $('#ngPurpose').value.trim(), err = $('#npErr');
@@ -1047,10 +1139,17 @@ document.addEventListener('change', (e) => {
   if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { it._prev = it.kind; it.kind = 'done'; it.doneAt = TODAY; state.done[it.id] = true; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { doneAt:TODAY }); toast('Done · logged for the weekly review'); } else { it.kind = it._prev || 'action'; delete state.done[it.id]; } save(); renderNav(); }
   if (t.dataset.step) { state.review[t.dataset.step] = t.checked; save(); render(); }
   if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
+  if (t.dataset.revisit) { const x = items.find(i => i.id === t.dataset.revisit); x.revisit = t.value ? new Date(t.value + 'T08:00:00') : null; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { revisit:x.revisit }); save(); toast(x.revisit ? `Will resurface ${fmtDate(x.revisit)}` : 'Revisit date cleared'); renderNav(); }
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
   if ('delegate' in t.dataset) { delegateOnAccept = t.checked; render(); }
 });
 $('#drawerBg').addEventListener('click', closeDrawer);
+document.addEventListener('submit', (e) => {
+  const f = e.target.closest('[data-sweepform]'); if (!f) return; e.preventDefault();
+  const v = f.querySelector('input').value.trim(); if (!v) return;
+  const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'sweep', from:null, captured:TODAY, raw:v, p:{ kind:'action', next:v, project:null, ctx:'@quick', min:15, conf:.6, why:'From the mind sweep — clarify in the inbox.' } };
+  items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); f.querySelector('input').value = ''; toast('Captured — keep sweeping'); render(); $('[data-sweepform] input')?.focus();
+});
 $('#captureForm').addEventListener('submit', (e) => {
   e.preventDefault(); const v = $('#captureInput').value.trim(); if (!v) return;
   const id = 'C' + Date.now();
@@ -1069,7 +1168,7 @@ document.addEventListener('keydown', (e) => {
   const cur = location.hash.slice(1) || 'now';
   if (cur === 'inbox') {
     if (e.key === 'j') moveSel(1); else if (e.key === 'k') moveSel(-1);
-    else if (e.key === 'a') acceptCurrent(); else if (e.key === 'w') acceptCurrent('waiting'); else if (e.key === 's') acceptCurrent('someday'); else if (e.key === 't') acceptCurrent('trash');
+    else if (e.key === 'a') acceptCurrent(); else if (e.key === 'x') acceptCurrent('done'); else if (e.key === 'w') acceptCurrent('waiting'); else if (e.key === 's') acceptCurrent('someday'); else if (e.key === 't') acceptCurrent('trash');
     else if (e.key === 'e') { e.preventDefault(); $('#pNext')?.focus(); $('#pNext')?.select(); }
     else if (e.key === 'd') { const it = items.find(i => i.id === sel); if (it?.p.ai) { delegateOnAccept = !delegateOnAccept; render(); } }
   }

@@ -4,6 +4,12 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Gap review items 1–5, 7, 8 built.** `hard` date on actions (calendar, leaves the
+  context lists); ticklers via `revisit` on someday/reference; "Do it now" in the
+  inbox (`x`); reference filed into wiki pages (`refPage`) with the Reference view as
+  the wiki index; Someday view with revisit dates; review gains mind sweep,
+  past-calendar sweep, two-week preview; Now filters by time and energy; trash kept
+  30 days with restore. Rail is now the full GTD list set (keys 1–9, 0).
 - **GTD gap review adopted** (`docs/gtd-gap-review.md`): add the calendar / hard
   landscape and tickler, a human two-minute path, reference filed into the wiki, a
   Someday list, mind-sweep and calendar-sweep review steps, Now filters, recoverable
