@@ -188,9 +188,14 @@ main{min-width:0;display:flex;flex-direction:column}
 .detail .prop label{font-size:12px;color:var(--ink-2);font-weight:500}
 .detail .prop input,.detail .prop select{width:100%;border:1px solid var(--line);background:var(--ground);border-radius:6px;padding:6px 9px}
 .detail .prop input:focus,.detail .prop select:focus{border-color:var(--accent);outline:0}
-.kinds{display:flex;gap:6px;flex-wrap:wrap}
-.kinds button{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:4px 9px;font-size:12px;font-weight:500;color:var(--ink-2)}
-.kinds button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-text)}
+.kindgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:1000px){.kindgrid{grid-template-columns:1fr}}
+.kg{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--ground)}
+.kgh{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500;padding:0 4px 4px}
+.kg button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid transparent;background:transparent;border-radius:6px;padding:6px 9px;color:var(--ink-2)}
+.kg button b{font-weight:500;color:var(--ink);font-size:13px} .kg button span{font-size:11.5px;color:var(--ink-3)}
+.kg button:hover{background:var(--surface);border-color:var(--line-2)}
+.kg button.on{background:var(--accent-soft);border-color:var(--accent)} .kg button.on b,.kg button.on span{color:var(--accent-text)}
 .rationale{padding:0 18px 14px;font-size:12.5px;color:var(--ink-2)}
 .rationale .why{background:var(--ground);border-radius:7px;padding:9px 12px;border-left:3px solid var(--line-2)}
 .rationale .why.low{border-left-color:var(--warn)}
@@ -635,7 +640,10 @@ function viewInbox() {
     <div class="panel detail">
       <div class="src"><div class="eyebrow">${srcLabel[it.source]}${it.from ? ' from ' + esc(person(it.from)?.name) : ''} · ${fmtDate(it.captured)}</div><div class="raw">${esc(it.raw)}</div></div>
       <div class="prop">
-        <label>What is it?</label><div class="kinds">${kinds.map(k => `<button data-kind="${k[0]}" class="${p.kind === k[0] ? 'on' : ''}">${k[1]}</button>`).join('')}</div>
+        <label>Is it actionable?</label><div class="kindgrid">
+          <div class="kg"><div class="kgh">Yes — who does what?</div>${[['action', 'Next action', 'I do it'], ['waiting', 'Waiting for', 'Someone else does it'], ['project', 'New project', 'More than one step'], ['program', 'New program', 'A new area of responsibility']].map(k => `<button data-kind="${k[0]}" class="${p.kind === k[0] ? 'on' : ''}"><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}</div>
+          <div class="kg"><div class="kgh">No — then what?</div>${[['reference', 'Reference', 'Keep it, nothing to do'], ['someday', 'Someday / maybe', 'Not now; review later'], ['trash', 'Trash', 'Nothing to keep']].map(k => `<button data-kind="${k[0]}" class="${p.kind === k[0] ? 'on' : ''}"><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}</div>
+        </div>
         ${p.kind === 'program' ? `<label for="pProgName">Program</label><input id="pProgName" value="${esc(p.programName || '')}" placeholder="Short name">
         <label for="pPurpose">Purpose</label><input id="pPurpose" value="${esc(p.purpose || '')}" placeholder="Why it exists — one checkable sentence">
         <label for="pFirstProj">First project</label><input id="pFirstProj" value="${esc(p.firstProject || '')}" placeholder="Optional">` : ''}
