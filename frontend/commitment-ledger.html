@@ -676,7 +676,7 @@ function viewNow() {
   </div>
   ${ready.length ? `<div class="panel ready"><div class="ph"><h2>Ready for your review</h2><a href="#delegated" class="note">Delegated ledger →</a></div><div class="pb">${ready.map(readyRow).join('')}</div></div>` : ''}
   <div class="cols">
-    <div class="panel"><div class="ph"><h2>Today</h2><span class="note">Prep briefs pull related projects, open items and decisions</span></div>
+    <div class="panel"><div class="ph"><h2>Today</h2><span class="note" title="GTD's hard landscape: only what must happen today lives here; everything else is a next action by context">Calendar meetings + actions pinned to today · everything else is in the lists →</span></div>
       <div class="agenda">${meetings.map((m, i) => `<div class="slot ${i === 0 ? 'now' : ''}"><div class="tm">${m.time}</div><div><div>${esc(m.title)}</div><div class="who">${m.who.map(pname).join(', ')} · ${m.dur} min</div></div><button class="btn sm" data-prep="${i}">Prep</button></div>`).join('')}
       ${hardToday.length ? `<div class="ctxgroup" style="border-top:1px solid var(--line)"><span class="eyebrow">Must happen today</span></div>${hardToday.map(a => `<div class="slot hard"><div class="tm">day</div><label class="lab" style="gap:8px"><input class="chk" type="checkbox" data-done="${a.id}"><div><div>${esc(a.next)}</div><div class="who">${esc(projName(a.project))} · ${a.min} min</div></div></label></div>`).join('')}` : ''}</div>
     </div>
