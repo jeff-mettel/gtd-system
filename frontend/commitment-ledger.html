@@ -81,6 +81,7 @@ h1{font-size:24px;line-height:1.2} h2{font-size:17px;line-height:1.3} h3{font-si
 .nav a .cnt.ai{background:var(--accent-soft);color:var(--accent-text)}
 .health .ai b{color:var(--accent-text)}
 .lab{display:flex;gap:12px;flex:1;min-width:0;cursor:pointer}
+.t.clickable{cursor:pointer;border-radius:6px;margin:-4px -6px;padding:4px 6px} .t.clickable:hover{background:var(--surface-2)}
 .chip.aichip{background:var(--accent-soft);color:var(--accent-text)}
 .aican{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--ink-2)}
 .aican .dlg{display:flex;align-items:center;gap:6px;color:var(--ink);font-weight:500;cursor:pointer}
@@ -642,15 +643,15 @@ function navLink(v, cur) {
 
 /* ---------- shared fragments ---------- */
 function actionRow(a) {
-  return `<div class="row ${a.kind === 'done' ? 'done' : ''}"><label class="lab"><input class="chk" type="checkbox" data-done="${a.id}" ${a.kind === 'done' ? 'checked' : ''}>
-    <div class="t"><div>${esc(a.next)}</div><div class="m">${a.project ? `<span class="chip proj">${esc(projName(a.project))}</span>` : ''}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(a.hard)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div></label>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
+  return `<div class="row ${a.kind === 'done' ? 'done' : ''}"><label class="lab" style="flex:none"><input class="chk" type="checkbox" data-done="${a.id}" ${a.kind === 'done' ? 'checked' : ''}></label>
+    <div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}</div><div class="m">${a.project ? `<span class="chip proj">${esc(projName(a.project))}</span>` : ''}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(a.hard)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
 }
 function readyRow(x) {
   return `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m"><span class="chip aichip">AI · ${esc(capLabel[x.cap] || x.cap)}</span><span class="chip proj">${esc(projName(x.project))}</span><span class="effect">On approval: ${esc(x.del.effect)}</span></div></div><button class="btn sm primary" data-review="${x.id}">Review</button></div>`;
 }
 function waitingRow(w, opts = {}) {
   const over = until(w.followUp) < 0;
-  return `<div class="row"><div class="t"><div>${esc(w.next)}</div><div class="m">${opts.showOwner ? `<span class="chip">${esc(pname(w.owner))}</span>` : ''}<span class="chip proj">${esc(projName(w.project))}</span><span class="age">${days(w.since)}d waiting</span><span class="age ${over ? 'over' : ''}">follow up ${dueLabel(w.followUp)}</span>${w.nudges ? `<span class="faint num">${w.nudges} nudge${w.nudges > 1 ? 's' : ''}</span>` : ''}</div></div>
+  return `<div class="row"><div class="t clickable" data-item="${w.id}"><div>${esc(w.next)}</div><div class="m">${opts.showOwner ? `<span class="chip">${esc(pname(w.owner))}</span>` : ''}<span class="chip proj">${esc(projName(w.project))}</span><span class="age">${days(w.since)}d waiting</span><span class="age ${over ? 'over' : ''}">follow up ${dueLabel(w.followUp)}</span>${w.nudges ? `<span class="faint num">${w.nudges} nudge${w.nudges > 1 ? 's' : ''}</span>` : ''}</div></div>
     <button class="btn sm" data-nudge="${w.id}">Draft nudge</button></div>`;
 }
 
@@ -1023,6 +1024,27 @@ function wikiDrawer(pid) {
     <div class="note">Compiled sections are rewritten from the ledger; purpose, links, decisions and risks are written by you or by reviewed ingests. Full page and history in the repo.</div>`,
     `<button class="btn" data-close>Close</button><button class="btn primary" data-ingest="${pid}">Ingest notes into this page</button>`);
 }
+function itemDrawer(id) {
+  const x = items.find(i => i.id === id); if (!x) return;
+  const isW = x.kind === 'waiting', j = x.project ? projOf(x.project) : null, g = j ? (programs.find(p => p.id === (j.program || j.id))) : null;
+  const ev = x.project ? activity(x.project).filter(e => e.item.id === id) : [];
+  const date = (label, field, val) => `<div class="wrow"><span class="eyebrow">${label}</span><input type="date" class="in" style="width:auto;padding:4px 8px" value="${val ? iso(val) : ''}" data-setdate="${field}" data-id="${id}"></div>`;
+  openDrawer(esc(x.next), `
+    <div class="sec"><div class="eyebrow">${isW ? 'Waiting for' : x.kind === 'done' ? 'Done' : 'Next action'}${x.source ? ' · from ' + (srcLabel[x.source] || x.source) : ''}${x.raw && x.raw !== x.next ? `</div><p class="muted" style="margin:6px 0 0">"${esc(x.raw)}"</p><div>` : ''}</div></div>
+    <div class="sec">
+      ${isW ? `<div class="wrow"><span class="eyebrow">Owed by</span><div><button class="linkish" data-agenda="${x.owner}">${esc(person(x.owner)?.name || '—')}</button> <span class="faint">· ${esc(person(x.owner)?.role || '')}</span></div></div>
+      <div class="wrow"><span class="eyebrow">Waiting</span><div><span class="age ${days(x.since) > 14 ? 'over' : ''}">${days(x.since)} days</span> since ${fmtDate(x.since)} · ${x.nudges || 0} nudge${x.nudges === 1 ? '' : 's'}${x.lastNudged ? `, last ${fmtDate(x.lastNudged)}` : ''}</div></div>
+      ${date('Follow up on', 'followUp', x.followUp)}` : `
+      <div class="wrow"><span class="eyebrow">Context</span><div><span class="chip ctx">${esc(x.ctx || '—')}</span> ${x.min ? `<span class="num">${x.min} min</span>` : ''} <span class="faint">· ${energyOf(x)} energy</span></div></div>
+      ${date('Due (soft)', 'due', x.due)}${date('Pinned to a day', 'hard', x.hard)}
+      ${x.ai ? `<div class="wrow"><span class="eyebrow">AI can</span><div><span class="chip aichip">${levelLabel[x.ai.level]}</span> ${esc(x.ai.what)}</div></div>` : ''}`}
+      ${j ? `<div class="wrow"><span class="eyebrow">Project</span><div><button class="linkish" data-proj="${j.id}">${esc(j.name)}</button>${g && g.id !== j.id ? ` <span class="faint">· ${esc(g.name)}</span>` : ''}${j.outcome ? `<div class="muted" style="font-size:12px">${esc(j.outcome)}</div>` : ''}</div></div>` : ''}
+    </div>
+    <div class="sec"><h3>History</h3>${ev.length ? `<ul class="hist">${ev.map(e => `<li><span class="mono num">${fmtDate(e.when)}</span> <span class="muted">${esc(e.what)}</span></li>`).join('')}</ul>` : '<div class="note">No ledger events yet.</div>'}</div>
+    <div class="note">Dates save as you change them. ${isW ? '"Received" closes the waiting-for as done and logs movement on the project.' : 'Pinning to a day moves this out of the context lists onto the calendar.'}</div>`,
+    isW ? `<button class="btn ghost" data-drop="${id}">Drop</button><button class="btn" data-nudge="${id}">Draft nudge</button><button class="btn primary" data-received="${id}">Received — done</button>`
+        : `<button class="btn ghost" data-park="${id}">Park in someday</button>${x.ai && x.kind !== 'done' ? `<button class="btn" data-hand="${id}">Hand to AI</button>` : ''}${x.kind !== 'done' ? `<button class="btn primary" data-markdone="${id}">Done</button>` : '<button class="btn" data-close>Close</button>'}`);
+}
 function statusDraft() {
   const done = by('done');
   const text = active().map(g => { const js = activeProjects(g.id); const h = js.some(j => j.health === 'crit') ? 'Blocked' : js.some(j => j.health === 'warn') ? 'At risk' : 'On track';
@@ -1076,7 +1098,7 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-fclear],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-fclear],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
@@ -1094,6 +1116,10 @@ document.addEventListener('click', (e) => {
   else if (ds.wiki) wikiDrawer(ds.wiki);
   else if ('guide' in ds) guideDrawer();
   else if ('ftime' in ds) { nowTime = +ds.ftime; render(); }
+  else if (ds.item) itemDrawer(ds.item);
+  else if (ds.received) { const x = items.find(i => i.id === ds.received); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast(`Received from ${pname(x.owner)} · done`); render(); }
+  else if (ds.markdone) { const x = items.find(i => i.id === ds.markdone); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast('Done · movement logged'); render(); }
+  else if (ds.park) { const x = items.find(i => i.id === ds.park); x.kind = 'someday'; x.since = TODAY; state.kinds[x.id] = 'someday'; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { since:TODAY }); save(); closeDrawer(); toast('Parked in someday / maybe'); render(); }
   else if (ds.restore) { const x = items.find(i => i.id === ds.restore); x.kind = 'inbox'; x.captured = TODAY; if (!x.p) x.p = { kind:'action', next:x.next, project:null, ctx:'@quick', min:15, conf:.5, why:'Restored from trash — clarify again.' }; delete state.kinds[x.id]; save(); sel = x.id; toast('Restored to inbox'); render(); }
   else if (ds.capfrom) { const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'meeting', from:null, captured:TODAY, raw:`Follow-ups from ${ds.capfrom} (last week)`, p:{ kind:'action', next:`Write up follow-ups from ${ds.capfrom}`, project:null, ctx:'@quick', min:10, conf:.6, why:'Captured from the past-calendar sweep; no notes to read yet.' } }; items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); toast('Captured — clarify it in the inbox'); render(); }
   else if ('fenergy' in ds) { nowEnergy = ds.fenergy; render(); }
@@ -1144,6 +1170,7 @@ document.addEventListener('change', (e) => {
   if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
   if (t.dataset.revisit) { const x = items.find(i => i.id === t.dataset.revisit); x.revisit = t.value ? new Date(t.value + 'T08:00:00') : null; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { revisit:x.revisit }); save(); toast(x.revisit ? `Will resurface ${fmtDate(x.revisit)}` : 'Revisit date cleared'); renderNav(); }
   if ('fscope' in t.dataset) { nowScope = t.value; render(); }
+  if (t.dataset.setdate) { const x = items.find(i => i.id === t.dataset.id); const v = t.value ? new Date(t.value + 'T08:00:00') : null; x[t.dataset.setdate] = v; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { [t.dataset.setdate]: v }); save(); toast(v ? `${t.dataset.setdate === 'followUp' ? 'Follow-up' : t.dataset.setdate === 'hard' ? 'Pinned to' : 'Due'} ${fmtDate(v)}` : 'Date cleared'); render(); }
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
 });
 $('#drawerBg').addEventListener('click', closeDrawer);
