@@ -412,36 +412,39 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 0.9));
 const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(20, 40, 10); scene.add(sun);
 
 let P = {};                      // palette in THREE colors
+const themed = [];               // [material, palette key] — re-coloured on theme change
 function palette() {
   P = { s1: col('--s1'), s2: col('--s2'), s3: col('--s3'), o1: col('--o1'), o2: col('--o2'), accent: col('--accent'), ink3: col('--ink-3'), line2: col('--line-2'), good: col('--good'), warn: col('--warn'), crit: col('--crit'), floor: col('--scene-floor'), grid: col('--scene-grid'), bg: col('--scene-bg'), surface2: col('--surface-2'), ink: col('--ink') };
   scene.background = P.bg; scene.fog = new THREE.Fog(P.bg, 120, 230);
+  for (const [m, key] of themed) { m.color.copy(P[key]); if (m.emissive && key === 'crit') m.emissive.copy(P.crit); }
+  if (typeof grid !== 'undefined') { grid.material.color.copy(P.grid); }
 }
 palette();
 
 // static geometry
 const statics = new THREE.Group(); scene.add(statics);
-const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .85, metalness: 0 }, o));
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 90), mat(P.floor)); floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.02, -6); statics.add(floor);
+const mat = (key, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: P[key], roughness: .85, metalness: 0 }, o)); themed.push([m, key]); return m; };
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 90), mat('floor')); floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.02, -6); statics.add(floor);
 const grid = new THREE.GridHelper(100, 50, P.grid, P.grid); grid.position.set(0, 0, -6); grid.material.opacity = .5; grid.material.transparent = true; statics.add(grid);
 const box = (w, h, d, c, pos, o) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c, o)); m.position.set(...pos); statics.add(m); return m; };
-for (const k in LAY.ports) box(1.6, 0.6, 2.2, P.surface2, [LAY.ports[k][0], 0.3, LAY.ports[k][2]]);
-box(6, 0.25, 8, P.surface2, [LAY.inbox[0], 0.12, LAY.inbox[2]]);                                  // inbox tray
-const gateRing = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.18, 12, 48), mat(P.accent, { roughness: .5 })); gateRing.position.set(LAY.gate[0], 3.2, 0); gateRing.rotation.y = Math.PI / 2; statics.add(gateRing);
-box(2.2, 1.6, 2.2, P.line2, [LAY.trash[0], 0.8, LAY.trash[2]], { transparent: true, opacity: .55 });   // bin
-box(LAY.shelf.x1 - LAY.shelf.x0 + 2, 0.4, 5, P.surface2, [0, LAY.shelf.y - 0.2, LAY.shelf.z]);       // waiting shelf
-for (const p of people) box(0.35, 2.4, 0.35, P.line2, [postX(p.id), LAY.shelf.y + 1.2, LAY.shelf.z - 1.6]);
-box(5, 1.2, 4, P.surface2, [LAY.someday[0], 0.6, LAY.someday[2]], { transparent: true, opacity: .7 });  // someday drawer
-const aiRing = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.14, 10, 48), mat(P.accent, { roughness: .4 })); aiRing.position.set(...LAY.ai.ring); aiRing.rotation.x = Math.PI / 2; statics.add(aiRing);
-box(7, 0.3, 3, P.surface2, [LAY.ai.tray[0], 0.15, LAY.ai.tray[2]]);                                  // review tray
-const chute = box(6, 0.2, 3, P.surface2, [LAY.chute[0] + 1.5, 1.2, 0]); chute.rotation.z = -0.35;
-const wall = box(LAY.wiki.x1 - LAY.wiki.x0 + 3, 0.5, 3, P.surface2, [0, 0.25, LAY.wiki.z]);
+for (const k in LAY.ports) box(1.6, 0.6, 2.2, 'surface2', [LAY.ports[k][0], 0.3, LAY.ports[k][2]]);
+box(6, 0.25, 8, 'surface2', [LAY.inbox[0], 0.12, LAY.inbox[2]]);                                  // inbox tray
+const gateRing = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.18, 12, 48), mat('accent', { roughness: .5 })); gateRing.position.set(LAY.gate[0], 3.2, 0); gateRing.rotation.y = Math.PI / 2; statics.add(gateRing);
+box(2.2, 1.6, 2.2, 'line2', [LAY.trash[0], 0.8, LAY.trash[2]], { transparent: true, opacity: .55 });   // bin
+box(LAY.shelf.x1 - LAY.shelf.x0 + 2, 0.4, 5, 'surface2', [0, LAY.shelf.y - 0.2, LAY.shelf.z]);       // waiting shelf
+for (const p of people) box(0.35, 2.4, 0.35, 'line2', [postX(p.id), LAY.shelf.y + 1.2, LAY.shelf.z - 1.6]);
+box(5, 1.2, 4, 'surface2', [LAY.someday[0], 0.6, LAY.someday[2]], { transparent: true, opacity: .7 });  // someday drawer
+const aiRing = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.14, 10, 48), mat('accent', { roughness: .4 })); aiRing.position.set(...LAY.ai.ring); aiRing.rotation.x = Math.PI / 2; statics.add(aiRing);
+box(7, 0.3, 3, 'surface2', [LAY.ai.tray[0], 0.15, LAY.ai.tray[2]]);                                  // review tray
+const chute = box(6, 0.2, 3, 'surface2', [LAY.chute[0] + 1.5, 1.2, 0]); chute.rotation.z = -0.35;
+const wall = box(LAY.wiki.x1 - LAY.wiki.x0 + 3, 0.5, 3, 'surface2', [0, 0.25, LAY.wiki.z]);
 
 // dynamic geometry: tracks (one box per project, rebuilt when the project set changes) and wiki columns
 const trackMeshes = new Map(), colMeshes = new Map(), stallRings = new Map();
 const trackGeo = new THREE.BoxGeometry(LAY.floorX[1] - LAY.floorX[0], 0.16, 1.4);
 const colGeo = new THREE.BoxGeometry(1.5, 1, 1.5); colGeo.translate(0, 0.5, 0);
-for (const [page, owner] of wikiPages) { const m = new THREE.Mesh(colGeo, mat(owner.startsWith('P') ? P.o2 : P.o1)); m.position.set(pageX(page), 0.5, LAY.wiki.z); m.scale.y = 0.001; scene.add(m); colMeshes.set(page, m); }
-for (const j of projects) { const m = new THREE.Mesh(trackGeo, mat(P.good, { transparent: true, opacity: .55 })); m.visible = false; scene.add(m); trackMeshes.set(j.id, m); const r = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 8, 32), mat(P.crit, { emissive: P.crit, emissiveIntensity: .4 })); r.rotation.x = Math.PI / 2; r.visible = false; scene.add(r); stallRings.set(j.id, r); }
+for (const [page, owner] of wikiPages) { const m = new THREE.Mesh(colGeo, mat(owner.startsWith('P') ? 'o2' : 'o1')); m.position.set(pageX(page), 0.5, LAY.wiki.z); m.scale.y = 0.001; scene.add(m); colMeshes.set(page, m); }
+for (const j of projects) { const m = new THREE.Mesh(trackGeo, mat('good', { transparent: true, opacity: .55 })); m.visible = false; scene.add(m); trackMeshes.set(j.id, m); const r = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 8, 32), mat('crit', { emissive: P.crit, emissiveIntensity: .4 })); r.rotation.x = Math.PI / 2; r.visible = false; scene.add(r); stallRings.set(j.id, r); }
 
 // balls: three instanced meshes (solid / wireframe proposal / translucent done)
 const ITEMS = [...new Set(EV.filter(e => e.type === 'captured').map(e => e.item))];
@@ -629,7 +632,8 @@ renderer.domElement.addEventListener('pointerleave', () => { hoverId = null; tip
 
 function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { palette(); floor.material.color.copy(P.floor); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', palette);
+new MutationObserver(palette).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>
 </body>
 </html>

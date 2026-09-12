@@ -273,6 +273,7 @@ td .sub{font-size:12px;color:var(--ink-2);margin-top:2px}
 .step .sh h3{flex:1}
 .step .sh .st{font-size:12px;color:var(--ink-2)}
 .step.ok .sh h3{color:var(--ink-3)}
+.step .swhy{padding:0 16px 12px 46px;font-size:12.5px;color:var(--ink-2);max-width:90ch;line-height:1.55}
 .step .sb{border-top:1px solid var(--line)}
 .step .sb .row{padding:8px 16px}
 .progress{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;flex:1}
@@ -821,9 +822,22 @@ function viewReview() {
     { id:'lint', title:'Wiki lint', status: `${wikiLint.length} findings`, body: wikiLint.map(l => `<div class="row"><div class="t"><div>${esc(l.what)}</div><div class="m"><span class="chip mono">${esc(l.page)}.md</span><span class="faint">${esc(l.fix)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Stale compiled sections, wiki–ledger contradictions, orphan pages. Fixes go through a reviewed ingest.</div></div>` },
     { id:'horizons', title:'Look up: programs still serve their purpose?', status: `${active().length} programs`, body: active().map(g => `<div class="row"><div class="t"><div>${esc(g.name)}</div><div class="m muted">${esc(g.purpose)}</div><div class="m"><span class="faint num">${activeProjects(g.id).length} projects · sponsor ${esc(pname(g.sponsor))}</span></div></div><button class="btn sm ghost" data-retire="${g.id}">Retire</button></div>`).join('') + `<div class="row"><div class="t muted">A program is an area of responsibility: rare, deliberate, with a purpose you can check projects against. Add one here or from Programs; retire one when its purpose is met.</div><button class="btn sm" data-addprog>Add program</button></div>` },
   ];
+  const why = {
+    inbox: 'Get clear. Nothing else in the review is trustworthy while unclarified items are sitting here — an unprocessed inbox is a list of decisions you haven\'t made yet. Empty it first, then review.',
+    sweep: 'Get clear. Anything still in your head is not in the system, and GTD only works if the system holds everything. Walk the triggers and write down whatever surfaces, without judging or clarifying it — capture now, decide later in the inbox.',
+    pastcal: 'Get current. Meetings generate commitments that rarely get written down in the moment. A meeting with nothing captured usually means loose ends in your head, not a meeting with none — look at each and capture what you promised or were promised.',
+    upcoming: 'Get current. Look two weeks ahead so nothing arrives unprepared. Anything that needs prep and doesn\'t yet have a next action is a gap — capture it here and clarify it in the inbox.',
+    next: 'Get current. The projects list only moves if every project has a next physical action or a waiting-for. A project without one is stalled, however healthy it looks — decide the action now, or park or drop the project honestly.',
+    waiting: 'Get current. What\'s owed to you drives your programs more than your own list does. For each aged item ask: still needed? If yes, nudge or escalate; if no, drop it. Don\'t let a waiting-for quietly become a wish.',
+    someday: 'Get creative. Someday / maybe is where ideas incubate without cluttering the action lists — but only if you actually look at them. Promote what\'s ready, give a revisit date to what isn\'t, drop what no longer interests you.',
+    wins: 'Get current. Completed items are the evidence for status reporting, and they\'re also how you calibrate: if this list is short, either the week was interrupt-driven or the next actions were too big. The draft status report assembles from here plus health and waiting-fors.',
+    ai: 'Trust check. Everything the assistant did this week is listed; automatic actions are the ones to eyeball. If something looks wrong, lower that capability\'s autonomy — the settings exist so trust can be adjusted one capability at a time.',
+    lint: 'Get current, for the wiki. Compiled status sections go stale, the wiki and the ledger can disagree, pages can go orphaned. Fix findings through a reviewed ingest so the context you rely on for prep briefs stays true.',
+    horizons: 'Look up. Programs are areas of responsibility; each has a purpose you can check projects against. Ask: does every project still serve its program\'s purpose? Is there work with no home? Has a program met its purpose and earned retirement?',
+  };
   const doneCount = steps.filter(s => s.auto || state.review[s.id]).length;
   return `<div class="vhead"><div><h1>Weekly review</h1><p>AI prepared the evidence; the decisions are yours. Last completed ${days(state.lastReview)} days ago.</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px"><div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
-  <div class="steps">${steps.map((s, i) => { const ok = s.auto || !!state.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div><div class="sb">${s.body}</div></div>`; }).join('')}</div>
+  <div class="steps">${steps.map((s, i) => { const ok = s.auto || !!state.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div>${why[s.id] ? `<div class="swhy">${why[s.id]}</div>` : ''}<div class="sb">${s.body}</div></div>`; }).join('')}</div>
   <div class="acts" style="border:0;padding:0"><span class="note">Completing the review stamps <code class="mono">last_reviewed</code> on every project and resets the health strip.</span><span class="sp"></span><button class="btn primary" data-complete ${doneCount < steps.length ? 'disabled' : ''}>Complete review</button></div>`;
 }
 
