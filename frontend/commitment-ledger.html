@@ -507,7 +507,7 @@ const cycle = [
 
 /* ---------- state (persisted lightly) ---------- */
 const STORE = 'commitment-ledger-demo-v1';
-let state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, programs:[], retired:{}, projOverrides:{}, resurfaced:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
+let state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, nowGroup:'context', programs:[], retired:{}, projOverrides:{}, resurfaced:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
 try { const s = localStorage.getItem(STORE); if (s) state = Object.assign(state, JSON.parse(s)); } catch (e) {}
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
 function applyState() {
@@ -664,9 +664,11 @@ function viewNow() {
   const dueSoon = all.filter(a => a.due && until(a.due) <= 1);
   const noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext);
   const groups = {};
-  for (const a of actions) (groups[a.ctx] ||= []).push(a);
+  const byProg = state.nowGroup === 'program';
+  const gkey = (a) => byProg ? (a.project ? (projOf(a.project)?.program || a.project) : '—') : a.ctx;
+  for (const a of actions) (groups[gkey(a)] ||= []).push(a);
   const order = ['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@agenda/steering'];
-  const keys = Object.keys(groups).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+  const keys = byProg ? [...programs.map(g => g.id), '—'].filter(k => groups[k]) : Object.keys(groups).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
   const free = 'Free 11:00–13:00 (2 h) · 14:00–15:30 (1.5 h)';
   return `<div class="vhead"><div><h1>Monday, 14 September</h1><p>${free}. Deep-work items fit the morning block; the two quick reviews fit before the 1:1.</p></div><div class="shortcuts"><span>Calendar items are the <b>hard landscape</b> — they must happen on the day, so they live in Today and the week strip, not in the context lists.</span></div></div>
   <div class="attn">
@@ -680,9 +682,9 @@ function viewNow() {
     ${state.collapsed.strip ? '' : `<div class="cal week">${days7.map((day, i) => { const ms = i === 0 ? meetings.map(m => ({ time:m.time, title:m.title })) : calendarAhead.filter(c => until(c.on) === i); const hs = all.filter(a => a.hard && until(a.hard) === i); const ts = items.filter(x => (x.kind === 'someday' || x.kind === 'reference') && x.revisit && until(x.revisit) === i); const dow = day.getDay(), wk = dow === 0 || dow === 6;
       return `<div class="cal-col ${i === 0 ? 'today' : ''} ${wk ? 'wk' : ''}"><div class="cal-h"><b>${i === 0 ? 'Today' : day.toLocaleDateString('en-GB', { weekday:'short' })}</b><span>${day.getDate()}</span></div>${ms.map((m, k) => i === 0 ? `<button class="cal-item mtg" data-prep="${k}" title="Prep brief">${m.time}<span>${esc(m.title)}</span></button>` : `<div class="cal-item mtg">${m.time}<span>${esc(m.title)}</span></div>`).join('')}${hs.map(a => `<button class="cal-item hard" data-proj="${a.project}" title="${esc(a.next)}">${esc(a.next)}<span>${esc(projName(a.project))}</span></button>`).join('')}${ts.map(t => `<div class="cal-item tick" title="Tickler: ${esc(t.next)}">↺ ${esc(t.next)}<span>resurfaces</span></div>`).join('')}</div>`; }).join('')}</div>`}</div>`; })()}
 
-    <div class="panel"><div class="ph"><h2>Next actions by context</h2><span class="note num">${actions.length} shown · ${delegated().length} with AI</span></div>
+    <div class="panel"><div class="ph"><h2>Next actions by ${byProg ? 'program' : 'context'}</h2><span class="seg" style="margin-left:6px"><button data-group="context" class="${byProg ? '' : 'on'}">by context</button><button data-group="program" class="${byProg ? 'on' : ''}">by program</button></span><span class="sp" style="flex:1"></span><span class="note num">${actions.length} shown · ${delegated().length} with AI</span></div>
       <div class="filters"><span class="faint">I have</span><span class="seg">${[[0, 'any time'], [15, '≤ 15 min'], [30, '≤ 30 min'], [60, '60+ min']].map(f => `<button data-ftime="${f[0]}" class="${nowTime === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">energy</span><span class="seg">${[['', 'any'], ['low', 'low'], ['high', 'high']].map(f => `<button data-fenergy="${f[0]}" class="${nowEnergy === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">scope</span><select class="in" style="width:auto;padding:3px 8px;font-size:12px" data-fscope aria-label="Program or project"><option value="">all programs</option>${active().map(g => `<optgroup label="${esc(g.name)}"><option value="${g.id}" ${nowScope === g.id ? 'selected' : ''}>${esc(g.name)} — whole program</option>${activeProjects(g.id).map(j => `<option value="${j.id}" ${nowScope === j.id ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}</optgroup>`).join('')}</select>${nowScope || nowTime || nowEnergy ? `<button class="btn sm ghost" data-fclear>Clear</button>` : ''}</div>
-      <div class="pb">${hardToday.length ? `<div class="ctxgroup"><span class="chip" style="color:var(--warn);background:var(--warn-soft)">pinned to today</span><span class="n">${hardToday.length}</span><span class="faint" style="font-size:11px">· must happen today — shown here, not in a context list</span></div>${hardToday.map(actionRow).join('')}` : ''}${keys.map(k => `<div class="ctxgroup"><span class="chip ctx">${esc(k)}</span><span class="n">${groups[k].length}</span></div>${groups[k].map(actionRow).join('')}`).join('')}</div>
+      <div class="pb">${hardToday.length ? `<div class="ctxgroup"><span class="chip" style="color:var(--warn);background:var(--warn-soft)">pinned to today</span><span class="n">${hardToday.length}</span><span class="faint" style="font-size:11px">· must happen today — shown here, not in a context list</span></div>${hardToday.map(actionRow).join('')}` : ''}${keys.map(k => `<div class="ctxgroup">${byProg ? `<span class="chip proj">${esc(k === '—' ? 'No project' : projName(k))}</span>` : `<span class="chip ctx">${esc(k)}</span>`}<span class="n">${groups[k].length}</span></div>${groups[k].map(actionRow).join('')}`).join('')}</div>
     </div>
   ${over.length ? `<div class="panel"><div class="ph"><h2>Past follow-up</h2><a href="#waiting" class="note">Full ledger →</a></div><div class="pb">${over.map(w => waitingRow(w, { showOwner:true })).join('')}</div></div>` : ''}`;
 }
@@ -1093,7 +1095,7 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
@@ -1118,6 +1120,7 @@ document.addEventListener('click', (e) => {
   else if (ds.restore) { const x = items.find(i => i.id === ds.restore); x.kind = 'inbox'; x.captured = TODAY; if (!x.p) x.p = { kind:'action', next:x.next, project:null, ctx:'@quick', min:15, conf:.5, why:'Restored from trash — clarify again.' }; delete state.kinds[x.id]; save(); sel = x.id; toast('Restored to inbox'); render(); }
   else if (ds.capfrom) { const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'meeting', from:null, captured:TODAY, raw:`Follow-ups from ${ds.capfrom} (last week)`, p:{ kind:'action', next:`Write up follow-ups from ${ds.capfrom}`, project:null, ctx:'@quick', min:10, conf:.6, why:'Captured from the past-calendar sweep; no notes to read yet.' } }; items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); toast('Captured — clarify it in the inbox'); render(); }
   else if ('fenergy' in ds) { nowEnergy = ds.fenergy; render(); }
+  else if (ds.group) { state.nowGroup = ds.group; save(); render(); }
   else if (ds.collapse) { state.collapsed[ds.collapse] = !state.collapsed[ds.collapse]; save(); render(); }
   else if ('fclear' in ds) { nowScope = ''; nowTime = 0; nowEnergy = ''; render(); }
   else if ('addprog' in ds) addProgramDrawer();

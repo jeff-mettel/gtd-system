@@ -298,7 +298,7 @@ for (let w = 0; w < 8; w++) {
     const dow = pick([0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4]);          // weekdays, Mon–Thu heavier
     const capT = T0 + (w * 7 + dow) * DAY + between(2, 12) * H;         // 08:00–18:00
     if (capT >= T1) continue;
-    const avail = projects.filter(j => j.created <= capT);
+    const avail = projects.filter(j => j.created <= capT && !(j.id === 'J6' && capT > at(-24)) && !(j.id === 'J7' && capT > at(-20)));
     const j = pick(avail); const proj = rnd() < .2 ? j.program : j.id;
     const src = pick(sources); const person = pick(people).id;
     let kind = pick(kindsDist); const delegate = kind === 'delegate'; if (delegate) kind = 'action';
@@ -460,15 +460,15 @@ const dummy = new THREE.Object3D(), tmpC = new THREE.Color();
 const labels = [];
 const label = (text, pos, cls = '') => { const el = document.createElement('div'); el.className = 'lbl ' + cls; el.innerHTML = text; stage.appendChild(el); const L = { el, pos: new THREE.Vector3(...pos) }; labels.push(L); return L; };
 label('Gmail', [-36, 1.2, -8], 'small'); label('Calendar', [-36, 1.2, -4], 'small'); label('Chat', [-36, 1.2, 0], 'small'); label('Meetings', [-36, 1.2, 4], 'small'); label('Voice', [-36, 1.2, 8], 'small');
-label('Inbox', [LAY.inbox[0], 1.6, LAY.inbox[2] - 4], 'big'); label('Clarify gate', [LAY.gate[0], 7.2, 0], 'big'); label('Trash', [LAY.trash[0], 2.4, LAY.trash[2]], 'small');
-label('Waiting for', [0, LAY.shelf.y + 3.6, LAY.shelf.z - 1.6], 'big'); for (const p of people) label(p.name.split(' ')[0], [postX(p.id), LAY.shelf.y + 2.9, LAY.shelf.z - 1.6], 'small');
+label('Inbox', [LAY.inbox[0], 1.6, LAY.inbox[2] - 4], 'big'); label('Clarify gate', [LAY.gate[0], 0.4, 5.5], 'big'); label('Trash', [LAY.trash[0], 2.4, LAY.trash[2]], 'small');
+label('Waiting for', [LAY.shelf.x0 - 2.5, LAY.shelf.y + 1.2, LAY.shelf.z], 'big'); for (const p of people) label(p.name.split(' ')[0], [postX(p.id), LAY.shelf.y + 2.9, LAY.shelf.z - 1.6], 'small');
 label('Someday / maybe', [LAY.someday[0], 2.2, LAY.someday[2]], 'small');
 label('Delegated to AI', [LAY.ai.ring[0], 3.4, LAY.ai.ring[2]], 'big'); label('Ready for review', [LAY.ai.tray[0], 1.6, LAY.ai.tray[2]], 'small');
-label('Done', [LAY.heap[0], 6, 0], 'big'); label('Wiki', [0, 9, LAY.wiki.z], 'big');
+label('Done', [LAY.heap[0], 7, 0], 'big'); label('Wiki', [LAY.wiki.x0 - 3, 1.5, LAY.wiki.z], 'big');
 const laneLabels = new Map(programs.map(g => [g.id, label(g.name, [LAY.floorX[0] - 1, 0.8, 0], 'big')]));
 const trackLabels = new Map(projects.map(j => [j.id, label(j.name, [LAY.floorX[1] + 1, 0.6, 0], 'small')]));
-const pageLabels = new Map(wikiPages.map(([page, owner]) => [page, label(page.replace(/^program-|^person-/, '').replace(/-/g, ' '), [pageX(page), 1, LAY.wiki.z], 'small')]));
-for (const [page, L] of pageLabels) { L.el.style.transform = 'rotate(-90deg) translate(0,-50%)'; L.el.style.transformOrigin = '0 0'; L.rot = true; }
+const hubNames = { 'program-billing-migration': 'Billing migration', 'program-fall-launch': 'Fall launch', 'program-vendor-consolidation': 'Vendor consolidation' };
+const pageLabels = new Map(wikiPages.filter(([page]) => hubNames[page]).map(([page]) => [page, label(hubNames[page], [pageX(page), 1, LAY.wiki.z], 'small')]));
 
 // camera control (small orbit: drag rotate, shift/right-drag pan, wheel zoom)
 const cam = { target: new THREE.Vector3(0, 0, -4), theta: 0.0, phi: 0.95, r: 84 };
@@ -548,7 +548,7 @@ function frame(now) {
       case 'someday': { const n = slot('someday'); p = [LAY.someday[0] - 1.6 + (n % 4) * 1.1, 1.6 + Math.floor(n / 12) * 1.05, LAY.someday[2] - 1.2 + Math.floor(n / 4) % 3 * 1.1]; break; }
       case 'reference': case 'wiki': { const x = pageX(it.page || hubOf(it.project) || 'person-priya'); const k = Math.min(1, sinceD * 24 / 2); p = [x, 0.9, LAY.wiki.z + 4 - 3 * k]; break; }
       case 'trash': { const n = slot('trash'); p = [LAY.trash[0] - 0.5 + (n % 2), 0.5 + Math.floor(n / 4) * 0.8, LAY.trash[2] - 0.5 + Math.floor(n / 2) % 2]; break; }
-      case 'done': { const n = slot('done'); if (sinceD * 24 < 2) { const k = sinceD * 24 / 2; p = [LAY.chute[0] - 3 + 8 * k, 2.2 - 1.6 * k, (projTrackZ(S, it.project) || 0) * (1 - k)]; } else { const r = 0.85 * Math.sqrt(n), a = n * 2.39996; p = [LAY.heap[0] + Math.cos(a) * r, 0.5 + Math.max(0, 3.4 - r * 0.55), Math.sin(a) * r]; } break; }
+      case 'done': { const n = slot('done'); if (sinceD * 24 < 2) { const k = sinceD * 24 / 2; p = [LAY.chute[0] - 3 + 8 * k, 2.2 - 1.6 * k, (projTrackZ(S, it.project) || 0) * (1 - k)]; } else { const r = 0.62 * Math.sqrt(n), a = n * 2.39996; p = [LAY.heap[0] + Math.cos(a) * r, 0.5 + Math.max(0, 4.6 - r * 0.75), Math.sin(a) * r]; } break; }
     }
     targets.set(it.id, p);
   }
@@ -591,7 +591,7 @@ function frame(now) {
     if (stalled) { const r = stallRings.get(j.id); r.visible = true; const sc = 1 + 0.12 * Math.sin(now / 350); r.scale.set(sc, sc, sc); r.position.set(LAY.floorX[0] + 0.8, 0.3, z); r.material.emissiveIntensity = 0.3 + 0.3 * Math.sin(now / 350); }
   }
   for (const g of programs) { const L = laneLabels.get(g.id), pg = S.programs.get(g.id); const on = pg && !pg.retired; L.el.style.display = on ? '' : 'none'; if (on) { L.pos.set(LAY.floorX[0] - 1.2, 0.5, laneOf(S, g.id)); L.el.style.transform = 'translate(-100%,-50%)'; L.el.style.opacity = progFilter && g.id !== progFilter ? .35 : 1; } }
-  for (const [page, m] of colMeshes) { const w = S.wiki.get(page) || 0; const target = Math.max(0.001, w / 160); m.scale.y += (target - m.scale.y) * k; pageLabels.get(page).pos.set(pageX(page), m.scale.y + 0.4, LAY.wiki.z); pageLabels.get(page).el.style.display = w ? '' : 'none'; }
+  for (const [page, m] of colMeshes) { const w = S.wiki.get(page) || 0; const target = Math.max(0.001, w / 160); m.scale.y += (target - m.scale.y) * k; const L = pageLabels.get(page); if (L) { L.pos.set(pageX(page), m.scale.y + 0.6, LAY.wiki.z); L.el.style.display = w ? '' : 'none'; } }
   const bump = (now / 200) % 1; aiRing.material.emissiveIntensity = 0; gateRing.rotation.z += dt * 0.15;
 
   // ---- camera
