@@ -4,6 +4,10 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **GTD gap review adopted** (`docs/gtd-gap-review.md`): add the calendar / hard
+  landscape and tickler, a human two-minute path, reference filed into the wiki, a
+  Someday list, mind-sweep and calendar-sweep review steps, Now filters, recoverable
+  trash. Project plans and a horizons page deferred.
 - **Programs are created deliberately, retired never deleted.** Add program lives in
   the Programs header and the review's horizons step (and the inbox can clarify an
   ask as a new program); purpose is required; creation stubs the wiki hub. Retiring
