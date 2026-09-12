@@ -658,7 +658,7 @@ function waitingRow(w, opts = {}) {
 function viewNow() {
   const all = mine(), ready = delegated('ready');
   const hardToday = all.filter(a => a.hard && until(a.hard) === 0);
-  const actions = all.filter(a => !a.hard || until(a.hard) < 0).filter(a => (nowTime === 0 || (a.min || 15) <= nowTime || (nowTime === 60 && (a.min || 15) >= 60)) && (nowEnergy === '' || energyOf(a) === nowEnergy));
+  const actions = all.filter(a => !a.hard || until(a.hard) < 0).filter(a => (nowTime === 0 || (a.min || 15) <= nowTime || (nowTime === 60 && (a.min || 15) >= 60)) && (nowEnergy === '' || energyOf(a) === nowEnergy)).filter(a => nowScope === '' || a.project === nowScope || projOf(a.project)?.program === nowScope);
   const over = by('waiting').filter(w => until(w.followUp) < 0);
   const dueSoon = all.filter(a => a.due && until(a.due) <= 1);
   const noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext);
@@ -681,7 +681,7 @@ function viewNow() {
       ${hardToday.length ? `<div class="ctxgroup" style="border-top:1px solid var(--line)"><span class="eyebrow">Must happen today</span></div>${hardToday.map(a => `<div class="slot hard"><div class="tm">day</div><label class="lab" style="gap:8px"><input class="chk" type="checkbox" data-done="${a.id}"><div><div>${esc(a.next)}</div><div class="who">${esc(projName(a.project))} · ${a.min} min</div></div></label></div>`).join('')}` : ''}</div>
     </div>
     <div class="panel"><div class="ph"><h2>Next actions by context</h2><span class="note num">${actions.length} shown · ${delegated().length} with AI</span></div>
-      <div class="filters"><span class="faint">I have</span><span class="seg">${[[0, 'any time'], [15, '≤ 15 min'], [30, '≤ 30 min'], [60, '60+ min']].map(f => `<button data-ftime="${f[0]}" class="${nowTime === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">energy</span><span class="seg">${[['', 'any'], ['low', 'low'], ['high', 'high']].map(f => `<button data-fenergy="${f[0]}" class="${nowEnergy === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span></div>
+      <div class="filters"><span class="faint">I have</span><span class="seg">${[[0, 'any time'], [15, '≤ 15 min'], [30, '≤ 30 min'], [60, '60+ min']].map(f => `<button data-ftime="${f[0]}" class="${nowTime === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">energy</span><span class="seg">${[['', 'any'], ['low', 'low'], ['high', 'high']].map(f => `<button data-fenergy="${f[0]}" class="${nowEnergy === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">scope</span><select class="in" style="width:auto;padding:3px 8px;font-size:12px" data-fscope aria-label="Program or project"><option value="">all programs</option>${active().map(g => `<optgroup label="${esc(g.name)}"><option value="${g.id}" ${nowScope === g.id ? 'selected' : ''}>${esc(g.name)} — whole program</option>${activeProjects(g.id).map(j => `<option value="${j.id}" ${nowScope === j.id ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}</optgroup>`).join('')}</select>${nowScope || nowTime || nowEnergy ? `<button class="btn sm ghost" data-fclear>Clear</button>` : ''}</div>
       <div class="pb">${keys.map(k => `<div class="ctxgroup"><span class="chip ctx">${esc(k)}</span><span class="n">${groups[k].length}</span></div>${groups[k].map(actionRow).join('')}`).join('')}</div>
     </div>
   </div>
@@ -691,7 +691,7 @@ function viewNow() {
   ${over.length ? `<div class="panel"><div class="ph"><h2>Past follow-up</h2><a href="#waiting" class="note">Full ledger →</a></div><div class="pb">${over.map(w => waitingRow(w, { showOwner:true })).join('')}</div></div>` : ''}`;
 }
 
-let sel = null, delegateOnAccept = false, nowTime = 0, nowEnergy = '';
+let sel = null, delegateOnAccept = false, nowTime = 0, nowEnergy = '', nowScope = '';
 function viewInbox() {
   const inbox = by('inbox');
   if (!inbox.length) return `<div class="vhead"><div><h1>Inbox</h1><p>Every ask from every surface lands here. AI proposes what each one is; you confirm in one keystroke.</p></div></div><div class="panel"><div class="empty"><b>Inbox zero</b>Nothing waiting to be clarified. Capture something above or reset the demo from Flow.</div></div>${trashPanel()}`;
@@ -1076,7 +1076,7 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-restore],[data-capfrom],[data-ftime],[data-fenergy],[data-fclear],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
@@ -1097,6 +1097,7 @@ document.addEventListener('click', (e) => {
   else if (ds.restore) { const x = items.find(i => i.id === ds.restore); x.kind = 'inbox'; x.captured = TODAY; if (!x.p) x.p = { kind:'action', next:x.next, project:null, ctx:'@quick', min:15, conf:.5, why:'Restored from trash — clarify again.' }; delete state.kinds[x.id]; save(); sel = x.id; toast('Restored to inbox'); render(); }
   else if (ds.capfrom) { const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'meeting', from:null, captured:TODAY, raw:`Follow-ups from ${ds.capfrom} (last week)`, p:{ kind:'action', next:`Write up follow-ups from ${ds.capfrom}`, project:null, ctx:'@quick', min:10, conf:.6, why:'Captured from the past-calendar sweep; no notes to read yet.' } }; items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); toast('Captured — clarify it in the inbox'); render(); }
   else if ('fenergy' in ds) { nowEnergy = ds.fenergy; render(); }
+  else if ('fclear' in ds) { nowScope = ''; nowTime = 0; nowEnergy = ''; render(); }
   else if ('addprog' in ds) addProgramDrawer();
   else if ('saveprog' in ds) {
     const name = $('#ngName').value.trim(), purpose = $('#ngPurpose').value.trim(), err = $('#npErr');
@@ -1142,6 +1143,7 @@ document.addEventListener('change', (e) => {
   if (t.dataset.step) { state.review[t.dataset.step] = t.checked; save(); render(); }
   if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
   if (t.dataset.revisit) { const x = items.find(i => i.id === t.dataset.revisit); x.revisit = t.value ? new Date(t.value + 'T08:00:00') : null; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { revisit:x.revisit }); save(); toast(x.revisit ? `Will resurface ${fmtDate(x.revisit)}` : 'Revisit date cleared'); renderNav(); }
+  if ('fscope' in t.dataset) { nowScope = t.value; render(); }
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
 });
 $('#drawerBg').addEventListener('click', closeDrawer);
