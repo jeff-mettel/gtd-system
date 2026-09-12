@@ -257,12 +257,12 @@ wait('W5', 'Final launch date confirmation from PMM', { owner:'dana', project:'J
 wait('W6', 'Scorecard data for the remaining 4 vendors', { owner:'tomas', project:'J8', since:-8 });
 wait('W7', 'Decision on cutover date (1 Nov vs 15 Nov)', { owner:'ingrid', project:'J2', since:-19, nudged:[-12], src:'meeting' });
 // delegated to the AI
-const del = (id, text, o) => { item(id, text, Object.assign({ src:'chat', kind:'action', cap:[o.day - 1, 14], acc:[o.day - 1, 15] }, o)); ev(at(o.day, o.h || 9), 'jeff', 'delegated', id, { cap:o.cap }); if (o.work !== false) ev(at(o.day, (o.h || 9) + 1), 'ai:' + o.cap, 'working', id, {}); if (o.ready) ev(at(...o.ready), 'ai:' + o.cap, 'delivered', id, {}); };
-del('X1', 'Fold the two vendors’ updated pricing into the scorecard', { project:'J8', min:25, day:0, h:8.2, cap:'data', ready:[0, 8.6] });
-del('X2', 'Find three 30-minute slots with Sam for a redlines working session', { project:'J7', min:15, day:-1, cap:'calendar', ready:[0, 7.5] });
-del('X3', 'Draft Friday status for Fall launch readiness', { project:'P2', min:40, day:-1, cap:'draft', ready:[0, 7.9] });
-del('X4', 'Compile the decisions log for Billing migration from meeting notes', { project:'P1', min:60, day:0, h:8.1, cap:'wiki' });
-del('X5', 'Pre-read Dana’s announcement draft and list open questions', { project:'J4', min:20, day:0, h:8.3, cap:'draft', work:false });
+const del = (id, text, o) => { item(id, text, Object.assign({ src:'chat', kind:'action', cap:[o.day - 1, 14], acc:[o.day - 1, 15] }, o)); ev(at(o.day, o.h || 9), 'jeff', 'delegated', id, { cap:o.capab }); if (o.work !== false) ev(at(o.day, (o.h || 9) + 0.5), 'ai:' + o.capab, 'working', id, {}); if (o.ready) ev(at(...o.ready), 'ai:' + o.capab, 'delivered', id, {}); };
+del('X1', 'Fold the two vendors’ updated pricing into the scorecard', { project:'J8', min:25, day:0, h:7.2, capab:'data', ready:[0, 7.9] });
+del('X2', 'Find three 30-minute slots with Sam for a redlines working session', { project:'J7', min:15, day:-1, capab:'calendar', ready:[0, 7.5] });
+del('X3', 'Draft Friday status for Fall launch readiness', { project:'P2', min:40, day:-1, capab:'draft', ready:[0, 7.8] });
+del('X4', 'Compile the decisions log for Billing migration from meeting notes', { project:'P1', min:60, day:0, h:7.1, capab:'wiki' });
+del('X5', 'Pre-read Dana’s announcement draft and list open questions', { project:'J4', min:20, day:0, h:7.4, capab:'draft', work:false });
 // someday
 item('S1', 'Launch retro template across programs', { src:'voice', kind:'someday', cap:[-30, 18], acc:[-29, 9] });
 item('S2', 'Generate weekly status straight from the ledger', { src:'voice', kind:'someday', cap:[-52, 20], acc:[-51, 9] });
@@ -298,7 +298,7 @@ for (let w = 0; w < 8; w++) {
     const dow = pick([0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4]);          // weekdays, Mon–Thu heavier
     const capT = T0 + (w * 7 + dow) * DAY + between(2, 12) * H;         // 08:00–18:00
     if (capT >= T1) continue;
-    const avail = projects.filter(j => j.created <= capT && !(j.id === 'J6' && capT > at(-24)) && !(j.id === 'J7' && capT > at(-20)));
+    const avail = projects.filter(j => j.created <= capT && !(j.id === 'J6' && capT > at(-40)) && !(j.id === 'J7' && capT > at(-32)));
     const j = pick(avail); const proj = rnd() < .2 ? j.program : j.id;
     const src = pick(sources); const person = pick(people).id;
     let kind = pick(kindsDist); const delegate = kind === 'delegate'; if (delegate) kind = 'action';
@@ -372,20 +372,19 @@ function fold(t) {
         else if (e.type === 'approved') { it.stage = 'done'; it.since = e.at; }
         else if (e.type === 'taken_back') { it.stage = 'action'; it.since = e.at; }
         else if (e.type === 'promoted') { it.stage = 'action'; it.kind = 'action'; it.since = e.at; }
-        if (MOVE.has(e.type) && it.project) { const p = S.projects.get(it.project) || S.projects.get(projOfProgram(it.project)); if (p) p.lastMove = Math.max(p.lastMove, e.at); else { const g = it.project; for (const q of S.projects.values()) if (q.program === g) q.lastMove = Math.max(q.lastMove, e.at); } }
+        if (MOVE.has(e.type) && it.project) { const p = S.projects.get(it.project); if (p) p.lastMove = Math.max(p.lastMove, e.at); }   // program-level items don't count as project movement
       }
     }
   }
   return S;
 }
-function projOfProgram() { return null; }
 
 /* =====================================================================
    3. Scene layout — where each station lives
    ===================================================================== */
 const LAY = {
   ports: { gmail: [-36, 0, -8], calendar: [-36, 0, -4], chat: [-36, 0, 0], meeting: [-36, 0, 4], voice: [-36, 0, 8] },
-  inbox: [-27, 0, 0], gate: [-18, 0, 0], trash: [-18, 0, 12],
+  inbox: [-27, 0, 0], gate: [-18, 0, 0], trash: [-27, 0, 9],
   floorX: [-11, 13], laneZ: { P1: -11, P2: 0, P3: 11 },
   shelf: { z: -23, y: 3.2, x0: -15, x1: 15 }, someday: [-26, 0, -23],
   ai: { ring: [-3, 1.2, 23], tray: [9, 0.6, 23] },
