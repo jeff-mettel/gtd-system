@@ -4,6 +4,11 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Back-end storage resolved: append-only `ledger/events.jsonl` is canonical.**
+  SQLite index and markdown pages are derived projections, one-directional. Not
+  folders-as-status, not tags: the views need history (computed movement, AI audit,
+  proposal→accepted diff, take-it-back), and a frontmatter file only holds current
+  state. Markdown projection deferred until it's wanted on the phone.
 - **Repo created** at `~/Documents/GitHub/GTD System` to hold design docs and the
   front-end prototype; the published artifact stays the review surface.
 - **AI as a delegate, not a mode.** Delegation to the AI reuses GTD's delegate step and

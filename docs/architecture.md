@@ -65,11 +65,13 @@ owned by someone else, or an item delegated to the AI. Otherwise it's flagged
 
 ### Storage
 
-Markdown files with YAML frontmatter as canonical (projects/programs/people as rich
-pages; items compact, status in frontmatter, never moved between folders), a derived
-SQLite index rebuilt by a script, HTML dashboards generated from the index. Reasons:
-Claude reads/writes markdown natively; git gives an audit trail; Obsidian gives a
-phone-side editor; matches the existing `knowledge/` wiki pattern.
+Resolved 2026-09-12 (see `decisions.md`): an append-only event log
+`ledger/events.jsonl` is canonical — plain text, git-tracked, Claude-readable,
+replayable. A SQLite index is derived from it for queries; markdown + frontmatter
+pages (programs, projects, people) are a one-directional projection for Obsidian
+reading, added when wanted. Not folders-as-status and not tags: the views need
+history, and a frontmatter file only holds current state. Details in
+`backend-wiring.md`.
 
 Scoping rule: team systems of record (issue trackers etc.) are **not mirrored**. The
 store only holds items where *I* have an action or am waiting on someone, with a
