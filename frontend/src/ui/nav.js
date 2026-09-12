@@ -67,7 +67,8 @@ export const views = [
 
 export function renderNav() {
   const cur = location.hash.slice(1) || 'now';
-  $('#nav').innerHTML = views.slice(0, 1).map(v => `<a href="#${v.id}" class="primary ${cur === v.id ? 'on' : ''}">${icons[v.id]}<span><b>${v.label}</b><small>${v.sub}</small></span><span class="key">${v.key}</span></a>`).join('') +
+  const rail = $('.rail'); if (rail) { rail.classList.toggle('collapsed', !!state.collapsed.rail); const tb = rail.querySelector('.railtoggle'); if (tb) { tb.title = (state.collapsed.rail ? 'Expand' : 'Collapse') + ' sidebar ([)'; tb.setAttribute('aria-label', tb.title); tb.querySelector('span').textContent = state.collapsed.rail ? 'Expand' : 'Collapse'; } }
+  $('#nav').innerHTML = views.slice(0, 1).map(v => `<a href="#${v.id}" class="primary ${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id]}<span><b>${v.label}</b><small>${v.sub}</small></span><span class="key">${v.key}</span></a>`).join('') +
     `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
     `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');
   const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lr = days(state.lastReview);
@@ -76,5 +77,5 @@ export function renderNav() {
 
 export function navLink(v, cur) {
   const n = v.count ? v.count() : 0;
-  return `<a href="#${v.id}" class="${cur === v.id ? 'on' : ''}">${icons[v.id] || ''}<span>${v.label}</span>${n ? `<span class="cnt ${v.hot ? 'hot' : ''}${v.ai ? ' ai' : ''}">${n}</span>` : `<span class="key">${v.key}</span>`}</a>`;
+  return `<a href="#${v.id}" class="${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id] || ''}<span>${v.label}</span>${n ? `<span class="cnt ${v.hot ? 'hot' : ''}${v.ai ? ' ai' : ''}">${n}</span>` : `<span class="key">${v.key}</span>`}</a>`;
 }

@@ -181,6 +181,7 @@ document.addEventListener('keydown', (e) => {
   const v = views.find(x => x.key === e.key); if (v) { location.hash = '#' + v.id; return; }
   if (e.key === '/') { e.preventDefault(); $('#captureInput').focus(); return; }
   if (e.key === '?') { guideDrawer(); return; }
+  if (e.key === '[') { state.collapsed.rail = !state.collapsed.rail; save(); render(); return; }
   const cur = location.hash.slice(1) || 'now';
   if (cur === 'inbox') {
     if (e.key === 'j') moveSel(1); else if (e.key === 'k') moveSel(-1);
