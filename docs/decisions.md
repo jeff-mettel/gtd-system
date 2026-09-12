@@ -4,6 +4,10 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Teach the system in the UI.** Each view carries a dismissable instruction card
+  naming the GTD stage it serves and how to use it; `?` / Guide opens the full loop,
+  the two-store model, trust rules and keys. Rail tabs get inline SVG icons (no icon
+  font — the artifact CSP allows only Google Fonts stylesheets).
 - **Program wiki added (`wiki/`), Karpathy pattern, inside this repo.** Ledger is
   canonical for commitments (dates, owners); wiki is canonical for context (purpose,
   links, decisions with rationale, history, risks). Compile job rewrites only fenced
