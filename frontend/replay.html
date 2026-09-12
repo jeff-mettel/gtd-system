@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Replay · Commitment Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#f4f5f8; --surface:#ffffff; --surface-2:#eceef3; --raised:#ffffff;
+  --ink:#171a21; --ink-2:#565d6b; --ink-3:#8b919e; --line:#dfe2e9; --line-2:#c9cdd6;
+  --accent:#3b45a8; --accent-ink:#ffffff; --accent-soft:#e8eafb; --accent-text:#2f388a;
+  --good:#1e8a4c; --warn:#b8720c; --crit:#c53a3a;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --o1:#86b6ef; --o2:#5598e7; --o3:#2a78d6; --o4:#184f95;
+  --shadow:0 12px 32px rgba(23,26,33,.14);
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --scene-bg:#e9ebf1; --scene-floor:#f7f8fb; --scene-grid:#d5d9e3; --scene-fog:#e9ebf1;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0f1216; --surface:#171b22; --surface-2:#1e232c; --raised:#1c212a;
+  --ink:#e7e9ef; --ink-2:#a4aab7; --ink-3:#6f7686; --line:#262b35; --line-2:#333a47;
+  --accent:#8e96f0; --accent-ink:#0f1216; --accent-soft:#232848; --accent-text:#b3b9f5;
+  --good:#3fb46f; --warn:#e09a2b; --crit:#e5615f;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --o1:#9ec5f4; --o2:#6da7ec; --o3:#3987e5; --o4:#256abf;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+  --scene-bg:#0b0e13; --scene-floor:#141920; --scene-grid:#232a36; --scene-fog:#0b0e13;
+}}
+:root[data-theme="dark"]{
+  --ground:#0f1216; --surface:#171b22; --surface-2:#1e232c; --raised:#1c212a;
+  --ink:#e7e9ef; --ink-2:#a4aab7; --ink-3:#6f7686; --line:#262b35; --line-2:#333a47;
+  --accent:#8e96f0; --accent-ink:#0f1216; --accent-soft:#232848; --accent-text:#b3b9f5;
+  --good:#3fb46f; --warn:#e09a2b; --crit:#e5615f;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --o1:#9ec5f4; --o2:#6da7ec; --o3:#3987e5; --o4:#256abf;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+  --scene-bg:#0b0e13; --scene-floor:#141920; --scene-grid:#232a36; --scene-fog:#0b0e13;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--ground);color:var(--ink);font:13px/1.45 var(--sans);overflow:hidden}
+h1{font-family:var(--display);font-weight:600;margin:0;font-size:16px;letter-spacing:-.01em}
+.mono{font-family:var(--mono);font-size:12px}
+.eyebrow{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+#app{position:relative;width:100%;height:100%}
+#stage{position:absolute;inset:0}
+canvas{display:block;width:100%;height:100%}
+/* chrome */
+.top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:14px;padding:10px 16px;background:linear-gradient(var(--ground),transparent);pointer-events:none;z-index:5}
+.top > *{pointer-events:auto}
+.top .sub{color:var(--ink-3);font-size:12px}
+.spacer{flex:1}
+select,button{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 9px;cursor:pointer}
+button:hover,select:hover{border-color:var(--line-2)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+button.on{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;border-radius:0;padding:5px 9px;background:transparent}
+.seg button.on{background:var(--accent-soft);color:var(--accent-text)}
+label.chk{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font-size:12px;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 9px}
+/* transport */
+.transport{position:absolute;left:16px;right:16px;bottom:16px;background:color-mix(in srgb,var(--raised) 92%,transparent);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 14px 12px;z-index:5;display:grid;grid-template-columns:auto 1fr auto;gap:10px 14px;align-items:center;backdrop-filter:blur(8px)}
+.transport .btns{display:flex;gap:6px;align-items:center}
+.transport .date{font-family:var(--display);font-weight:600;font-size:16px;min-width:150px;text-align:right}
+.scrub{position:relative;height:34px}
+.scrub input{position:absolute;inset:0;width:100%;margin:0;-webkit-appearance:none;background:transparent;cursor:pointer;z-index:2}
+.scrub input::-webkit-slider-runnable-track{height:6px;background:var(--surface-2);border-radius:3px}
+.scrub input::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:22px;border-radius:5px;background:var(--accent);margin-top:-8px;border:2px solid var(--raised);box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.scrub input::-moz-range-track{height:6px;background:var(--surface-2);border-radius:3px}
+.scrub input::-moz-range-thumb{width:14px;height:22px;border-radius:5px;background:var(--accent);border:2px solid var(--raised)}
+.ticks{position:absolute;left:7px;right:7px;top:0;height:34px;pointer-events:none}
+.tick{position:absolute;top:19px;width:1px;height:9px;background:var(--line-2);transform:translateX(-.5px)}
+.tick.review{background:var(--accent);height:11px;top:18px}
+.tick.week{top:22px;height:5px}
+.tick .l{position:absolute;top:10px;left:0;transform:translateX(-50%);font:10px var(--mono);color:var(--ink-3);white-space:nowrap}
+.caption{grid-column:1/-1;display:flex;gap:10px;align-items:baseline;color:var(--ink-2);font-size:12.5px;min-height:18px;border-top:1px solid var(--line);padding-top:8px}
+.caption .who{font:11px var(--mono);color:var(--ink-3);padding:1px 6px;border:1px solid var(--line);border-radius:4px}
+.caption .who.ai{color:var(--accent-text);border-color:var(--accent-soft);background:var(--accent-soft)}
+.caption .when{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+/* side panels */
+.stats{position:absolute;left:16px;top:56px;display:flex;flex-direction:column;gap:6px;z-index:4}
+.tile{background:color-mix(in srgb,var(--raised) 88%,transparent);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-width:118px;backdrop-filter:blur(6px)}
+.tile .n{font-family:var(--display);font-weight:600;font-size:18px;line-height:1.1}
+.tile .k{font-size:11px;color:var(--ink-3)}
+.legend{position:absolute;right:16px;top:56px;background:color-mix(in srgb,var(--raised) 88%,transparent);border:1px solid var(--line);border-radius:10px;padding:10px 12px;z-index:4;width:236px;backdrop-filter:blur(6px)}
+.legend h3{font-family:var(--display);font-weight:600;font-size:12.5px;margin:0 0 6px}
+.legend .row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);padding:2px 0}
+.legend .sw{width:11px;height:11px;border-radius:50%;flex:none;border:1px solid transparent}
+.legend .sw.wire{background:transparent!important;border:1.5px dashed var(--ink-3)}
+.legend .sw.done{opacity:.45}
+.legend .grp{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.legend .hint{font-size:11px;color:var(--ink-3);margin-top:6px}
+/* labels */
+.lbl{position:absolute;transform:translate(-50%,-100%);pointer-events:none;white-space:nowrap;font-size:11px;color:var(--ink-2);text-shadow:0 0 4px var(--scene-bg),0 0 8px var(--scene-bg);z-index:3}
+.lbl.big{font-family:var(--display);font-weight:600;font-size:13px;color:var(--ink)}
+.lbl.small{font-size:10.5px;color:var(--ink-3)}
+.lbl .st{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px}
+.lbl.stalled{color:var(--crit)}
+.tip{position:fixed;pointer-events:none;background:var(--raised);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:8px;padding:8px 11px;font-size:12px;z-index:50;display:none;max-width:320px}
+.tip b{display:block;font-weight:500;color:var(--ink)}
+.tip .m{color:var(--ink-3);font-family:var(--mono);font-size:11px;margin-top:3px}
+.tip .h{margin-top:6px;border-top:1px solid var(--line);padding-top:5px;color:var(--ink-2)}
+.tip .h div{display:flex;gap:8px}.tip .h span{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);min-width:64px}
+.kbd{font:11px var(--mono);border:1px solid var(--line-2);border-radius:4px;padding:0 4px;color:var(--ink-2)}
+@media (max-width:900px){.legend{display:none}.stats{flex-direction:row;flex-wrap:wrap;right:16px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"></div>
+  <div class="top">
+    <div><h1>Replay</h1><div class="sub">Every ball is an item; where it sits is a fold of the ledger up to the playhead. Nothing here is a status field.</div></div>
+    <div class="spacer"></div>
+    <select id="progFilter" aria-label="Program filter"><option value="">All programs</option></select>
+    <label class="chk"><input type="checkbox" id="aiFilter"> AI touched · 7 d</label>
+    <div class="seg" id="cams"><button data-cam="over" class="on">Overview</button><button data-cam="gate">Gate</button><button data-cam="wait">Waiting</button><button data-cam="ai">AI</button><button data-cam="wiki">Wiki</button><button data-cam="done">Done</button></div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="legend">
+    <h3>Reading the scene</h3>
+    <div class="row"><span class="sw" style="background:var(--s1)"></span>Next action · on its project track</div>
+    <div class="row"><span class="sw" style="background:var(--s3)"></span>Waiting for · parked by the owner</div>
+    <div class="row"><span class="sw" style="background:var(--accent)"></span>Delegated to AI · orbiting, then on the tray</div>
+    <div class="row"><span class="sw" style="background:var(--o1)"></span>Reference · absorbed into the wiki</div>
+    <div class="row"><span class="sw" style="background:var(--ink-3)"></span>Someday / maybe · in the drawer</div>
+    <div class="row"><span class="sw wire"></span>AI-proposed, not yet confirmed</div>
+    <div class="row"><span class="sw done" style="background:var(--s1)"></span>Done · in the heap at the exit</div>
+    <div class="grp"><div class="eyebrow" style="margin-bottom:3px">Waiting-for age</div>
+      <div class="row"><span class="sw" style="background:var(--s3)"></span>0–7 d <span class="sw" style="background:var(--warn);margin-left:8px"></span>8–14 d <span class="sw" style="background:var(--s2);margin-left:8px"></span>15–30 d <span class="sw" style="background:var(--crit);margin-left:8px"></span>30+ d</div></div>
+    <div class="grp"><div class="eyebrow" style="margin-bottom:3px">Tracks</div>
+      <div class="row"><span class="sw" style="background:var(--good)"></span>good <span class="sw" style="background:var(--warn);margin-left:8px"></span>warn <span class="sw" style="background:var(--crit);margin-left:8px"></span>crit <span style="margin-left:8px;color:var(--ink-3)">grey = stalled &gt; 7 d</span></div></div>
+    <div class="hint">Drag to orbit · wheel to zoom · shift-drag to pan · hover a ball · <span class="kbd">space</span> play · <span class="kbd">←</span><span class="kbd">→</span> day · <span class="kbd">⇧</span> week · <span class="kbd">r</span> next review</div>
+  </div>
+  <div class="transport">
+    <div class="btns">
+      <button id="play" class="primary" aria-label="Play">▶</button>
+      <div class="seg" id="speeds"><button data-sp="0.5">½ d/s</button><button data-sp="1" class="on">1 d/s</button><button data-sp="3">3 d/s</button><button data-sp="7">1 wk/s</button></div>
+    </div>
+    <div class="scrub"><div class="ticks" id="ticks"></div><input type="range" id="scrub" min="0" max="1" step="1" value="0" aria-label="Time"></div>
+    <div class="date" id="date"></div>
+    <div class="caption" id="caption"></div>
+  </div>
+  <div class="tip" id="tip"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   1. Example ledger as an EVENT LOG
+   Derived from the same example data as commitment-ledger.html, plus a
+   seeded background of ordinary items so the eight weeks have volume.
+   ===================================================================== */
+const TODAY = new Date('2026-09-14T08:00:00');
+const DAY = 864e5, H = 36e5;
+const at = (dayOff, hour = 9) => TODAY.getTime() + dayOff * DAY + (hour - 8) * H;
+const T0 = at(-56, 6);            // Mon 20 Jul
+const T1 = at(0, 8);              // Mon 14 Sep 08:00 — the demo "now"
+let seed = 20260914; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const pick = (a) => a[Math.floor(rnd() * a.length)];
+const between = (a, b) => a + rnd() * (b - a);
+
+const programs = [
+  { id:'P1', name:'Billing platform migration', created:at(-57) },
+  { id:'P2', name:'Fall launch readiness', created:at(-57) },
+  { id:'P3', name:'Vendor consolidation', created:at(-49, 10) },
+];
+const projects = [
+  { id:'J1', program:'P1', name:'Data migration dry run', created:at(-57) },
+  { id:'J2', program:'P1', name:'Legacy invoice cutover plan', created:at(-57) },
+  { id:'J3', program:'P1', name:'Finance sign-off', created:at(-57) },
+  { id:'J4', program:'P2', name:'Launch comms', created:at(-57) },
+  { id:'J5', program:'P2', name:'Support readiness', created:at(-57) },
+  { id:'J6', program:'P2', name:'Go/no-go criteria', created:at(-57) },
+  { id:'J7', program:'P3', name:'Legal review of master agreements', created:at(-49, 10) },
+  { id:'J8', program:'P3', name:'Vendor scorecard', created:at(-35, 11) },
+];
+const people = [
+  { id:'priya', name:'Priya Natarajan' }, { id:'marcus', name:'Marcus Bell' }, { id:'dana', name:'Dana Whitfield' },
+  { id:'leo', name:'Leo Okafor' }, { id:'sam', name:'Sam Reyes' }, { id:'ingrid', name:'Ingrid Halvorsen' }, { id:'tomas', name:'Tomas Vieira' },
+];
+const wikiPages = [
+  ['program-billing-migration', 'P1', 900], ['program-billing-migration-decisions', 'P1', 420], ['program-billing-migration-timeline', 'P1', 260], ['program-billing-migration-risks', 'P1', 300],
+  ['program-fall-launch', 'P2', 860], ['program-fall-launch-decisions', 'P2', 380], ['program-fall-launch-timeline', 'P2', 240], ['program-fall-launch-risks', 'P2', 280],
+  ['program-vendor-consolidation', 'P3', 0], ['program-vendor-consolidation-decisions', 'P3', 0], ['program-vendor-consolidation-timeline', 'P3', 0], ['program-vendor-consolidation-risks', 'P3', 0],
+  ...people.map(p => ['person-' + p.id, p.id, 180]),
+];
+const hubOf = (proj) => { const j = projects.find(x => x.id === proj); const g = j ? j.program : proj; return ({ P1:'program-billing-migration', P2:'program-fall-launch', P3:'program-vendor-consolidation' })[g]; };
+const pname = (id) => (people.find(p => p.id === id) || {}).name || id;
+
+const EV = [];
+const ev = (t, actor, type, item, payload = {}) => { EV.push({ at: t, actor, type, item, ...payload }); };
+const srcActor = (s) => 'ingest:' + s;
+
+// ---- programs, projects, initial wiki
+for (const g of programs) ev(g.created, 'jeff', 'program_created', null, { program: g.id, text: g.name });
+for (const j of projects) ev(j.created, 'jeff', 'project_created', null, { project: j.id, program: j.program, text: j.name });
+for (const [page, , words] of wikiPages) if (words) ev(at(-57), 'jeff', 'wiki_changed', null, { page, words, text: 'Seeded ' + page });
+for (const [page] of wikiPages.filter(p => p[1] === 'P3')) ev(at(-49, 10.5), 'ai:wiki', 'wiki_changed', null, { page, words: page.endsWith('consolidation') ? 320 : 90, text: 'Stubbed ' + page + ' on program creation' });
+ev(at(-20, 10), 'jeff', 'health_set', null, { project:'J2', health:'warn', text:'Legacy invoice cutover plan → warn' });
+ev(at(-11, 14), 'jeff', 'health_set', null, { project:'J3', health:'warn', text:'Finance sign-off → warn' });
+ev(at(-16, 15), 'jeff', 'health_set', null, { project:'J7', health:'crit', text:'Legal review → crit' });
+ev(at(-5, 16), 'jeff', 'health_set', null, { project:'J6', health:'warn', text:'Go/no-go criteria → warn' });
+
+// ---- weekly reviews and compiles (Fridays 15:00)
+for (let d0 = -52; d0 <= -3; d0 += 7) {
+  ev(at(d0, 15), 'jeff', 'review_completed', null, { text: 'Weekly review completed' });
+  for (const g of programs) {
+    if (g.created > at(d0, 16)) continue;
+    if (g.id === 'P3' && d0 === -3) continue;                     // P3 hub is 9 days stale in the demo
+    ev(at(d0, 16), 'ai:wiki', 'wiki_changed', null, { page: hubOf(g.id), words: Math.round(between(60, 220)), text: 'Compiled status, commitments, history · ' + g.name });
+  }
+}
+
+// ---- named items, lifted from the ledger's example data
+let seq = 0;
+const item = (id, text, o) => {
+  // o: {src, from, project, min, cap:[day,hour], clar:[day,hour]|null, acc:[day,hour]|null, kind, ...}
+  const capT = at(...o.cap);
+  ev(capT, srcActor(o.src || 'chat'), 'captured', id, { text, source: o.src || 'chat', from: o.from || null, project: o.project || null, minutes: o.min || 15 });
+  if (o.clar !== null) ev(o.clar ? at(...o.clar) : capT + 0.4 * H, 'ai:clarify', 'clarified', id, { kind: o.pkind || o.kind, project: o.project || null, owner: o.owner || null, conf: o.conf || .9 });
+  if (o.acc) ev(at(...o.acc), 'jeff', 'accepted', id, { kind: o.kind, project: o.project || null, owner: o.owner || null, corrected: !!(o.pkind && o.pkind !== o.kind) });
+  return id;
+};
+// inbox right now (captured, some clarified, none accepted)
+item('I1', 'Send reconciliation variance summary to Marcus', { src:'gmail', from:'marcus', project:'J3', min:45, cap:[0,7.5], pkind:'action', kind:'action' });
+item('I2', 'Dry-run window confirmation from infra', { src:'meeting', from:'priya', project:'J1', cap:[-1,15], pkind:'waiting', kind:'waiting', owner:'priya' });
+item('I3', 'Review Dana’s announcement draft and leave comments', { src:'chat', from:'dana', project:'J4', min:20, cap:[0,7.8], pkind:'action', kind:'action' });
+item('I4', 'Idea: launch retro template across all programs', { src:'voice', cap:[-1,19], pkind:'someday', kind:'someday', conf:.62 });
+item('I5', 'Board wants a one-pager on vendor savings next month', { src:'gmail', from:'ingrid', project:'P3', cap:[-1,11], pkind:'project', kind:'project', conf:.7 });
+item('I6', 'Rebook support training room with Leo (2 Oct clash)', { src:'calendar', from:'leo', project:'J5', min:10, cap:[0,7.2], pkind:'action', kind:'action' });
+item('I7', 'Two vendors sent updated pricing', { src:'chat', from:'tomas', project:'J8', min:15, cap:[0,7.9], pkind:'reference', kind:'reference', conf:.58 });
+// open next actions
+const act = (id, text, o) => item(id, text, Object.assign({ src:'gmail', kind:'action', cap:[o.day - 1, 16], acc:[o.day, 9] }, o));
+act('A1', 'Confirm dry-run window with Priya', { project:'J1', min:10, day:-2, src:'meeting' });
+act('A2', 'Send reconciliation summary to Marcus', { project:'J3', min:45, day:-5 });
+act('A3', 'Review draft announcement from Dana', { project:'J4', min:20, day:-1, src:'chat' });
+act('A4', 'Book support training slot with Leo', { project:'J5', min:10, day:-3, src:'calendar' });
+act('A5', 'Fill in scorecard for remaining 4 vendors', { project:'J8', min:90, day:-4, src:'chat' });
+act('A6', 'Prep steering deck for Ingrid', { project:'P2', min:60, day:-2 });
+act('A7', 'Reply to Tomas on scorecard weighting', { project:'J8', min:10, day:-4, src:'chat' });
+act('A8', 'Add cutover date options to steering agenda', { project:'P1', min:5, day:-3, src:'voice' });
+act('A9', 'Present cutover date options at steering', { project:'P1', min:15, day:-3, src:'calendar' });
+act('A10', 'Sign off support macros with Leo before training', { project:'J5', min:20, day:-2, src:'calendar' });
+act('A11', 'Walk Ingrid through the go/no-go strawman', { project:'P2', min:10, day:-1, src:'meeting' });
+act('A12', 'Send Q4 vendor exit notices', { project:'J8', min:40, day:-5 });
+// waiting for
+const wait = (id, text, o) => { item(id, text, Object.assign({ src:'gmail', kind:'waiting', cap:[o.since, 10], acc:[o.since, 11] }, o)); if (o.nudged) for (const n of o.nudged) { ev(at(n, 9), 'ai:draft', 'nudge_drafted', id, { owner:o.owner }); ev(at(n, 9.5), 'jeff', 'nudged', id, { owner:o.owner }); } };
+wait('W1', 'Redlines on the master agreement template', { owner:'sam', project:'J7', since:-23, nudged:[-17, -10] });
+wait('W2', 'Infra window for the 6-hour dry run', { owner:'priya', project:'J1', since:-4, src:'meeting' });
+wait('W3', 'Approval of reconciliation tolerance (0.1%)', { owner:'marcus', project:'J3', since:-11, nudged:[-6] });
+wait('W4', 'Headcount for launch-week on-call', { owner:'leo', project:'J5', since:-16, nudged:[-9], src:'chat' });
+wait('W5', 'Final launch date confirmation from PMM', { owner:'dana', project:'J4', since:-2, src:'chat' });
+wait('W6', 'Scorecard data for the remaining 4 vendors', { owner:'tomas', project:'J8', since:-8 });
+wait('W7', 'Decision on cutover date (1 Nov vs 15 Nov)', { owner:'ingrid', project:'J2', since:-19, nudged:[-12], src:'meeting' });
+// delegated to the AI
+const del = (id, text, o) => { item(id, text, Object.assign({ src:'chat', kind:'action', cap:[o.day - 1, 14], acc:[o.day - 1, 15] }, o)); ev(at(o.day, o.h || 9), 'jeff', 'delegated', id, { cap:o.cap }); if (o.work !== false) ev(at(o.day, (o.h || 9) + 1), 'ai:' + o.cap, 'working', id, {}); if (o.ready) ev(at(...o.ready), 'ai:' + o.cap, 'delivered', id, {}); };
+del('X1', 'Fold the two vendors’ updated pricing into the scorecard', { project:'J8', min:25, day:0, h:8.2, cap:'data', ready:[0, 8.6] });
+del('X2', 'Find three 30-minute slots with Sam for a redlines working session', { project:'J7', min:15, day:-1, cap:'calendar', ready:[0, 7.5] });
+del('X3', 'Draft Friday status for Fall launch readiness', { project:'P2', min:40, day:-1, cap:'draft', ready:[0, 7.9] });
+del('X4', 'Compile the decisions log for Billing migration from meeting notes', { project:'P1', min:60, day:0, h:8.1, cap:'wiki' });
+del('X5', 'Pre-read Dana’s announcement draft and list open questions', { project:'J4', min:20, day:0, h:8.3, cap:'draft', work:false });
+// someday
+item('S1', 'Launch retro template across programs', { src:'voice', kind:'someday', cap:[-30, 18], acc:[-29, 9] });
+item('S2', 'Generate weekly status straight from the ledger', { src:'voice', kind:'someday', cap:[-52, 20], acc:[-51, 9] });
+item('S3', 'Vendor risk heatmap for the board', { src:'meeting', kind:'someday', cap:[-18, 12], acc:[-18, 13] });
+// reference → wiki
+const ref = (id, text, o) => { item(id, text, Object.assign({ src:'gmail', kind:'reference', cap:[o.day, 10], acc:[o.day, 10.5] }, o)); ev(at(o.day, 10.6), 'ai:file', 'wiki_changed', id, { page:o.page, words:Math.round(between(30, 90)), text:'Filed: ' + text }); };
+ref('R1', 'Northstar contract auto-renews 1 Oct — notice period', { day:-20, page:'program-vendor-consolidation', project:'J8' });
+ref('R2', 'Auditor materiality memo (0.1% threshold)', { day:-11, page:'program-billing-migration', project:'J3' });
+ref('R3', 'Priya out 28 Sep – 2 Oct', { day:-4, page:'person-priya', src:'calendar' });
+// trash
+item('T1', 'Webinar invite: vendor management trends 2027', { src:'gmail', kind:'trash', cap:[-2, 8], acc:[-2, 9] });
+// done this week
+const done = (id, text, o) => { item(id, text, Object.assign({ src:'meeting', kind:'action', cap:[o.day - o.k, 10], acc:[o.day - o.k, 11] }, o)); ev(at(o.day, o.h || 16), 'jeff', 'done', id, {}); };
+done('D1', 'Migration dry-run plan approved', { project:'J1', min:30, day:-3, k:6 });
+done('D2', 'Launch comms calendar published', { project:'J4', min:60, day:-2, k:5 });
+done('D3', 'Scorecard criteria agreed with Tomas', { project:'J8', min:30, day:-4, k:4 });
+done('D4', 'Draft go/no-go criteria circulated for comment', { project:'J6', min:45, day:-9, k:7 });
+done('D5', 'Cutover risk register rebased', { project:'P1', min:40, day:-1, k:3 });
+
+// ---- background: ordinary weeks. Targets from the Flow view's captured-per-week series.
+const weekTargets = [31, 27, 35, 24, 40, 29, 33, 38];
+const verbs = ['Reply to', 'Send', 'Review', 'Confirm', 'Schedule', 'Update', 'Chase', 'Read', 'Summarise', 'Check'];
+const objs = ['the variance format', 'the dry-run checklist', 'the launch FAQ draft', 'the vendor pricing sheet', 'the steering agenda', 'the on-call rota', 'cutover runbook v2', 'the macro list', 'scorecard weighting', 'the contract notice period', 'the training room booking', 'the risk register', 'the sponsor one-pager', 'the release notes', 'the reconciliation export', 'the comms calendar'];
+const waits = ['Feedback on', 'Approval of', 'Numbers for', 'Decision on', 'Confirmation of', 'Review of'];
+const sources = ['gmail', 'gmail', 'gmail', 'chat', 'chat', 'meeting', 'meeting', 'calendar', 'voice'];
+const kindsDist = ['action', 'action', 'action', 'action', 'action', 'waiting', 'waiting', 'reference', 'trash', 'someday', 'delegate', 'action', 'waiting', 'reference'];
+const namedPerWeek = new Array(8).fill(0);
+for (const e of EV) if (e.type === 'captured') { const w = Math.floor((e.at - T0) / (7 * DAY)); if (w >= 0 && w < 8) namedPerWeek[w]++; }
+for (let w = 0; w < 8; w++) {
+  const n = Math.max(0, weekTargets[w] - namedPerWeek[w]);
+  for (let i = 0; i < n; i++) {
+    const id = 'B' + (++seq);
+    const dow = pick([0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4]);          // weekdays, Mon–Thu heavier
+    const capT = T0 + (w * 7 + dow) * DAY + between(2, 12) * H;         // 08:00–18:00
+    if (capT >= T1) continue;
+    const avail = projects.filter(j => j.created <= capT);
+    const j = pick(avail); const proj = rnd() < .2 ? j.program : j.id;
+    const src = pick(sources); const person = pick(people).id;
+    let kind = pick(kindsDist); const delegate = kind === 'delegate'; if (delegate) kind = 'action';
+    const text = kind === 'waiting' ? `${pick(waits)} ${pick(objs)} from ${pname(person).split(' ')[0]}` : `${pick(verbs)} ${pick(objs)}` + (rnd() < .5 ? ` with ${pname(person).split(' ')[0]}` : '');
+    const minutes = pick([5, 10, 10, 15, 20, 30, 45, 60, 90]);
+    ev(capT, srcActor(src), 'captured', id, { text, source: src, from: person, project: proj, minutes });
+    const clarT = capT + between(0.2, 14) * H;
+    const corrected = rnd() < .13;
+    const pkind = corrected ? pick(kindsDist.filter(k => k !== kind && k !== 'delegate')) : kind;
+    ev(clarT, 'ai:clarify', 'clarified', id, { kind: pkind, project: proj, owner: kind === 'waiting' ? person : null, conf: corrected ? between(.45, .7) : between(.7, .98) });
+    const accT = clarT + between(0.5, 30) * H;
+    if (accT >= T1) continue;                                           // still in the inbox at the end
+    ev(accT, 'jeff', 'accepted', id, { kind, project: proj, owner: kind === 'waiting' ? person : null, corrected });
+    if (kind === 'trash') { ev(accT, 'jeff', 'dropped', id, {}); continue; }
+    if (kind === 'reference') { ev(accT + 0.1 * H, 'ai:file', 'wiki_changed', id, { page: hubOf(proj), words: Math.round(between(20, 70)), text: 'Filed: ' + text }); continue; }
+    if (kind === 'someday') { if (rnd() < .3) { const pT = accT + between(18, 40) * DAY; if (pT < T1) { ev(pT, 'jeff', 'promoted', id, { project: proj }); const dT = pT + between(2, 9) * DAY; if (dT < T1) ev(dT, 'jeff', 'done', id, {}); } } continue; }
+    if (kind === 'waiting') {
+      let t = accT; const close = accT + between(3, 26) * DAY;
+      for (let k = 1; k <= 3; k++) { const nT = accT + (7 * k) * DAY; if (nT < close && nT < T1) { ev(nT, 'ai:draft', 'nudge_drafted', id, { owner: person }); ev(nT + 0.5 * H, 'jeff', 'nudged', id, { owner: person }); } }
+      if (close < T1) ev(close, srcActor(src), 'closed', id, { owner: person });
+      continue;
+    }
+    if (delegate) {
+      const dT = accT + between(0.2, 6) * H, cap = pick(['draft', 'data', 'draft', 'calendar']);
+      ev(dT, 'jeff', 'delegated', id, { cap }); ev(dT + 0.5 * H, 'ai:' + cap, 'working', id, {});
+      const rT = dT + between(2, 30) * H; if (rT >= T1) continue; ev(rT, 'ai:' + cap, 'delivered', id, {});
+      const aT = rT + between(1, 30) * H; if (aT >= T1) continue;
+      if (rnd() < .1) { ev(aT, 'jeff', 'taken_back', id, {}); const dn = aT + between(1, 8) * DAY; if (dn < T1) ev(dn, 'jeff', 'done', id, {}); }
+      else { ev(aT, 'jeff', 'approved', id, {}); ev(aT + 0.05 * H, 'jeff', 'done', id, {}); }
+      continue;
+    }
+    // plain action
+    const life = (accT < at(-14)) ? between(0.5, 12) : between(0.5, 20);
+    const dT = accT + life * DAY;
+    if (dT < T1 && (accT < at(-14) || rnd() < .55)) ev(dT, 'jeff', 'done', id, {});
+  }
+}
+EV.sort((a, b) => a.at - b.at);
+const REVIEWS = EV.filter(e => e.type === 'review_completed').map(e => e.at);
+
+/* =====================================================================
+   2. Fold: state at time t
+   ===================================================================== */
+const MOVE = new Set(['accepted', 'done', 'nudged', 'closed', 'delegated', 'delivered', 'approved', 'taken_back', 'promoted']);
+function fold(t) {
+  const S = { items: new Map(), programs: new Map(), projects: new Map(), wiki: new Map(), last: null, aiTouched: new Map(), reviews: 0 };
+  for (const e of EV) {
+    if (e.at > t) break;
+    S.last = e;
+    if (e.actor.startsWith('ai:') && e.item) S.aiTouched.set(e.item, e.at);
+    switch (e.type) {
+      case 'program_created': S.programs.set(e.program, { id: e.program, created: e.at, retired: null }); break;
+      case 'program_retired': S.programs.get(e.program).retired = e.at; break;
+      case 'project_created': S.projects.set(e.project, { id: e.project, program: e.program, created: e.at, health: 'good', lastMove: e.at }); break;
+      case 'health_set': S.projects.get(e.project).health = e.health; break;
+      case 'wiki_changed': S.wiki.set(e.page, (S.wiki.get(e.page) || 0) + e.words); if (e.item) { const it = S.items.get(e.item); if (it) { it.stage = 'wiki'; it.since = e.at; it.page = e.page; } } break;
+      case 'review_completed': S.reviews++; break;
+      case 'captured': S.items.set(e.item, { id: e.item, text: e.text, source: e.source, project: e.project, minutes: e.minutes, stage: 'inbox', kind: null, proposed: false, confirmed: false, corrected: 0, since: e.at, captured: e.at, owner: null, nudges: 0, lastEv: e.at, lastType: 'captured', hist: [e] }); break;
+      default: {
+        const it = S.items.get(e.item); if (!it) break;
+        it.hist.push(e); it.lastEv = e.at; it.lastType = e.type;
+        if (e.type === 'clarified') { it.proposed = true; it.pkind = e.kind; it.stage = 'gate'; it.since = e.at; }
+        else if (e.type === 'accepted') { it.kind = e.kind; it.confirmed = true; it.project = e.project || it.project; it.owner = e.owner; if (e.corrected) it.corrected = e.at; it.stage = ({ action: 'action', waiting: 'waiting', someday: 'someday', reference: 'reference', trash: 'trash', project: 'action' })[e.kind]; it.since = e.at; }
+        else if (e.type === 'dropped') { it.stage = 'trash'; it.since = e.at; }
+        else if (e.type === 'done') { it.stage = 'done'; it.since = e.at; }
+        else if (e.type === 'closed') { it.stage = 'done'; it.since = e.at; }
+        else if (e.type === 'nudged') { it.nudges++; it.nudgedAt = e.at; }
+        else if (e.type === 'delegated') { it.stage = 'delegated'; it.since = e.at; it.cap = e.cap; }
+        else if (e.type === 'working') { it.working = true; }
+        else if (e.type === 'delivered') { it.stage = 'ready'; it.since = e.at; }
+        else if (e.type === 'approved') { it.stage = 'done'; it.since = e.at; }
+        else if (e.type === 'taken_back') { it.stage = 'action'; it.since = e.at; }
+        else if (e.type === 'promoted') { it.stage = 'action'; it.kind = 'action'; it.since = e.at; }
+        if (MOVE.has(e.type) && it.project) { const p = S.projects.get(it.project) || S.projects.get(projOfProgram(it.project)); if (p) p.lastMove = Math.max(p.lastMove, e.at); else { const g = it.project; for (const q of S.projects.values()) if (q.program === g) q.lastMove = Math.max(q.lastMove, e.at); } }
+      }
+    }
+  }
+  return S;
+}
+function projOfProgram() { return null; }
+
+/* =====================================================================
+   3. Scene layout — where each station lives
+   ===================================================================== */
+const LAY = {
+  ports: { gmail: [-36, 0, -8], calendar: [-36, 0, -4], chat: [-36, 0, 0], meeting: [-36, 0, 4], voice: [-36, 0, 8] },
+  inbox: [-27, 0, 0], gate: [-18, 0, 0], trash: [-18, 0, -12],
+  floorX: [-11, 13], laneZ: { P1: -11, P2: 0, P3: 11 },
+  shelf: { z: 23, y: 3.2, x0: -15, x1: 15 }, someday: [-26, 0, 23],
+  ai: { ring: [-3, 1.2, -23], tray: [9, 0.6, -23] },
+  chute: [20, 0, 0], heap: [30, 0, 0],
+  wiki: { z: 36, x0: -22, x1: 22 },
+};
+const laneOf = (S, prog) => { const lanes = [...S.programs.values()].filter(g => !g.retired).map(g => g.id); const i = lanes.indexOf(prog); return LAY.laneZ[prog] ?? (11 + (i - 2) * 11); };
+const projTrackZ = (S, pid) => { const j = projects.find(x => x.id === pid); if (!j) return laneOf(S, pid); const sibs = projects.filter(x => x.program === j.program && (S.projects.get(x.id))); const k = sibs.findIndex(x => x.id === pid); return laneOf(S, j.program) + (k - (sibs.length - 1) / 2) * 2.6; };
+const postX = (pid) => { const i = people.findIndex(p => p.id === pid); return LAY.shelf.x0 + 2 + i * ((LAY.shelf.x1 - LAY.shelf.x0 - 4) / (people.length - 1)); };
+const pageX = (page) => { const i = wikiPages.findIndex(p => p[0] === page); return LAY.wiki.x0 + 1 + i * ((LAY.wiki.x1 - LAY.wiki.x0 - 2) / (wikiPages.length - 1)); };
+
+/* =====================================================================
+   4. Three.js
+   ===================================================================== */
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const col = (v) => new THREE.Color(css(v));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 500);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(20, 40, 10); scene.add(sun);
+
+let P = {};                      // palette in THREE colors
+function palette() {
+  P = { s1: col('--s1'), s2: col('--s2'), s3: col('--s3'), o1: col('--o1'), o2: col('--o2'), accent: col('--accent'), ink3: col('--ink-3'), line2: col('--line-2'), good: col('--good'), warn: col('--warn'), crit: col('--crit'), floor: col('--scene-floor'), grid: col('--scene-grid'), bg: col('--scene-bg'), surface2: col('--surface-2'), ink: col('--ink') };
+  scene.background = P.bg; scene.fog = new THREE.Fog(P.bg, 90, 170);
+}
+palette();
+
+// static geometry
+const statics = new THREE.Group(); scene.add(statics);
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: .85, metalness: 0 }, o));
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 90), mat(P.floor)); floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.02, 6); statics.add(floor);
+const grid = new THREE.GridHelper(100, 50, P.grid, P.grid); grid.position.set(0, 0, 6); grid.material.opacity = .5; grid.material.transparent = true; statics.add(grid);
+const box = (w, h, d, c, pos, o) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c, o)); m.position.set(...pos); statics.add(m); return m; };
+for (const k in LAY.ports) box(1.6, 0.6, 2.2, P.surface2, [LAY.ports[k][0], 0.3, LAY.ports[k][2]]);
+box(6, 0.25, 8, P.surface2, [LAY.inbox[0], 0.12, LAY.inbox[2]]);                                  // inbox tray
+const gateRing = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.18, 12, 48), mat(P.accent, { roughness: .5 })); gateRing.position.set(LAY.gate[0], 3.2, 0); gateRing.rotation.y = Math.PI / 2; statics.add(gateRing);
+box(2.2, 1.6, 2.2, P.line2, [LAY.trash[0], 0.8, LAY.trash[2]], { transparent: true, opacity: .55 });   // bin
+box(LAY.shelf.x1 - LAY.shelf.x0 + 2, 0.4, 5, P.surface2, [0, LAY.shelf.y - 0.2, LAY.shelf.z]);       // waiting shelf
+for (const p of people) box(0.35, 2.4, 0.35, P.line2, [postX(p.id), LAY.shelf.y + 1.2, LAY.shelf.z - 1.6]);
+box(5, 1.2, 4, P.surface2, [LAY.someday[0], 0.6, LAY.someday[2]], { transparent: true, opacity: .7 });  // someday drawer
+const aiRing = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.14, 10, 48), mat(P.accent, { roughness: .4 })); aiRing.position.set(...LAY.ai.ring); aiRing.rotation.x = Math.PI / 2; statics.add(aiRing);
+box(7, 0.3, 3, P.surface2, [LAY.ai.tray[0], 0.15, LAY.ai.tray[2]]);                                  // review tray
+const chute = box(6, 0.2, 3, P.surface2, [LAY.chute[0] + 1.5, 1.2, 0]); chute.rotation.z = -0.35;
+const wall = box(LAY.wiki.x1 - LAY.wiki.x0 + 3, 0.5, 3, P.surface2, [0, 0.25, LAY.wiki.z]);
+
+// dynamic geometry: tracks (one box per project, rebuilt when the project set changes) and wiki columns
+const trackMeshes = new Map(), colMeshes = new Map(), stallRings = new Map();
+const trackGeo = new THREE.BoxGeometry(LAY.floorX[1] - LAY.floorX[0], 0.16, 1.4);
+const colGeo = new THREE.BoxGeometry(1.5, 1, 1.5); colGeo.translate(0, 0.5, 0);
+for (const [page, owner] of wikiPages) { const m = new THREE.Mesh(colGeo, mat(owner.startsWith('P') ? P.o2 : P.o1)); m.position.set(pageX(page), 0.5, LAY.wiki.z); m.scale.y = 0.001; scene.add(m); colMeshes.set(page, m); }
+for (const j of projects) { const m = new THREE.Mesh(trackGeo, mat(P.good, { transparent: true, opacity: .55 })); m.visible = false; scene.add(m); trackMeshes.set(j.id, m); const r = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 8, 32), mat(P.crit, { emissive: P.crit, emissiveIntensity: .4 })); r.rotation.x = Math.PI / 2; r.visible = false; scene.add(r); stallRings.set(j.id, r); }
+
+// balls: three instanced meshes (solid / wireframe proposal / translucent done)
+const ITEMS = [...new Set(EV.filter(e => e.type === 'captured').map(e => e.item))];
+const idx = new Map(ITEMS.map((id, i) => [id, i]));
+const N = ITEMS.length;
+const sphere = new THREE.SphereGeometry(0.5, 18, 14);
+const solid = new THREE.InstancedMesh(sphere, new THREE.MeshStandardMaterial({ roughness: .45, metalness: .05 }), N);
+const wire = new THREE.InstancedMesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshBasicMaterial({ wireframe: true }), N);
+const ghost = new THREE.InstancedMesh(sphere, new THREE.MeshStandardMaterial({ roughness: .6, transparent: true, opacity: .42 }), N);
+for (const m of [solid, wire, ghost]) { m.frustumCulled = false; scene.add(m); for (let i = 0; i < N; i++) m.setColorAt(i, P.ink3); }
+const cur = ITEMS.map(() => ({ x: -40, y: 0, z: 0, s: 0, init: false }));   // smoothed positions
+const dummy = new THREE.Object3D(), tmpC = new THREE.Color();
+
+// HTML labels
+const labels = [];
+const label = (text, pos, cls = '') => { const el = document.createElement('div'); el.className = 'lbl ' + cls; el.innerHTML = text; stage.appendChild(el); const L = { el, pos: new THREE.Vector3(...pos) }; labels.push(L); return L; };
+label('Gmail', [-36, 1.2, -8], 'small'); label('Calendar', [-36, 1.2, -4], 'small'); label('Chat', [-36, 1.2, 0], 'small'); label('Meetings', [-36, 1.2, 4], 'small'); label('Voice', [-36, 1.2, 8], 'small');
+label('Inbox', [LAY.inbox[0], 1.6, LAY.inbox[2] - 4], 'big'); label('Clarify gate', [LAY.gate[0], 7.2, 0], 'big'); label('Trash', [LAY.trash[0], 2.4, LAY.trash[2]], 'small');
+label('Waiting for', [0, LAY.shelf.y + 3.6, LAY.shelf.z - 1.6], 'big'); for (const p of people) label(p.name.split(' ')[0], [postX(p.id), LAY.shelf.y + 2.9, LAY.shelf.z - 1.6], 'small');
+label('Someday / maybe', [LAY.someday[0], 2.2, LAY.someday[2]], 'small');
+label('Delegated to AI', [LAY.ai.ring[0], 3.4, LAY.ai.ring[2]], 'big'); label('Ready for review', [LAY.ai.tray[0], 1.6, LAY.ai.tray[2]], 'small');
+label('Done', [LAY.heap[0], 6, 0], 'big'); label('Wiki', [0, 9, LAY.wiki.z], 'big');
+const laneLabels = new Map(programs.map(g => [g.id, label(g.name, [LAY.floorX[0] - 1, 0.8, 0], 'big')]));
+const trackLabels = new Map(projects.map(j => [j.id, label(j.name, [LAY.floorX[1] + 1, 0.6, 0], 'small')]));
+const pageLabels = new Map(wikiPages.map(([page, owner]) => [page, label(page.replace(/^program-|^person-/, '').replace(/-/g, ' '), [pageX(page), 1, LAY.wiki.z], 'small')]));
+for (const [page, L] of pageLabels) { L.el.style.transform = 'rotate(-90deg) translate(0,-50%)'; L.el.style.transformOrigin = '0 0'; L.rot = true; }
+
+// camera control (small orbit: drag rotate, shift/right-drag pan, wheel zoom)
+const cam = { target: new THREE.Vector3(0, 0, 6), theta: 0.0, phi: 0.95, r: 78 };
+const CAMS = { over: { t: [0, 0, 6], th: 0.0, ph: 0.95, r: 78 }, gate: { t: [-22, 1, 0], th: -0.9, ph: 1.15, r: 34 }, wait: { t: [0, 3, 23], th: 0.0, ph: 1.05, r: 40 }, ai: { t: [3, 1, -23], th: 0.3, ph: 1.1, r: 32 }, wiki: { t: [0, 3, 36], th: 0.0, ph: 1.15, r: 46 }, done: { t: [26, 2, 0], th: 0.8, ph: 1.05, r: 30 } };
+let camGoal = null;
+function applyCam() { const y = Math.cos(cam.phi) * cam.r, h = Math.sin(cam.phi) * cam.r; camera.position.set(cam.target.x + Math.sin(cam.theta) * h, cam.target.y + y, cam.target.z + Math.cos(cam.theta) * h); camera.lookAt(cam.target); }
+let drag = null;
+renderer.domElement.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 }; camGoal = null; renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointerup', () => drag = null);
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+renderer.domElement.addEventListener('pointermove', e => {
+  if (drag) { const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+    if (drag.pan) { const right = new THREE.Vector3().crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize(); const fwd = new THREE.Vector3(-right.z, 0, right.x); cam.target.addScaledVector(right, -dx * cam.r / 900).addScaledVector(fwd, -dy * cam.r / 900); }
+    else { cam.theta -= dx * 0.006; cam.phi = Math.min(1.5, Math.max(0.15, cam.phi - dy * 0.005)); }
+    setCamBtn(null); }
+  hover(e);
+});
+renderer.domElement.addEventListener('wheel', e => { e.preventDefault(); cam.r = Math.min(160, Math.max(12, cam.r * (1 + e.deltaY * 0.0012))); camGoal = null; }, { passive: false });
+document.getElementById('cams').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; camGoal = CAMS[b.dataset.cam]; setCamBtn(b); });
+function setCamBtn(b) { document.querySelectorAll('#cams button').forEach(x => x.classList.toggle('on', x === b)); }
+
+/* =====================================================================
+   5. Time, transport, filters
+   ===================================================================== */
+const scrub = document.getElementById('scrub'), playBtn = document.getElementById('play'), dateEl = document.getElementById('date'), capEl = document.getElementById('caption'), statsEl = document.getElementById('stats');
+const HOURS = Math.round((T1 - T0) / H); scrub.max = HOURS;
+let t = T0, playing = false, speed = 1, progFilter = '', aiFilter = false;
+const fmt = (ms) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtT = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+{ const tk = document.getElementById('ticks'); for (let d0 = T0; d0 <= T1; d0 += DAY) { const dt = new Date(d0); if (dt.getDay() === 1) { const el = document.createElement('div'); el.className = 'tick week'; el.style.left = ((d0 - T0) / (T1 - T0) * 100) + '%'; el.innerHTML = `<span class="l">${dt.getDate()} ${dt.toLocaleDateString('en-GB', { month: 'short' })}</span>`; tk.appendChild(el); } }
+  for (const r of REVIEWS) { const el = document.createElement('div'); el.className = 'tick review'; el.title = 'Weekly review'; el.style.left = ((r - T0) / (T1 - T0) * 100) + '%'; tk.appendChild(el); } }
+function setT(v) { t = Math.max(T0, Math.min(T1, v)); scrub.value = Math.round((t - T0) / H); }
+scrub.addEventListener('input', () => { t = T0 + scrub.value * H; });
+playBtn.addEventListener('click', togglePlay);
+function togglePlay() { if (t >= T1 && !playing) setT(T0); playing = !playing; playBtn.textContent = playing ? '❚❚' : '▶'; playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+document.getElementById('speeds').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; speed = +b.dataset.sp; document.querySelectorAll('#speeds button').forEach(x => x.classList.toggle('on', x === b)); });
+{ const sel = document.getElementById('progFilter'); for (const g of programs) { const o = document.createElement('option'); o.value = g.id; o.textContent = g.name; sel.appendChild(o); } sel.addEventListener('change', () => progFilter = sel.value); }
+document.getElementById('aiFilter').addEventListener('change', e => aiFilter = e.target.checked);
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); setT(t + (e.shiftKey ? 7 : 1) * DAY); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); setT(t - (e.shiftKey ? 7 : 1) * DAY); }
+  else if (e.key === 'r') { const n = REVIEWS.find(r => r > t + H); if (n) setT(n + H); }
+  else if (e.key === 'Home') setT(T0); else if (e.key === 'End') setT(T1);
+});
+
+/* =====================================================================
+   6. Frame: fold → targets → smooth → draw
+   ===================================================================== */
+const ageBucket = (days) => days > 30 ? P.crit : days > 14 ? P.s2 : days > 7 ? P.warn : P.s3;
+const kindColor = (it) => it.stage === 'waiting' ? ageBucket((t - it.since) / DAY) : ({ action: P.s1, waiting: P.s3, someday: P.ink3, reference: P.o1, trash: P.line2, project: P.s1 })[it.kind || it.pkind] || P.ink3;
+const progOf = (proj) => { const j = projects.find(x => x.id === proj); return j ? j.program : proj; };
+let lastFrame = performance.now(), hoverId = null;
+const tip = document.getElementById('tip');
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  if (playing) { setT(t + dt * speed * DAY); if (t >= T1) { playing = false; playBtn.textContent = '▶'; } }
+  const S = fold(t);
+
+  // ---- targets per item. Slots: index within a station's occupant list, in order of arrival.
+  const slots = new Map(); const slot = (key) => { const n = slots.get(key) || 0; slots.set(key, n + 1); return n; };
+  const order = [...S.items.values()].sort((a, b) => a.since - b.since);
+  const targets = new Map();
+  for (const it of order) {
+    let p; const g = progOf(it.project), sinceD = (t - it.since) / DAY;
+    switch (it.stage) {
+      case 'inbox': { if (sinceD * 24 < 1.5) { const port = LAY.ports[it.source] || LAY.ports.chat; const k = Math.min(1, sinceD * 24 / 1.5); p = [port[0] + (LAY.inbox[0] - 3 - port[0]) * k, 0.6, port[2] + (LAY.inbox[2] - port[2]) * k]; } else { const n = slot('inbox'); p = [LAY.inbox[0] - 2 + (n % 5) * 1.1, 0.6 + Math.floor(n / 25) * 1.1, LAY.inbox[2] - 3 + Math.floor(n / 5) % 5 * 1.3]; } break; }
+      case 'gate': { const n = slot('gate'); p = [LAY.gate[0] - 3 + (n % 3) * 1.1, 0.6 + Math.floor(n / 3) * 1.1, -1 + (n % 3) * 0 + Math.floor(n / 9) * 1.2]; break; }
+      case 'action': { const z = projTrackZ(S, it.project); const n = slot('track:' + it.project); p = [LAY.floorX[0] + 0.8 + n * 1.5, 0.6, z]; if (n > 15) p = [LAY.floorX[0] + 0.8 + (n - 16) * 1.5, 1.7, z]; break; }
+      case 'waiting': { const x = postX(it.owner || 'priya'); const n = slot('post:' + it.owner); p = [x + 0.8 + (n % 3) * 1.05 - 1.05, LAY.shelf.y + 0.55 + Math.floor(n / 3) * 1.05, LAY.shelf.z + 0.6]; break; }
+      case 'delegated': { const n = slot('ai'); const a = (now / 1400) + n * 1.3; p = [LAY.ai.ring[0] + Math.cos(a) * 3.4, LAY.ai.ring[1] + (it.working ? 0.3 * Math.sin(now / 300 + n) : 0), LAY.ai.ring[2] + Math.sin(a) * 3.4]; break; }
+      case 'ready': { const n = slot('tray'); p = [LAY.ai.tray[0] - 2.6 + (n % 5) * 1.3, 0.85 + Math.floor(n / 5) * 1.05, LAY.ai.tray[2]]; break; }
+      case 'someday': { const n = slot('someday'); p = [LAY.someday[0] - 1.6 + (n % 4) * 1.1, 1.6 + Math.floor(n / 12) * 1.05, LAY.someday[2] - 1.2 + Math.floor(n / 4) % 3 * 1.1]; break; }
+      case 'reference': case 'wiki': { const x = pageX(it.page || hubOf(it.project) || 'person-priya'); const k = Math.min(1, sinceD * 24 / 2); p = [x, 0.9, LAY.wiki.z - 4 + 3 * k]; break; }
+      case 'trash': { const n = slot('trash'); p = [LAY.trash[0] - 0.5 + (n % 2), 0.5 + Math.floor(n / 4) * 0.8, LAY.trash[2] - 0.5 + Math.floor(n / 2) % 2]; break; }
+      case 'done': { const n = slot('done'); if (sinceD * 24 < 2) { const k = sinceD * 24 / 2; p = [LAY.chute[0] - 3 + 8 * k, 2.2 - 1.6 * k, (projTrackZ(S, it.project) || 0) * (1 - k)]; } else { const r = 0.85 * Math.sqrt(n), a = n * 2.39996; p = [LAY.heap[0] + Math.cos(a) * r, 0.5 + Math.max(0, 3.4 - r * 0.55), Math.sin(a) * r]; } break; }
+    }
+    targets.set(it.id, p);
+  }
+
+  // ---- draw balls
+  const k = reduced ? 1 : 1 - Math.pow(0.001, dt);       // smoothing
+  for (let i = 0; i < N; i++) {
+    const id = ITEMS[i], it = S.items.get(id), c = cur[i], p = targets.get(id);
+    let vis = !!it && it.stage !== 'wiki' || (it && it.stage === 'wiki' && (t - it.since) < 2 * H);
+    if (!vis) { c.s += (0 - c.s) * k; if (!it) c.init = false; }
+    else {
+      if (!c.init) { const port = LAY.ports[it.source] || LAY.ports.chat; c.x = port[0]; c.y = 0.6; c.z = port[2]; c.s = 0; c.init = true; }
+      c.x += (p[0] - c.x) * k; c.y += (p[1] - c.y) * k; c.z += (p[2] - c.z) * k;
+      let s = 0.55 + Math.min(1, (it.minutes || 15) / 90) * 0.55;
+      const evAge = (t - it.lastEv) / H; if (evAge >= 0 && evAge < 6) s *= 1 + 0.5 * (1 - evAge / 6);            // pop on an event
+      const corr = it.corrected ? (t - it.corrected) / H : 99; if (corr >= 0 && corr < 8) c.y += Math.sin(corr / 8 * Math.PI) * 1.6;   // bounce off the gate
+      let dim = false;
+      if (progFilter && progOf(it.project) !== progFilter) dim = true;
+      if (aiFilter) { const a = S.aiTouched.get(id); if (!(a && t - a < 7 * DAY)) dim = true; }
+      c.s += ((dim ? s * 0.35 : s) - c.s) * k;
+      tmpC.copy(kindColor(it)); if (dim) tmpC.lerp(P.bg, 0.75);
+      if (hoverId === id) tmpC.lerp(P.ink, 0.35);
+      solid.setColorAt(i, tmpC); wire.setColorAt(i, tmpC); ghost.setColorAt(i, tmpC);
+    }
+    const which = !it ? null : it.stage === 'done' ? ghost : (it.stage === 'gate' || (it.stage === 'inbox' && it.proposed)) ? wire : solid;
+    for (const m of [solid, wire, ghost]) { dummy.position.set(c.x, c.y, c.z); dummy.scale.setScalar(m === which ? c.s : 0.0001); dummy.updateMatrix(); m.setMatrixAt(i, dummy.matrix); }
+  }
+  for (const m of [solid, wire, ghost]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
+
+  // ---- tracks, lanes, stall rings, wiki columns, labels
+  for (const j of projects) {
+    const m = trackMeshes.get(j.id), L = trackLabels.get(j.id), pj = S.projects.get(j.id), g = S.programs.get(j.program);
+    const on = !!pj && g && !g.retired; m.visible = on; L.el.style.display = on ? '' : 'none'; stallRings.get(j.id).visible = false;
+    if (!on) continue;
+    const z = projTrackZ(S, j.id); m.position.set((LAY.floorX[0] + LAY.floorX[1]) / 2, 0.08, z); L.pos.set(LAY.floorX[1] + 1.2, 0.5, z);
+    const stalledD = (t - pj.lastMove) / DAY, stalled = stalledD > 7;
+    m.material.color.copy(stalled ? P.line2 : P[pj.health] || P.good);
+    const dimT = progFilter && j.program !== progFilter; m.material.opacity = dimT ? .15 : .6;
+    L.el.className = 'lbl small' + (stalled ? ' stalled' : ''); L.el.innerHTML = `<span class="st" style="background:var(--${pj.health})"></span>${j.name}${stalled ? ` · stalled ${Math.floor(stalledD)} d` : ''}`; L.el.style.textAlign = 'left'; L.el.style.transform = 'translate(0,-50%)';
+    if (stalled) { const r = stallRings.get(j.id); r.visible = true; const sc = 1 + 0.12 * Math.sin(now / 350); r.scale.set(sc, sc, sc); r.position.set(LAY.floorX[0] + 0.8, 0.3, z); r.material.emissiveIntensity = 0.3 + 0.3 * Math.sin(now / 350); }
+  }
+  for (const g of programs) { const L = laneLabels.get(g.id), pg = S.programs.get(g.id); const on = pg && !pg.retired; L.el.style.display = on ? '' : 'none'; if (on) { L.pos.set(LAY.floorX[0] - 1.2, 0.5, laneOf(S, g.id)); L.el.style.transform = 'translate(-100%,-50%)'; L.el.style.opacity = progFilter && g.id !== progFilter ? .35 : 1; } }
+  for (const [page, m] of colMeshes) { const w = S.wiki.get(page) || 0; const target = Math.max(0.001, w / 160); m.scale.y += (target - m.scale.y) * k; pageLabels.get(page).pos.set(pageX(page), m.scale.y + 0.4, LAY.wiki.z); pageLabels.get(page).el.style.display = w ? '' : 'none'; }
+  const bump = (now / 200) % 1; aiRing.material.emissiveIntensity = 0; gateRing.rotation.z += dt * 0.15;
+
+  // ---- camera
+  if (camGoal) { const g = camGoal; cam.target.lerp(new THREE.Vector3(...g.t), 0.08); cam.theta += (g.th - cam.theta) * 0.08; cam.phi += (g.ph - cam.phi) * 0.08; cam.r += (g.r - cam.r) * 0.08; if (Math.abs(cam.r - g.r) < 0.05) camGoal = null; }
+  applyCam();
+  renderer.render(scene, camera);
+  // labels
+  const W = stage.clientWidth, Hh = stage.clientHeight;
+  for (const L of labels) { const v = L.pos.clone().project(camera); const behind = v.z > 1; L.el.style.visibility = behind || L.el.style.display === 'none' ? 'hidden' : 'visible'; L.el.style.left = ((v.x + 1) / 2 * W) + 'px'; L.el.style.top = ((1 - v.y) / 2 * Hh) + 'px'; }
+
+  // ---- chrome
+  dateEl.textContent = fmt(t) + ' · ' + fmtT(t);
+  const counts = { inbox: 0, action: 0, waiting: 0, ai: 0, someday: 0, done: 0 };
+  for (const it of S.items.values()) { if (it.stage === 'inbox' || it.stage === 'gate') counts.inbox++; else if (it.stage === 'action') counts.action++; else if (it.stage === 'waiting') counts.waiting++; else if (it.stage === 'delegated' || it.stage === 'ready') counts.ai++; else if (it.stage === 'someday') counts.someday++; else if (it.stage === 'done') counts.done++; }
+  let words = 0; for (const w of S.wiki.values()) words += w;
+  const stalledN = [...S.projects.values()].filter(p => (t - p.lastMove) / DAY > 7).length;
+  statsEl.innerHTML = [['Inbox', counts.inbox], ['Next actions', counts.action], ['Waiting for', counts.waiting], ['With the AI', counts.ai], ['Someday', counts.someday], ['Done (cum.)', counts.done], ['Stalled projects', stalledN], ['Wiki words', words.toLocaleString()], ['Reviews', S.reviews]].map(([k2, v]) => `<div class="tile"><div class="n">${v}</div><div class="k">${k2}</div></div>`).join('');
+  const e = S.last; if (e) { const ai = e.actor.startsWith('ai:'); const what = ({ captured: 'Captured', clarified: 'Proposed ' + (e.kind || ''), accepted: (e.corrected ? 'Corrected to ' : 'Accepted as ') + e.kind, done: 'Done', closed: 'Received', nudged: 'Nudged ' + pname(e.owner), nudge_drafted: 'Drafted nudge to ' + pname(e.owner), delegated: 'Handed to the AI (' + e.cap + ')', working: 'AI working', delivered: 'Ready for review', approved: 'Approved', taken_back: 'Taken back', promoted: 'Promoted from someday', dropped: 'Trashed', wiki_changed: 'Wiki · ' + (e.text || e.page), review_completed: 'Weekly review completed', program_created: 'Program created · ' + e.text, project_created: 'Project created · ' + e.text, health_set: 'Health · ' + e.text })[e.type] || e.type;
+    const it = e.item ? S.items.get(e.item) : null; capEl.innerHTML = `<span class="when">${fmt(e.at)} ${fmtT(e.at)}</span><span class="who ${ai ? 'ai' : ''}">${e.actor}</span><span>${what}${it ? ' · ' + it.text : ''}</span>`; }
+}
+requestAnimationFrame(frame);
+
+// hover
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+function hover(e) {
+  const r = renderer.domElement.getBoundingClientRect(); mouse.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(mouse, camera); const hit = ray.intersectObjects([solid, wire, ghost])[0];
+  hoverId = hit ? ITEMS[hit.instanceId] : null;
+  if (!hoverId) { tip.style.display = 'none'; return; }
+  const it = fold(t).items.get(hoverId); if (!it) { tip.style.display = 'none'; return; }
+  const j = projects.find(x => x.id === it.project); const pj = programs.find(x => x.id === (j ? j.program : it.project));
+  tip.innerHTML = `<b>${it.text}</b><div class="m">${it.id} · ${it.source} · ${it.minutes || '—'} min${pj ? ' · ' + pj.name : ''}${j ? ' › ' + j.name : ''}</div><div class="h">${it.hist.filter(h => h.at <= t).slice(-6).map(h => `<div><span>${fmt(h.at)}</span>${h.actor.startsWith('ai:') ? '<em>' + h.actor + '</em> ' : ''}${h.type}${h.owner ? ' · ' + pname(h.owner) : ''}${h.corrected ? ' (corrected)' : ''}</div>`).join('')}</div>`;
+  tip.style.display = 'block'; tip.style.left = Math.min(innerWidth - 340, e.clientX + 14) + 'px'; tip.style.top = Math.min(innerHeight - 200, e.clientY + 14) + 'px';
+}
+renderer.domElement.addEventListener('pointerleave', () => { hoverId = null; tip.style.display = 'none'; });
+
+function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { palette(); floor.material.color.copy(P.floor); });
+</script>
+</body>
+</html>
