@@ -74,7 +74,8 @@ replayable. A SQLite index is derived from it for queries; markdown + frontmatte
 pages (programs, projects, people) are a one-directional projection for Obsidian
 reading, added when wanted. Not folders-as-status and not tags: the views need
 history, and a frontmatter file only holds current state. Details in
-`backend-wiring.md`.
+`backend-wiring.md`; the same design on a Claude subscription (no API key) is in
+`subscription-wiring.md`.
 
 Scoping rule: team systems of record (issue trackers etc.) are **not mirrored**. The
 store only holds items where *I* have an action or am waiting on someone, with a

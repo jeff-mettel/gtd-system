@@ -4,6 +4,13 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Subscription wiring** (`docs/subscription-wiring.md`): with a Claude subscription
+  instead of an API key, AI jobs run as Claude Code skills + subagents under the login,
+  scheduled deterministically; tiers per agent (Haiku ingest/filing, Sonnet clarify and
+  drafts, Opus review and synthesis), escalation via the existing confidence gate, tiers
+  chosen from the triage eval diff. The `gtd` CLI is the only write path (schema and
+  enum validation there, not `messages.parse`); sends/books/deletes are denied in
+  `settings.json` and a `PreToolUse` guard, not merely by prompt.
 - **Gap review items 1–5, 7, 8 built.** `hard` date on actions (calendar, leaves the
   context lists); ticklers via `revisit` on someday/reference; "Do it now" in the
   inbox (`x`); reference filed into wiki pages (`refPage`) with the Reference view as
