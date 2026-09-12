@@ -4,6 +4,10 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Desktop shell deferred; Tauri when it comes.** A shell would live in `desktop/`
+  beside `frontend/` (which stays a plain web app), with CI and release workflows in
+  `.github/workflows/`. Open question for then: webview → ledger over Tauri IPC or the
+  local HTTP API — HTTP if scheduled Claude Code jobs share the same service.
 - **Front-end restructured into modules** (`frontend/`, Vite + ES modules, Vitest, ESLint).
   The single-file ledger is retired; one module per view, drawer and concern; `three`
   from npm, lazy-loaded. The built `dist/` is what gets published to the existing
