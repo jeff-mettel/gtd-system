@@ -9,5 +9,8 @@
 - Trust invariants are not negotiable in the UI: the AI never sends, books, or deletes
   without approval; every AI write is tagged; "what approving does" is declared, not
   model-written.
+- `wiki/` follows the Karpathy conventions in `docs/wiki.md` (same as `knowledge/`):
+  frontmatter, `index.md` line and `log.md` entry for every page change; never edit
+  inside `<!-- compiled:… -->` fences by hand — that's the compile job's territory.
 - Charts follow the dataviz palette already in the file (`--s1..--s3`, `--o1..--o4`).
   Status colors are separate from the accent and always come with a label.

@@ -4,6 +4,12 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Program wiki added (`wiki/`), Karpathy pattern, inside this repo.** Ledger is
+  canonical for commitments (dates, owners); wiki is canonical for context (purpose,
+  links, decisions with rationale, history, risks). Compile job rewrites only fenced
+  `<!-- compiled:… -->` sections and may run at "do it, tell me weekly"; ingests and
+  decisions go through the review gate. Wiki lint is a weekly-review step. Same
+  conventions as `knowledge/` so the ingest skill transfers.
 - **Back-end storage resolved: append-only `ledger/events.jsonl` is canonical.**
   SQLite index and markdown pages are derived projections, one-directional. Not
   folders-as-status, not tags: the views need history (computed movement, AI audit,

@@ -112,6 +112,9 @@ The triage view is the single most important UI. If it's fast the system runs.
    streak. Tells you the *system* is decaying before you feel it.
 7. **Delegated to AI** — see `delegation.md`.
 
+Programs, the project drawer and prep briefs also read from the **program wiki** —
+see `wiki.md`.
+
 ## Agents and cadences
 
 | Skill | Trigger | Does |

@@ -84,6 +84,13 @@ h1{font-size:24px;line-height:1.2} h2{font-size:17px;line-height:1.3} h3{font-si
 .dcard.queued{border-style:dashed}
 .preview{font-size:12.5px;color:var(--ink-2);white-space:pre-line;max-height:4.2em;overflow:hidden;border-left:2px solid var(--line-2);padding-left:10px}
 .pbar{height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden}.pbar i{display:block;height:100%;background:var(--accent)}
+.wstatus{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;background:var(--ground)}
+.wstatus p{margin:0;max-width:78ch;color:var(--ink-2);font-size:13px}
+.wlinks{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.wlinks a.chip{text-decoration:none;color:var(--accent-text);background:var(--accent-soft)}
+.wrow{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+.wrow:first-of-type{border-top:0}
+table.mini td{padding:5px 8px;font-size:12.5px}
 .pcard.aicard{border-color:var(--accent)} .pcard.aicard .av{background:var(--accent);color:var(--accent-ink)}
 .rail .foot{margin-top:auto;padding:0 8px;font-size:11px;color:var(--ink-3);line-height:1.6}
 
@@ -355,7 +362,7 @@ let items = [
   { id:'X1', kind:'action', owner:'ai', next:'Fold the two vendors\' updated pricing into the scorecard', project:'J8', cap:'data', del:{ status:'ready', at:d(0), readyAt:d(0), minutes:25, deliverable:'Vendor pricing changes\n\nNorthstar Tools — annual $84,000 → $79,500 (−5.4%), 3-year lock offered\nHelix Analytics — annual $61,200 → $66,000 (+7.8%), adds SSO tier\n\nScorecard impact: Northstar cost score 6 → 7; Helix 7 → 6. Shortlist unchanged.', effect:'Updates 2 rows in the vendor scorecard' } },
   { id:'X2', kind:'action', owner:'ai', next:'Find three 30-minute slots with Sam for a redlines working session', project:'J7', cap:'calendar', del:{ status:'ready', at:d(-1), readyAt:d(0), minutes:15, deliverable:'Both of you are free:\n• Tue 15 Sep, 14:00–14:30\n• Wed 16 Sep, 10:30–11:00\n• Thu 17 Sep, 15:00–15:30\n\nSuggested invite: "Master agreement redlines — working session", template attached, 30 min.', effect:'Sends 1 calendar invite to Sam Reyes' } },
   { id:'X3', kind:'action', owner:'ai', next:'Draft Friday status for Fall launch readiness', project:'P2', cap:'draft', del:{ status:'ready', at:d(-1), readyAt:d(0), minutes:40, deliverable:'Fall launch readiness — On track\n\nDone this week\n• Launch comms calendar published\n• Draft go/no-go criteria circulated for comment\n\nRisks / asks\n• Go/no-go criteria: no next action since 5 Sep — owner needed\n• Launch-week on-call headcount: waiting on Leo for 16 days', effect:'Nothing is sent — a draft for you to paste' } },
-  { id:'X4', kind:'action', owner:'ai', next:'Compile the decisions log for Billing migration from meeting notes since 1 Aug', project:'P1', cap:'data', del:{ status:'working', at:d(0), minutes:60, progress:.6, effect:'Adds a decisions page under the program' } },
+  { id:'X4', kind:'action', owner:'ai', next:'Compile the decisions log for Billing migration from meeting notes since 1 Aug', project:'P1', cap:'wiki', del:{ status:'working', at:d(0), minutes:60, progress:.6, effect:'Updates program-billing-migration-decisions.md (2 entries) and appends to log.md' } },
   { id:'X5', kind:'action', owner:'ai', next:'Pre-read Dana\'s announcement draft and list open questions', project:'J4', cap:'draft', del:{ status:'queued', at:d(0), minutes:20, effect:'Nothing is sent — questions appear here for review' } },
   // someday
   { id:'S1', kind:'someday', next:'Launch retro template across programs', since:d(-30) },
@@ -368,13 +375,47 @@ let items = [
   { id:'D4', kind:'done', next:'Draft go/no-go criteria circulated for comment', project:'J6', doneAt:d(-9) },
   { id:'D5', kind:'done', next:'Cutover risk register rebased', project:'P1', doneAt:d(-1) },
 ];
+/* Program wiki — compiled knowledge (wiki/program-*.md). Ledger owns commitments; the wiki owns context. */
+const wiki = {
+  P1: { page:'program-billing-migration', compiled:d(-3), health:'warn',
+    status:'Dry-run plan approved and a 6-hour window is being confirmed with infra. Finance sign-off is pending Marcus\'s formal approval of the 0.1% reconciliation tolerance, 11 days waiting. The cutover date (1 Nov vs 15 Nov) has been with Ingrid for 19 days and now gates the runbook; without it the dry-run-to-cutover gap compresses.',
+    links:[['Cutover runbook','https://docs.example.internal/billing/cutover-runbook'],['Reconciliation dashboard','https://metrics.example.internal/billing/reconciliation'],['Steering deck 4 Sep','https://drive.example.internal/billing/steering-2026-09-04'],['Legacy retirement plan','https://docs.example.internal/billing/legacy-retirement'],['#billing-migration','']],
+    milestones:[['11 Sep','Dry-run plan approved','done'],['25 Sep','Production data dry run','pending window'],['2 Oct','Finance sign-off','at risk'],['1 or 15 Nov','Cutover','undecided'],['31 Mar','Legacy system retired','planned']],
+    decisions:[{ on:'3 Sep', what:'Reconciliation tolerance set at 0.1%', who:'Marcus, Priya', why:'Matches the auditor\'s materiality threshold; tighter fails on known legacy rounding, looser won\'t satisfy Finance.', status:'agreed; formal sign-off pending (W3)', projects:['J1','J3'] },
+                { on:'14 Aug', what:'Dry run before cutover is mandatory', who:'Ingrid', why:'The 2024 CRM migration skipped a full-data rehearsal and produced two weeks of customer-facing errors.', status:'decided', projects:['J1','J2'] }],
+    pending:['Cutover date: 1 Nov vs 15 Nov — with Ingrid since 26 Aug (W7)'],
+    risks:[{ what:'Cutover date undecided compresses the dry-run-to-cutover gap', level:'high', owner:'ingrid', projects:['J2'] },{ what:'Finance sign-off slips past Thursday close', level:'medium', owner:'marcus', projects:['J3'] },{ what:'Infra can\'t give a 6-hour window before 25 Sep', level:'medium', owner:'priya', projects:['J1'] }] },
+  P2: { page:'program-fall-launch', compiled:d(-3), health:'good',
+    status:'Comms calendar is published and the announcement draft is out for review. Support training is booked but the 2 Oct room is double-booked. Two things need attention: go/no-go criteria have had no next action since 5 Sep and need an owner, and launch-week on-call headcount has been with Leo for 16 days.',
+    links:[['Launch plan','https://docs.example.internal/launch/fall-2026'],['Comms calendar','https://drive.example.internal/pmm/fall-launch-comms'],['Support readiness checklist','https://docs.example.internal/support/fall-launch'],['Release notes draft','https://docs.example.internal/launch/fall-2026-release-notes'],['#fall-launch','']],
+    milestones:[['12 Sep','Comms calendar published','done'],['2 Oct','Support training','room clash'],['7 Oct','Go/no-go signed by Ingrid','at risk'],['14 Oct','Announcement, FAQ, brief published','on track'],['21 Oct','Launch','locked']],
+    decisions:[{ on:'28 Aug', what:'Launch date locked: 21 Oct', who:'Ingrid', why:'Aligns with the customer conference on 22 Oct; later loses the keynote slot, earlier cuts support training short.', status:'decided', projects:['J4','J5','J6'] },
+                { on:'20 Aug', what:'Single announcement, no phased rollout', who:'Dana, Leo', why:'The feature set is customer-visible on day one; phasing doubles comms and confuses support macros.', status:'decided', projects:['J4','J5'] }],
+    pending:['Go/no-go criteria: who owns the definition? Draft circulated 5 Sep, no owner.'],
+    risks:[{ what:'Launch-week on-call headcount unresolved', level:'high', owner:'leo', projects:['J5'] },{ what:'Go/no-go criteria undefined by 7 Oct', level:'medium', owner:null, projects:['J6'] },{ what:'Support training room clash 2 Oct', level:'low', owner:'leo', projects:['J5'] }] },
+  P3: { page:'program-vendor-consolidation', compiled:d(-9), health:'crit',
+    status:'Legal review of the master agreement template has been with Sam for 23 days and gates all six renegotiations; two nudges sent. The scorecard is progressing — criteria agreed with Tomas, 10 of 14 vendors scored, and two vendors sent revised pricing this week. The board wants a savings one-pager next month.',
+    links:[['Vendor scorecard','https://sheets.example.internal/vendors/scorecard-2026'],['Master agreement template v3','https://docs.example.internal/legal/master-agreement-v3'],['Savings model','https://sheets.example.internal/vendors/savings-model'],['#vendor-consolidation','']],
+    milestones:[['20 Aug','Shortlist reduced to 6','done'],['18 Sep','Master agreement approved','blocked'],['30 Sep','Scorecard complete 14/14','on track'],['Oct','Board one-pager','requested'],['31 Dec','6 signed, 8 exited','planned']],
+    decisions:[{ on:'20 Aug', what:'Shortlist reduced to 6', who:'Ingrid, Tomas', why:'The 7th and 8th vendors duplicate capabilities already covered; the savings model needs 6 to hit $1.1M.', status:'decided', projects:['J8'] },
+                { on:'30 Jul', what:'One master agreement template instead of six bespoke contracts', who:'Sam, Tomas', why:'Six parallel legal reviews would take until Q1; one template reviewed once is faster overall — but becomes the critical path.', status:'decided', projects:['J7'] }],
+    pending:[],
+    risks:[{ what:'Legal redlines block all six renegotiations', level:'high', owner:'sam', projects:['J7'] },{ what:'Two vendors raised pricing mid-negotiation', level:'low', owner:'tomas', projects:['J8'] },{ what:'Board one-pager due before savings are contracted', level:'medium', owner:null, projects:[] }] },
+};
+const wikiLint = [
+  { page:'program-vendor-consolidation', what:'Current status compiled 9 days ago — older than 7', fix:'Recompile' },
+  { page:'program-fall-launch-risks', what:'Go/no-go risk has no owner; ledger project J6 has no next action either', fix:'Assign owner in review step 2' },
+  { page:'person-sam-reyes', what:'No inbound links from a hub Stakeholders table other than P3', fix:'Fine — single program' },
+];
+const wikiOf = (pid) => wiki[pid] || wiki[projOf(pid)?.program] || null;
 const aiLog = [
+  { at:d(-3), what:'Compiled status, commitments and history sections on 3 program wiki pages', cap:'wiki', mode:'auto' },
   { at:d(-1), what:'Filed 4 reference items', cap:'file', mode:'auto' },
   { at:d(-2), what:'Drafted 2 nudges — both approved and sent', cap:'draft', mode:'ask' },
   { at:d(-3), what:'Clarified 31 inbox items — 27 accepted unchanged', cap:'clarify', mode:'ask' },
   { at:d(-4), what:'Prepared 4 meeting briefs', cap:'draft', mode:'auto' },
 ];
-const capLabel = { file:'File reference items', draft:'Draft replies, nudges, summaries', data:'Update ledger data', send:'Send email, chat, messages', calendar:'Book time on calendars', delete:'Delete or archive', clarify:'Clarify inbox items' };
+const capLabel = { file:'File reference items', draft:'Draft replies, nudges, summaries', data:'Update ledger data', wiki:'Update the wiki', send:'Send email, chat, messages', calendar:'Book time on calendars', delete:'Delete or archive', clarify:'Clarify inbox items' };
 const levelLabel = { do:'Can do it', draft:'Can draft it', assist:'Can prep it' };
 const autonomyLabel = { never:'Never', ask:'Always ask first', draft:'Draft, then ask', auto:'Do it, tell me weekly' };
 const meetings = [
@@ -558,7 +599,8 @@ function viewInbox() {
 function viewPrograms() {
   return `<div class="vhead"><div><h1>Programs</h1><p>Every project must have a next action or a waiting-for. Last movement is computed from ledger activity — accepted, done, nudged — never typed in. Stalled means nothing has moved in more than 7 days. Click a project for its history.</p></div><div class="note">Health rolls up: any blocked project blocks the program</div></div>
   ${programs.map(g => { const js = projects.filter(j => j.program === g.id); const h = js.some(j => j.health === 'crit') ? 'crit' : js.some(j => j.health === 'warn') ? 'warn' : 'good';
-    return `<div class="prog"><div class="head">${healthPill(h)}<div><h2>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-addproj="${g.id}">Add project</button></div>
+    return `<div class="prog"><div class="head">${healthPill(h)}<div><h2>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-wiki="${g.id}">Wiki</button><button class="btn sm" data-addproj="${g.id}">Add project</button></div>
+    ${wiki[g.id] ? `<div class="wstatus"><span class="eyebrow">Status · compiled ${fmtDate(wiki[g.id].compiled)}${days(wiki[g.id].compiled) > 7 ? ' <span class="flag">stale</span>' : ''}</span><p>${esc(wiki[g.id].status)}</p><div class="wlinks">${wiki[g.id].links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>` : ''}
     <div class="tablewrap"><table><thead><tr><th>Project</th><th>Health</th><th>Next action</th><th>Last movement</th><th>Flags</th></tr></thead><tbody>
     ${js.map(j => { const s = projHealth(j); const n = openActions(j.id).length;
       return `<tr><td><button class="linkish" data-proj="${j.id}">${esc(j.name)}</button><div class="sub">${esc(j.outcome)}</div></td><td>${healthPill(j.health)}</td>
@@ -609,6 +651,7 @@ function viewReview() {
     { id:'someday', title:'Someday / maybe: promote or drop', status: `${some.length} parked`, body: some.map(s => `<div class="row"><div class="t"><div>${esc(s.next)}</div><div class="m"><span class="age">${days(s.since)}d parked</span></div></div><button class="btn sm" data-promote="${s.id}">Promote</button><button class="btn sm ghost" data-drop="${s.id}">Drop</button></div>`).join('') },
     { id:'wins', title:'Wins this week → status draft', status: `${done.length} done`, body: done.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m"><span class="chip proj">${esc(projName(x.project))}</span><span class="faint">${fmtDate(x.doneAt || TODAY)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">These become the "done" section of Friday's status.</div><button class="btn sm" data-status>Draft status report</button></div>` },
     { id:'ai', title:'Audit what the AI did this week', status: `${aiLog.length} runs · ${items.filter(i => i.del?.status === 'approved').length + 3} approved`, body: aiLog.map(l => `<div class="row"><div class="t"><div>${esc(l.what)}</div><div class="m"><span class="chip ${l.mode === 'auto' ? 'aichip' : ''}">${l.mode === 'auto' ? 'automatic' : 'you approved'}</span><span class="faint">${fmtDate(l.at)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Automatic actions are the ones to eyeball: if any look wrong, lower that capability's autonomy.</div><a class="btn sm" href="#delegated">Autonomy settings</a></div>` },
+    { id:'lint', title:'Wiki lint', status: `${wikiLint.length} findings`, body: wikiLint.map(l => `<div class="row"><div class="t"><div>${esc(l.what)}</div><div class="m"><span class="chip mono">${esc(l.page)}.md</span><span class="faint">${esc(l.fix)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Stale compiled sections, wiki–ledger contradictions, orphan pages. Fixes go through a reviewed ingest.</div></div>` },
     { id:'horizons', title:'Look up: programs still serve their purpose?', status: '3 programs', body: programs.map(g => `<div class="row"><div class="t"><div>${esc(g.name)}</div><div class="m muted">${esc(g.purpose)}</div></div></div>`).join('') },
   ];
   const doneCount = steps.filter(s => s.auto || state.review[s.id]).length;
@@ -656,8 +699,9 @@ function prepBrief(i) {
     <div class="sec"><h3>Projects in play</h3><ul>${m.projects.map(p => { const j = projOf(p), s = projHealth(j); return `<li><b>${esc(j.name)}</b> ${healthPill(j.health)}<br><span class="muted">${s.na ? 'Next: ' + esc(s.na.next) : s.w ? 'Waiting on ' + esc(pname(s.w.owner)) : 'No next action'}</span></li>`; }).join('')}</ul></div>
     <div class="sec"><h3>Open between you and attendees</h3><ul>${open.map(x => `<li>${x.kind === 'waiting' ? `<span class="chip">${esc(pname(x.owner))} owes</span> ` : ''}${esc(x.next)}${x.kind === 'waiting' ? ` <span class="age ${until(x.followUp) < 0 ? 'over' : ''}">${days(x.since)}d</span>` : ''}</li>`).join('') || '<li class="faint">Nothing open</li>'}</ul></div>
     <div class="sec"><h3>Raise</h3><ul>${agenda.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>
-    ${m.decisions.length ? `<div class="sec"><h3>Recent decisions</h3><ul>${m.decisions.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
-    <div class="note">Generated from the ledger. Notes you take after the meeting are captured back into the inbox.</div>`,
+    ${(() => { const ws = [...new Set(m.projects.map(p => projOf(p)?.program || p))].map(g => wiki[g]).filter(Boolean); const dec = ws.flatMap(w => w.decisions.slice(0, 2)); const rk = ws.flatMap(w => w.risks.filter(r => !r.owner || m.who.includes(r.owner))); return `${dec.length ? `<div class="sec"><h3>Recent decisions <span class="faint" style="font-weight:400">· from the wiki</span></h3><ul>${dec.map(x => `<li><b>${esc(x.what)}</b> <span class="faint">${x.on}</span>${x.status !== 'decided' ? ` <span class="pill warn"><i></i>${esc(x.status)}</span>` : ''}</li>`).join('')}</ul></div>` : ''}
+    ${rk.length ? `<div class="sec"><h3>Watch for <span class="faint" style="font-weight:400">· open risks with attendees</span></h3><ul>${rk.map(r => `<li><span class="pill ${r.level === 'high' ? 'crit' : r.level === 'medium' ? 'warn' : 'neutral'}"><i></i>${r.level}</span> ${esc(r.what)} <span class="faint">· ${r.owner ? esc(pname(r.owner)) : 'no owner'}</span></li>`).join('')}</ul></div>` : ''}`; })()}
+    <div class="note">Commitments from the ledger; decisions and risks from the wiki. Notes you take after the meeting are captured back into the inbox.</div>`,
     `<button class="btn" data-close>Done</button>`);
 }
 function nudgeDraft(id) {
@@ -687,6 +731,9 @@ function projectDrawer(pid) {
       <input id="suggestText" class="draft" style="min-height:0;padding:9px 12px" value="${esc(j.suggest || 'Book 20 minutes with the owner to agree the next step')}" aria-label="Next action">
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><select id="suggestCtx" style="border:1px solid var(--line);background:var(--ground);border-radius:6px;padding:6px 9px">${ctxs.map(c => `<option ${c === '@deep' ? 'selected' : ''}>${c}</option>`).join('')}</select><button class="btn primary sm" data-addnext="${pid}">Add as next action</button><span id="suggestErr" class="note" style="color:var(--crit)"></span></div></div>
     ${waits.length ? `<div class="sec"><h3>Waiting for · ${waits.length}</h3><div class="panel"><div class="pb">${waits.map(w => waitingRow(w, { showOwner:true })).join('')}</div></div></div>` : ''}
+    ${(() => { const w = wikiOf(pid); if (!w) return ''; const dec = w.decisions.filter(x => isProg || x.projects.includes(pid)); const rk = w.risks.filter(x => isProg || x.projects.includes(pid)); return `<div class="sec"><h3>From the wiki</h3><div class="wlinks">${w.links.slice(0, 3).map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}<button class="btn sm ghost" data-wiki="${isProg ? pid : j.program}">Open ${esc(w.page)}</button></div>
+      ${dec.length ? `<div class="wrow"><span class="eyebrow">Latest decision</span><div><b>${esc(dec[0].what)}</b> <span class="faint">${dec[0].on} · ${esc(dec[0].who)}</span><div class="muted">${esc(dec[0].why)}</div></div></div>` : ''}
+      ${rk.length ? `<div class="wrow"><span class="eyebrow">Open risk</span><div><span class="pill ${rk[0].level === 'high' ? 'crit' : rk[0].level === 'medium' ? 'warn' : 'neutral'}"><i></i>${rk[0].level}</span> ${esc(rk[0].what)} <span class="faint">· ${rk[0].owner ? esc(pname(rk[0].owner)) : 'no owner'}</span></div></div>` : ''}</div>`; })()}
     <div class="sec"><h3>History</h3>${ev.length ? `<ul class="hist">${ev.map(e => `<li><span class="mono num">${fmtDate(e.when)}</span> <span class="muted">${esc(e.what)}</span> · ${esc(e.item.next)}</li>`).join('')}</ul>` : '<div class="note">Nothing yet.</div>'}</div>
     <div class="note">Movement is derived from these events. Nothing on this page is a status field someone remembered to update.</div>`,
     `<button class="btn" data-close>Close</button>`);
@@ -759,6 +806,20 @@ function viewDelegated() {
     </div>
   </div>`;
 }
+function wikiDrawer(pid) {
+  const g = programs.find(x => x.id === pid), w = wiki[pid]; if (!w) return;
+  const st = (x) => ({ done:'good', 'on track':'good', locked:'good', 'at risk':'warn', 'room clash':'warn', 'pending window':'warn', blocked:'crit', undecided:'crit' })[x] || 'neutral';
+  openDrawer(esc(g.name), `
+    <div class="sec"><div class="eyebrow">wiki/${esc(w.page)}.md · living doc · compiled ${fmtDate(w.compiled)}</div></div>
+    <div class="sec"><h3>Purpose</h3><p class="muted" style="margin:0">${esc(g.purpose)}</p></div>
+    <div class="sec"><h3>Key links</h3><div class="wlinks">${w.links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>
+    <div class="sec"><h3>Current status <span class="faint" style="font-weight:400">· compiled</span></h3><p class="muted" style="margin:0">${healthPill(w.health)} ${esc(w.status)}</p></div>
+    <div class="sec"><h3>Milestones</h3><div class="tablewrap"><table class="mini"><tbody>${w.milestones.map(m => `<tr><td class="mono num">${esc(m[0])}</td><td>${esc(m[1])}</td><td><span class="pill ${st(m[2])}"><i></i>${esc(m[2])}</span></td></tr>`).join('')}</tbody></table></div></div>
+    <div class="sec"><h3>Decisions</h3>${w.decisions.map(x => `<div class="wrow"><span class="mono num faint">${x.on}</span><div><b>${esc(x.what)}</b> <span class="faint">· ${esc(x.who)}</span><div class="muted">${esc(x.why)}</div>${x.status !== 'decided' ? `<span class="pill warn" style="margin-top:4px"><i></i>${esc(x.status)}</span>` : ''}</div></div>`).join('')}${w.pending.length ? `<div class="wrow"><span class="eyebrow">Pending</span><ul style="margin:0">${w.pending.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}</div>
+    <div class="sec"><h3>Risks</h3><ul>${w.risks.map(r => `<li><span class="pill ${r.level === 'high' ? 'crit' : r.level === 'medium' ? 'warn' : 'neutral'}"><i></i>${r.level}</span> ${esc(r.what)} <span class="faint">· ${r.owner ? esc(pname(r.owner)) : 'no owner'}</span></li>`).join('')}</ul></div>
+    <div class="note">Compiled sections are rewritten from the ledger; purpose, links, decisions and risks are written by you or by reviewed ingests. Full page and history in the repo.</div>`,
+    `<button class="btn" data-close>Close</button><button class="btn primary" data-ingest="${pid}">Ingest notes into this page</button>`);
+}
 function statusDraft() {
   const done = by('done');
   const text = programs.map(g => { const js = projects.filter(j => j.program === g.id); const h = js.some(j => j.health === 'crit') ? 'Blocked' : js.some(j => j.health === 'warn') ? 'At risk' : 'On track';
@@ -802,7 +863,7 @@ function acceptCurrent(overrideKind) {
 function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === sel); sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? sel; render(); }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.sel) { sel = ds.sel; render(); }
@@ -816,6 +877,8 @@ document.addEventListener('click', (e) => {
   else if ('close' in ds) closeDrawer();
   else if (ds.send) { state.nudged[ds.send] = (state.nudged[ds.send] || 0) + 1; const w = items.find(i => i.id === ds.send); w.nudges = (w.nudges || 0) + 1; w.followUp = d(5); w.lastNudged = TODAY; save(); closeDrawer(); toast(`Nudge sent to ${pname(w.owner)} · follow-up moved to ${fmtDate(w.followUp)}`); render(); }
   else if (ds.proj) projectDrawer(ds.proj);
+  else if (ds.wiki) wikiDrawer(ds.wiki);
+  else if (ds.ingest) { const g = programs.find(x => x.id === ds.ingest); const id = 'N' + Date.now(); const a = { id, kind:'action', next:`Ingest this week's notes into ${g.name} wiki pages`, project:g.id, ctx:'@ai', min:30, createdAt:TODAY, ai:{ level:'do', cap:'wiki', what:'Read the notes, update hub sections and decisions, append to timeline and log' } }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); handOff(a, 'wiki', a.ai.what); a.del.effect = `Updates ${wiki[g.id].page}.md and -decisions.md; appends to log.md`; state.delegated[id].effect = a.del.effect; save(); closeDrawer(); toast('Handed to AI · wiki ingest queued for your review'); location.hash = '#delegated'; render(); }
   else if (ds.hand) { const a = items.find(i => i.id === ds.hand); handOff(a, a.ai?.cap, a.ai?.what); toast(`Handed to AI · "${a.next}" — you'll be asked before anything is sent`); render(); }
   else if (ds.review) reviewDrawer(ds.review);
   else if (ds.approve) { const x = items.find(i => i.id === ds.approve); const txt = $('#rvText')?.value; if (txt) x.del.deliverable = txt; x.del.status = 'approved'; x.kind = 'done'; x.doneAt = TODAY; state.delegated[x.id] = Object.assign(state.delegated[x.id] || {}, { status:'approved', deliverable:x.del.deliverable, at:iso(x.del.at), readyAt:iso(x.del.readyAt || TODAY) }); state.done[x.id] = true; save(); closeDrawer(); toast(`Approved · ${x.del.effect}`); render(); }

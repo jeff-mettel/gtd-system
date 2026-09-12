@@ -14,6 +14,8 @@ an item *is*, and doing the weekly review.
 | `frontend/commitment-ledger.html` | Self-contained front-end (vanilla JS, example data, localStorage). Published as an artifact for review. |
 | `docs/architecture.md` | The architecture: GTD mapping, data model, capture, clarify engine, views, agents, trust invariants, phasing. |
 | `docs/backend-wiring.md` | How the front-end connects to a real back-end: event log, endpoints, the five typed model calls, confidence gating, evals. |
+| `docs/wiki.md` | The program wiki (Karpathy pattern): ledger vs. wiki, page structure, compiled-section markers, the three write paths, lint. |
+| `wiki/` | The wiki itself — hub, decisions, timeline, risks per program; person pages; `index.md` + `log.md`. Seeded with example programs. |
 | `docs/delegation.md` | Delegating work to the AI: the three levels, the review gate, autonomy settings, how it shows in each view. |
 | `docs/decisions.md` | Running log of design decisions made in collaboration, newest first. |
 
