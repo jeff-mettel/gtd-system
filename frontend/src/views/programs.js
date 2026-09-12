@@ -1,18 +1,19 @@
-import { active, activeProjects, d, items } from '../data/example.js';
-import { activity, by, days, esc, fmtDate, srcLabel } from '../model.js';
-import { I } from '../ui/nav.js';
-
-      <div class="acts"><button class="btn primary" data-accept>Accept${p.ai && (p.kind === 'action' || p.kind === 'project') ? ' — I do it' : low ? ' as edited' : ''} <span class="kbd" style="margin-left:6px">a</span></button>${p.ai && (p.kind === 'action' || p.kind === 'project') ? `<button class="btn primary" style="background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent)" data-accept-ai>Accept, hand to AI <span class="kbd" style="margin-left:6px">d</span></button>` : ''}<button class="btn" data-draft>Draft reply</button><span class="sp"></span><button class="btn ghost" data-skip>Skip for now</button></div>
-    </div>
-  </div>
-  ${trashPanel()}`;
-}
-export function trashPanel() {
-  const tr = by('trash').filter(x => !x.trashedAt || days(x.trashedAt) <= 30);
-  if (!tr.length) return '';
-  return `<div class="panel"><div class="ph"><h2>Trash</h2><span class="note num">${tr.length} · kept 30 days, then gone</span></div><div class="pb">${tr.map(x => `<div class="row"><div class="t"><div class="muted">${esc(x.raw || x.next)}</div><div class="m"><span class="chip src">${srcLabel[x.source] || 'Item'}</span><span class="faint">trashed ${x.trashedAt ? fmtDate(x.trashedAt) : 'earlier'}</span></div></div><button class="btn sm ghost" data-restore="${x.id}">Restore to inbox</button></div>`).join('')}</div></div>`;
-}
+import { programs, wiki } from '../data/example.js';
+import { days, fmtDate } from '../lib/dates.js';
+import { esc } from '../lib/dom.js';
+import { active, activeProjects, openActions, pname, projHealth } from '../model.js';
+import { healthPill, pcStyle } from '../ui/fragments.js';
 
 export function viewPrograms() {
   return `<div class="vhead"><div><h1>Programs</h1><p>Every project must have a next action or a waiting-for. Last movement is computed from ledger activity — accepted, done, nudged — never typed in. Stalled means nothing has moved in more than 7 days. Click a project for its history.</p></div><div style="display:flex;gap:10px;align-items:center"><span class="note">Health rolls up: any blocked project blocks the program</span><button class="btn" data-addprog>Add program</button></div></div>
   ${active().map(g => { const js = activeProjects(g.id); const h = js.some(j => j.health === 'crit') ? 'crit' : js.some(j => j.health === 'warn') ? 'warn' : 'good';
+    return `<div class="prog" ${pcStyle(g.id)}><div class="head">${healthPill(h)}<div><h2><i class="pdot"></i>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-wiki="${g.id}">Wiki</button><button class="btn sm" data-addproj="${g.id}">Add project</button><button class="btn sm ghost" data-retire="${g.id}" title="Retire this program">Retire</button></div>
+    ${wiki[g.id] ? `<div class="wstatus"><span class="eyebrow">Status · compiled ${fmtDate(wiki[g.id].compiled)}${days(wiki[g.id].compiled) > 7 ? ' <span class="flag">stale</span>' : ''}</span><p>${esc(wiki[g.id].status)}</p><div class="wlinks">${wiki[g.id].links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>` : ''}
+    <div class="tablewrap"><table><thead><tr><th>Project</th><th>Health</th><th>Next action</th><th>Last movement</th><th>Flags</th></tr></thead><tbody>
+    ${js.map(j => { const s = projHealth(j); const n = openActions(j.id).length;
+      return `<tr><td><button class="linkish" data-proj="${j.id}">${esc(j.name)}</button><div class="sub">${esc(j.outcome)}</div></td><td>${healthPill(j.health)}</td>
+      <td>${s.na ? esc(s.na.next) + `<div class="sub"><span class="chip ctx">${esc(s.na.ctx)}</span>${n > 1 ? ` <span class="faint">+${n - 1} more open</span>` : ''}</div>` : s.dl ? `<span class="muted">Delegated to AI</span><div class="sub">${esc(s.dl.next)} · ${s.dl.del.status === 'ready' ? '<b>ready for review</b>' : s.dl.del.status}</div>` : s.w ? `<span class="muted">Waiting on ${esc(pname(s.w.owner))}</span><div class="sub">${esc(s.w.next)}</div>` : `<button class="btn sm" data-proj="${j.id}">Decide next action</button>`}</td>
+      <td class="num"><span class="age ${s.stalled ? 'over' : ''}">${s.lm ? s.age + 'd' : '—'}</span>${s.lm ? `<div class="sub">${esc(s.lm.what)}</div>` : '<div class="sub">No activity</div>'}</td><td>${[s.stalled ? '<span class="flag">Stalled</span>' : '', s.noNext ? '<span class="flag">No next action</span>' : ''].filter(Boolean).join('<br>') || '<span class="faint">—</span>'}</td></tr>`; }).join('') || `<tr><td colspan="5" class="muted">No projects yet.</td></tr>`}
+    </tbody></table></div></div>`; }).join('')}
+  ${programs.some(g => g.retired) ? `<div class="panel"><div class="ph"><h2>Retired</h2><span class="note">Purpose met or superseded. Wiki pages kept as history.</span></div><div class="pb">${programs.filter(g => g.retired).map(g => `<div class="row"><div class="t"><div class="muted">${esc(g.name)}</div><div class="m"><span class="faint">retired ${fmtDate(g.retired)}</span><span class="chip mono">wiki/${esc(wiki[g.id]?.page || '')}.md</span></div></div><button class="btn sm ghost" data-wiki="${g.id}">Wiki</button></div>`).join('')}</div></div>` : ''}`;
+}

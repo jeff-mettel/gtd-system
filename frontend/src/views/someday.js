@@ -1,8 +1,10 @@
-import { d } from '../data/example.js';
-import { days, esc, pname, until } from '../model.js';
+import { days, dueLabel, iso, until } from '../lib/dates.js';
+import { esc } from '../lib/dom.js';
+import { by } from '../model.js';
+import { projChip } from '../ui/fragments.js';
 
-    <div class="panel"><div class="ph"><h2>Aging</h2><span class="note num">${ws.length} open · ${ws.filter(w => until(w.followUp) < 0).length} past follow-up</span></div>
-      <div class="aging">${buckets.map(b => { const n = ws.filter(b[1]).length; return `<div class="bar"><span class="lbl">${b[0]}</span><div class="trk"><i style="width:${n / max * 100}%;background:${b[2]}"></i></div><span class="n">${n}</span></div>`; }).join('')}</div>
-      <div class="ph" style="border-top:1px solid var(--line);border-bottom:0"><h2>Oldest</h2></div>
-      <div class="pb">${[...ws].sort((a, b) => days(b.since) - days(a.since)).slice(0, 3).map(w => `<div class="row"><div class="t"><div>${esc(w.next)}</div><div class="m"><span class="chip">${esc(pname(w.owner))}</span><span class="age over">${days(w.since)}d</span></div></div></div>`).join('')}</div>
-    </div>
+export function viewSomeday() {
+  const some = by('someday').sort((a, b) => (a.revisit ? until(a.revisit) : 9e9) - (b.revisit ? until(b.revisit) : 9e9));
+  return `<div class="vhead"><div><h1>Someday / maybe</h1><p>Ideas and commitments you have deliberately not made yet. Reviewed weekly; a revisit date turns one into a tickler.</p></div><span class="note num">${some.length} parked · ${some.filter(x => x.revisit).length} with a revisit date</span></div>
+  <div class="panel"><div class="ph"><h2>Parked</h2><span class="note">Sorted by revisit date</span></div><div class="pb">${some.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m">${x.project ? `${projChip(x.project)}` : ''}<span class="age">${days(x.since)}d parked</span>${x.revisit ? `<span class="chip" style="color:var(--accent-text);background:var(--accent-soft)">↺ revisit ${dueLabel(x.revisit)}</span>` : '<span class="faint">no revisit date</span>'}</div></div><input type="date" class="in" style="width:auto;padding:4px 8px" value="${x.revisit ? iso(x.revisit) : ''}" data-revisit="${x.id}" title="Revisit on"><button class="btn sm" data-promote="${x.id}">Promote</button><button class="btn sm ghost" data-drop="${x.id}">Drop</button></div>`).join('') || '<div class="empty">Nothing parked.</div>'}</div></div>`;
+}

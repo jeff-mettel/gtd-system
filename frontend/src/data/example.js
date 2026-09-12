@@ -1,21 +1,13 @@
 // Example data. Every date is relative to TODAY (see lib/dates.js).
 
-import { TODAY } from '../lib/dates.js';
-import { by, days, esc, projName, projOf, until } from '../model.js';
-import { $ } from '../ui/fragments.js';
-import { I } from '../ui/nav.js';
-
-<script>
-/* ---------- example data ---------- */
-export const TODAY = new Date('2026-09-14T08:00:00');
-export const d = (n) => { const x = new Date(TODAY); x.setDate(x.getDate() + n); return x; };
-export const iso = (x) => new Date(x).toISOString().slice(0, 10);
+import { d } from '../lib/dates.js';
 
 export const programs = [
   { id:'P1', name:'Billing platform migration', purpose:'Move all invoicing off the legacy system by end of Q1 with zero customer-visible billing errors.', sponsor:'ingrid', cadence:'Steering Thu · status Fri' },
   { id:'P2', name:'Fall launch readiness', purpose:'Ship the fall release on 21 Oct with support, comms and go/no-go criteria in place.', sponsor:'ingrid', cadence:'Readiness Mon · status Fri' },
-  { id:'P3', name:'Vendor consolidation', purpose:'Reduce 14 tooling vendors to 6 by year end, saving ~$1.1M annually without a service gap.', sponsor:'ingrid', cadence:'Steering biweekly' },
+  { id:'P3', name:'Vendor consolidation', created:d(-49), purpose:'Reduce 14 tooling vendors to 6 by year end, saving ~$1.1M annually without a service gap.', sponsor:'ingrid', cadence:'Steering biweekly' },
 ];
+
 export const projects = [
   { id:'J1', program:'P1', name:'Data migration dry run', outcome:'Full production data replayed into the new system with <0.1% variance', health:'good', suggest:'Confirm the dry-run date with infra and put it on the steering agenda' },
   { id:'J2', program:'P1', name:'Legacy invoice cutover plan', outcome:'Signed cutover runbook with rollback and a locked date', health:'warn', suggest:'Draft the two cutover options on one page so Ingrid can decide in steering' },
@@ -23,9 +15,10 @@ export const projects = [
   { id:'J4', program:'P2', name:'Launch comms', outcome:'Announcement, FAQ and internal brief published by 14 Oct', health:'good', suggest:'Agree the FAQ owner with Dana' },
   { id:'J5', program:'P2', name:'Support readiness', outcome:'Support trained, macros live, on-call staffed for launch week', health:'good', suggest:'Send Leo the macro list to review' },
   { id:'J6', program:'P2', name:'Go/no-go criteria', outcome:'Agreed, measurable criteria signed by Ingrid before 7 Oct', health:'warn', suggest:'Draft a strawman of go/no-go criteria and send to Ingrid for reaction' },
-  { id:'J7', program:'P3', name:'Legal review of master agreements', outcome:'Redlined template approved so six contracts can be renegotiated', health:'crit', suggest:'Book a 30-minute working session with Sam on the redlines' },
-  { id:'J8', program:'P3', name:'Vendor scorecard', outcome:'All 14 vendors scored on cost, risk and overlap; shortlist confirmed', health:'good', suggest:'Score the four remaining vendors with Tomas in one sitting' },
+  { id:'J7', program:'P3', created:d(-49), name:'Legal review of master agreements', outcome:'Redlined template approved so six contracts can be renegotiated', health:'crit', suggest:'Book a 30-minute working session with Sam on the redlines' },
+  { id:'J8', program:'P3', created:d(-35), name:'Vendor scorecard', outcome:'All 14 vendors scored on cost, risk and overlap; shortlist confirmed', health:'good', suggest:'Score the four remaining vendors with Tomas in one sitting' },
 ];
+
 export const people = [
   { id:'priya', name:'Priya Natarajan', role:'Engineering lead, billing', lastTouched:d(-1), agenda:['Dry-run window: who owns the infra ask?', 'Variance report format for Marcus', 'Her ask: fewer status pings during dry run'] },
   { id:'marcus', name:'Marcus Bell', role:'Finance controller', lastTouched:d(-4), agenda:['Tolerance approval is 11 days old', 'Thursday close: what he needs from us'] },
@@ -35,6 +28,7 @@ export const people = [
   { id:'ingrid', name:'Ingrid Halvorsen', role:'VP Operations, sponsor', lastTouched:d(-2), agenda:['Cutover date decision (1 Nov vs 15 Nov)', 'Board one-pager on vendor savings', 'Go/no-go owner for launch'] },
   { id:'tomas', name:'Tomas Vieira', role:'Vendor management', lastTouched:d(-2), agenda:['Scorecard data for the remaining 4', 'Updated pricing from two vendors'] },
 ];
+
 export const items = [
   // inbox
   { id:'I1', kind:'inbox', source:'email', from:'marcus', captured:d(0), raw:'Can you get me the reconciliation variance numbers before Thursday\'s close? Board pack goes out Friday.', p:{ kind:'action', next:'Send reconciliation variance summary to Marcus', project:'J3', ctx:'@deep', min:45, due:d(2), conf:.91, why:'Direct ask with a deadline; matches the open Finance sign-off project.', ai:{ level:'draft', cap:'draft', what:'Draft the variance summary from the reconciliation export; you check the numbers.' } } },
@@ -89,6 +83,7 @@ export const items = [
   { id:'D4', kind:'done', next:'Draft go/no-go criteria circulated for comment', project:'J6', doneAt:d(-9) },
   { id:'D5', kind:'done', next:'Cutover risk register rebased', project:'P1', doneAt:d(-1) },
 ];
+
 /* Program wiki — compiled knowledge (wiki/program-*.md). Ledger owns commitments; the wiki owns context. */
 export const wiki = {
   P1: { page:'program-billing-migration', compiled:d(-3), health:'warn',
@@ -115,18 +110,14 @@ export const wiki = {
                 { on:'30 Jul', what:'One master agreement template instead of six bespoke contracts', who:'Sam, Tomas', why:'Six parallel legal reviews would take until Q1; one template reviewed once is faster overall — but becomes the critical path.', status:'decided', projects:['J7'] }],
     pending:[],
     risks:[{ what:'Legal redlines block all six renegotiations', level:'high', owner:'sam', projects:['J7'] },{ what:'Two vendors raised pricing mid-negotiation', level:'low', owner:'tomas', projects:['J8'] },{ what:'Board one-pager due before savings are contracted', level:'medium', owner:null, projects:[] }] },
+};
 
+export const wikiLint = [
+  { page:'program-vendor-consolidation', what:'Current status compiled 9 days ago — older than 7', fix:'Recompile' },
+  { page:'program-fall-launch-risks', what:'Go/no-go risk has no owner; ledger project J6 has no next action either', fix:'Assign owner in review step 2' },
+  { page:'person-sam-reyes', what:'No inbound links from a hub Stakeholders table other than P3', fix:'Fine — single program' },
 ];
-export const slug = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-export const wikiStub = (g) => ({ page:'program-' + slug(g.name), compiled:null, health:'good', status:'Not compiled yet — the compile job runs Friday, or on the first health change.', links:[], milestones:[], decisions:[], pending:[], risks:[] });
-export const active = () => programs.filter(g => !g.retired);
-export const activeProjects = (gid) => projects.filter(j => j.program === gid && !j.dropped);
-/* Program identity color: slot by program order, fixed for life; beyond 8 programs folds to gray. */
-export const progIdx = (gid) => { const i = programs.findIndex(g => g.id === gid); return i < 0 || i > 7 ? 0 : i + 1; };
-export const progOfAny = (pid) => programs.find(g => g.id === pid) ? pid : projOf(pid)?.program;
-export const pcStyle = (pid) => `style="--pc:var(--c${progIdx(progOfAny(pid))})"`;
-export const projChip = (pid, label) => pid ? `<span class="chip proj" ${pcStyle(pid)}>${esc(label ?? projName(pid))}</span>` : `<span class="chip">${esc(label ?? '—')}</span>`;
-export const wikiOf = (pid) => wiki[pid] || wiki[projOf(pid)?.program] || null;
+
 export const aiLog = [
   { at:d(-3), what:'Compiled status, commitments and history sections on 3 program wiki pages', cap:'wiki', mode:'auto' },
   { at:d(-1), what:'Filed 4 reference items', cap:'file', mode:'auto' },
@@ -134,9 +125,13 @@ export const aiLog = [
   { at:d(-3), what:'Clarified 31 inbox items — 27 accepted unchanged', cap:'clarify', mode:'ask' },
   { at:d(-4), what:'Prepared 4 meeting briefs', cap:'draft', mode:'auto' },
 ];
+
 export const capLabel = { file:'File reference items', draft:'Draft replies, nudges, summaries', data:'Update ledger data', wiki:'Update the wiki', send:'Send email, chat, messages', calendar:'Book time on calendars', delete:'Delete or archive', clarify:'Clarify inbox items' };
+
 export const levelLabel = { do:'Can do it', draft:'Can draft it', assist:'Can prep it' };
+
 export const autonomyLabel = { never:'Never', ask:'Always ask first', draft:'Draft, then ask', auto:'Do it, tell me weekly' };
+
 export const pastMeetings = [
   { on:d(-7), title:'Billing sync', who:['priya','marcus'], captured:2 },
   { on:d(-6), title:'Vendor consolidation steering', who:['ingrid','tomas','sam'], captured:1 },
@@ -145,6 +140,7 @@ export const pastMeetings = [
   { on:d(-3), title:'Launch readiness', who:['dana','leo','ingrid'], captured:0 },
   { on:d(-3), title:'Skip-level with Ingrid', who:['ingrid'], captured:0 },
 ];
+
 export const calendarAhead = [
   { on:d(1), time:'09:00', title:'Billing sync', who:['priya','marcus'] },
   { on:d(3), time:'14:00', title:'Billing migration steering', who:['ingrid','priya','marcus'] },
@@ -153,10 +149,24 @@ export const calendarAhead = [
   { on:d(8), time:'10:00', title:'Vendor consolidation steering', who:['ingrid','tomas','sam'] },
   { on:d(10), time:'15:00', title:'Board prep with Ingrid', who:['ingrid'] },
 ];
+
 export const sweepTriggers = ['Projects started, not finished', 'Promises to Ingrid, peers, reports', 'Emails or messages to send', 'Meetings to schedule', 'Things I\'m waiting on', 'Decisions pending', 'Risks I\'m carrying in my head', 'Personal admin'];
+
 export const meetings = [
   { time:'09:00', dur:30, title:'Billing sync', who:['priya','marcus'], projects:['J1','J3'], decisions:['Reconciliation tolerance set at 0.1% (3 Sep)'] },
   { time:'10:30', dur:30, title:'1:1 · Leo Okafor', who:['leo'], projects:['J5'], decisions:[] },
   { time:'13:00', dur:45, title:'Launch readiness', who:['dana','leo','ingrid'], projects:['J4','J5','J6'], decisions:['Launch date 21 Oct locked (28 Aug)'] },
   { time:'15:30', dur:45, title:'Vendor consolidation steering', who:['ingrid','tomas','sam'], projects:['J7','J8'], decisions:['Vendor shortlist reduced to 6 (20 Aug)'] },
+];
+
+export const flowWeeksStatic = [
+  { w:'20 Jul', c:31, k:29, d:18 }, { w:'27 Jul', c:27, k:27, d:22 }, { w:'3 Aug', c:35, k:30, d:19 }, { w:'10 Aug', c:24, k:24, d:21 },
+  { w:'17 Aug', c:40, k:33, d:25 }, { w:'24 Aug', c:29, k:29, d:23 }, { w:'31 Aug', c:33, k:31, d:20 }, { w:'7 Sep', c:38, k:30, d:17 },
+];
+
+export const cycle = [
+  { list:'Inbox → clarified', median:'0.6 d', p90:'2.1 d', note:'Target < 1 day' },
+  { list:'Next action → done', median:'3.2 d', p90:'11 d', note:'Deep-work items dominate the tail' },
+  { list:'Waiting for → closed', median:'9.4 d', p90:'26 d', note:'Legal and sponsor decisions' },
+  { list:'Someday → promoted or dropped', median:'41 d', p90:'—', note:'Review monthly' },
 ];

@@ -1,17 +1,17 @@
-import { active, items, people, wiki } from '../data/example.js';
-import { TODAY } from '../lib/dates.js';
-import { by, dueLabel, esc, fmtDate, person } from '../model.js';
+import { aiLog, people } from '../data/example.js';
+import { days, until } from '../lib/dates.js';
+import { esc } from '../lib/dom.js';
+import { by, delegated, initials, mine_ } from '../model.js';
 
-export function viewReference() {
-  const refs = by('reference');
-  const group = (pid) => refs.filter(r => r.refPage === pid);
-  const refRow = (r) => `<div class="row"><div class="t"><div>${esc(r.next)}</div><div class="m"><span class="faint">filed ${fmtDate(r.filedAt || TODAY)}</span>${r.revisit ? `<span class="chip" style="color:var(--accent-text);background:var(--accent-soft)">↺ tickler ${dueLabel(r.revisit)}</span>` : ''}</div></div><button class="btn sm ghost" data-drop="${r.id}">Drop</button></div>`;
-  return `<div class="vhead"><div><h1>Reference</h1><p>Not actionable, worth keeping. Reference lives in the wiki, so this list is the wiki index: program hubs with their key links and filed items, people pages, and standalone reference pages.</p></div><span class="note num">${refs.length} filed items · ${Object.keys(wiki).length + people.length} pages</span></div>
-  ${active().map(g => { const w = wiki[g.id]; const rs = group(g.id); return `<div class="panel"><div class="ph"><h2>${esc(g.name)}</h2><div style="display:flex;gap:8px;align-items:center"><span class="chip mono">wiki/${esc(w.page)}.md</span><button class="btn sm" data-wiki="${g.id}">Open hub</button></div></div>
-    <div class="wstatus" style="border-bottom:0"><span class="eyebrow">Key links</span><div class="wlinks">${w.links.filter(l => l[1]).map(l => `<a class="chip" href="${l[1]}">${esc(l[0])}</a>`).join('') || '<span class="faint">none yet</span>'}</div></div>
-    ${rs.length ? `<div class="pb" style="border-top:1px solid var(--line)">${rs.map(refRow).join('')}</div>` : ''}</div>`; }).join('')}
-  <div class="panel"><div class="ph"><h2>People pages</h2><span class="note">wiki/person-*.md</span></div><div class="pb">${people.map(x => { const rs = group(x.id); return `<div class="row"><div class="t"><div>${esc(x.name)} <span class="faint">· ${esc(x.role)}</span></div>${rs.length ? `<div class="m">${rs.map(r => `<span class="chip">${esc(r.next)}</span>`).join('')}</div>` : ''}</div><button class="btn sm ghost" data-agenda="${x.id}">Open</button></div>`; }).join('')}</div></div>
-  ${group('new').length ? `<div class="panel"><div class="ph"><h2>Reference pages</h2><span class="note">wiki/ref-*.md</span></div><div class="pb">${group('new').map(refRow).join('')}</div></div>` : ''}`;
-}
 export function viewPeople() {
   return `<div class="vhead"><div><h1>People</h1><p>Each stakeholder in both directions: what they owe you, what you owe them, and the queue for your next conversation.</p></div></div>
+  <div class="people"><div class="pcard aicard"><div class="top"><span class="av">AI</span><div><div><b>Assistant</b></div><div class="role">Delegate · works from the ledger · never sends unasked</div></div></div>
+    <div class="two"><div><div class="h">They owe me · ${delegated('queued').length + delegated('working').length}</div><ul>${[...delegated('working'), ...delegated('queued')].map(x => `<li>${esc(x.next)} <span class="age">${x.del.status}</span></li>`).join('') || '<li class="faint">Nothing in progress</li>'}</ul></div>
+    <div><div class="h">I owe them · ${delegated('ready').length} reviews</div><ul>${delegated('ready').map(x => `<li>${esc(x.next)}</li>`).join('') || '<li class="faint">Nothing to review</li>'}</ul></div></div>
+    <div class="foot"><span>${aiLog.length} runs this week</span><a class="btn sm ghost" href="#delegated">Delegated ledger</a></div></div>
+  ${people.map(p => { const theirs = by('waiting').filter(w => w.owner === p.id); const mine = mine_().filter(a => a.ctx === '@1:1/' + p.id || (a.next.toLowerCase().includes(p.name.split(' ')[0].toLowerCase())));
+    return `<div class="pcard"><div class="top"><span class="av">${initials(p.id)}</span><div><div><b>${esc(p.name)}</b></div><div class="role">${esc(p.role)}</div></div></div>
+    <div class="two"><div><div class="h">They owe me · ${theirs.length}</div><ul>${theirs.map(w => `<li class="${until(w.followUp) < 0 ? 'over' : ''}">${esc(w.next)} <span class="age">${days(w.since)}d</span></li>`).join('') || '<li class="faint">Nothing open</li>'}</ul></div>
+    <div><div class="h">I owe them · ${mine.length}</div><ul>${mine.map(a => `<li>${esc(a.next)}</li>`).join('') || '<li class="faint">Nothing open</li>'}</ul></div></div>
+    <div class="foot"><span>Last touched ${days(p.lastTouched)}d ago</span><button class="btn sm ghost" data-agenda="${p.id}">1:1 agenda · ${p.agenda.length}</button></div></div>`; }).join('')}</div>`;
+}

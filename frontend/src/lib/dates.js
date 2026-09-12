@@ -1,14 +1,15 @@
-// Dates. Demo "today" is Mon 14 Sep 2026; all example dates are relative to it.
+// Dates. Demo "today" is Mon 14 Sep 2026; every example date is relative to it.
+/* ---------- example data ---------- */
+export const TODAY = new Date('2026-09-14T08:00:00');
 
-import { delegated } from '../model.js';
-import { state } from '../state.js';
-import { toast } from '../ui/nav.js';
+export const d = (n) => { const x = new Date(TODAY); x.setDate(x.getDate() + n); return x; };
 
-<aside class="drawer" id="drawer" aria-label="Detail"></aside>
-<div class="toast" id="toast"></div>
-<div class="tip" id="tip"></div>
+export const iso = (x) => new Date(x).toISOString().slice(0, 10);
 
-    const dg = state.delegated[it.id];
-    if (dg) { if (dg.status === 'taken') { delete it.owner; delete it.del; } else { it.owner = 'ai'; it.cap = it.cap || dg.cap; it.del = Object.assign({}, it.del || {}, dg); if (dg.status === 'approved') it.kind = 'done'; if (dg.status === 'working') { it.del.status = 'ready'; it.del.readyAt = it.del.readyAt || TODAY; it.del.deliverable = it.del.deliverable || `${it.next}\n\n(Finished while you were away — in the live system the assistant's output appears here.)`; } } }
+export const days = (x) => Math.round((TODAY - new Date(x)) / 86400000);
 
-/* ---------- helpers ---------- */
+export const until = (x) => -days(x);
+
+export const fmtDate = (x) => new Date(x).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+
+export const dueLabel = (x) => { const u = until(x); return u < 0 ? `${-u}d overdue` : u === 0 ? 'today' : u === 1 ? 'tomorrow' : fmtDate(x); };

@@ -1,34 +1,30 @@
 // Render loop, routing and event delegation.
 
-import { active, activeProjects, autonomyLabel, capLabel, d, iso, items, people, programs, projects, wiki } from './data/example.js';
-import { handOff } from './drawers/ai.js';
+import { autonomyLabel, capLabel, items, programs, projects, wiki } from './data/example.js';
+import { handOff, reviewDrawer } from './drawers/ai.js';
 import { itemDrawer } from './drawers/item.js';
-import { closeDrawer, nudgeDraft, openDrawer, prepBrief } from './drawers/people.js';
-import { addProgramDrawer, addProjectDrawer, agendaDrawer, createProgram, projectDrawer, retireDrawer, wikiDrawer } from './drawers/project.js';
-import { TODAY } from './lib/dates.js';
-import { by, days, delegated, esc, fmtDate, person, pname, projName, projOf } from './model.js';
+import { agendaDrawer, nudgeDraft, prepBrief } from './drawers/people.js';
+import { addProgramDrawer, addProjectDrawer, createProgram, projectDrawer, retireDrawer, wikiDrawer } from './drawers/project.js';
+import { statusDraft } from './drawers/status.js';
+import { Replay } from './replay/index.js';
+import { TODAY, d, fmtDate, iso, until } from './lib/dates.js';
+import { $, esc, toast } from './lib/dom.js';
+import { by, mine, person, pname, projName, projOf } from './model.js';
 import { STORE, save, state } from './state.js';
-import { $ } from './ui/fragments.js';
-import { I, guideBox, guideDrawer, guides, icons, projHealth, renderNav, toast, views } from './ui/nav.js';
+import { closeDrawer, openDrawer } from './ui/drawer.js';
+import { actionRow } from './ui/fragments.js';
+import { guideBox, guideDrawer, icons, renderNav, views } from './ui/nav.js';
 import { ui } from './ui/session.js';
-import { reviewDrawer, viewDelegated } from './views/delegated.js';
+import { viewDelegated } from './views/delegated.js';
 import { viewFlow } from './views/flow.js';
 import { viewInbox } from './views/inbox.js';
 import { viewNow } from './views/now.js';
-import { viewPeople, viewReference } from './views/people.js';
+import { viewPeople } from './views/people.js';
 import { viewPrograms } from './views/programs.js';
-import { viewSomeday } from './views/reference.js';
+import { viewReference } from './views/reference.js';
 import { viewReview } from './views/review.js';
+import { viewSomeday } from './views/someday.js';
 import { viewWaiting } from './views/waiting.js';
-
-}
-export function statusDraft() {
-  const done = by('done');
-  const text = active().map(g => { const js = activeProjects(g.id); const h = js.some(j => j.health === 'crit') ? 'Blocked' : js.some(j => j.health === 'warn') ? 'At risk' : 'On track';
-    const wins = done.filter(x => js.some(j => j.id === x.project) || x.project === g.id).map(x => `  • ${x.next}`).join('\n');
-    const risks = js.filter(j => j.health !== 'good').map(j => { const s = projHealth(j); return `  • ${j.name}: ${s.w ? `waiting on ${pname(s.w.owner)} for ${days(s.w.since)}d` : s.noNext ? 'no next action defined' : 'at risk'}`; }).join('\n');
-    return `${g.name} — ${h}\nDone this week:\n${wins || '  • —'}\nRisks / asks:\n${risks || '  • none'}`; }).join('\n\n');
-  openDrawer('Status report · week of 7 Sep', `<textarea class="draft" style="min-height:360px">${esc(text)}</textarea><div class="note">Assembled from health, wins and waiting-fors. Edit, then paste wherever status lives.</div>`, `<button class="btn" data-close>Close</button><button class="btn primary" data-copy>Copy</button>`);
 
 /* ---------- render & events ---------- */
 export function render() {
@@ -37,9 +33,9 @@ export function render() {
   $('#view').innerHTML = v();
   const vh = $('#view .vhead'); if (vh) { const h1 = vh.querySelector('h1'); if (h1 && icons[cur]) h1.insertAdjacentHTML('afterbegin', `<span class="h1ico">${icons[cur]}</span>`); vh.insertAdjacentHTML('afterend', guideBox(cur)); }
   renderNav();
+  const host = $('#replayHost'); if (host) Replay.mount(host); else Replay.unmount();
   window.scrollTo({ top:0 });
 }
-
 
 export function acceptCurrent(overrideKind) {
   const it = items.find(i => i.id === ui.sel); if (!it) return;
@@ -62,7 +58,6 @@ export function acceptCurrent(overrideKind) {
     if (kind === 'action' || kind === 'project') { it.createdAt = TODAY; const hv = $('#pHard')?.value; it.hard = hv ? new Date(hv + 'T08:00:00') : null; }
     if (it.wasKind) { state.resurfaced[it.id + ':' + new Date(it.revisit || TODAY).toDateString()] = true; delete it.wasKind; }
     if (ui.delegateOnAccept && it.p.ai && (kind === 'action' || kind === 'project')) handOff(it, it.p.ai.cap, it.p.ai.what);
-
     it.kind = kind === 'project' ? 'action' : kind;
     state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, hard:it.hard, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt, revisit:it.revisit, refPage:it.refPage, filedAt:it.filedAt, energy:it.energy };
   }
@@ -72,13 +67,18 @@ export function acceptCurrent(overrideKind) {
   ui.delegateOnAccept = false;
   const rest = by('inbox'); ui.sel = rest[0]?.id ?? null; render();
 }
+
 export function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIndex(x => x.id === ui.sel); ui.sel = inbox[Math.max(0, Math.min(inbox.length - 1, i + dir))]?.id ?? ui.sel; render(); }
 
+/* chart tooltips */
+export const tip = $('#tip');
+
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-goflow],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
-  if (ds.sel) { ui.sel = ds.sel; render(); }
+  if (ds.goflow) { Replay.preset(ds.goflow); location.hash = '#flow'; }
+  else if (ds.sel) { ui.sel = ds.sel; render(); }
   else if (ds.kind) { const it = items.find(i => i.id === ui.sel); it.p.kind = ds.kind; if (ds.kind === 'waiting' && !it.p.owner) it.p.owner = it.from || 'priya'; render(); }
   else if ('accept' in ds) acceptCurrent();
   else if ('acceptAi' in ds) { ui.delegateOnAccept = true; acceptCurrent(); }
@@ -94,6 +94,7 @@ document.addEventListener('click', (e) => {
   else if ('guide' in ds) guideDrawer();
   else if ('ftime' in ds) { ui.nowTime = +ds.ftime; render(); }
   else if (ds.item) itemDrawer(ds.item);
+  else if ('duelist' in ds) { const list = mine().filter(a => a.due && until(a.due) <= 1).sort((a, b) => a.due - b.due); openDrawer('Due by tomorrow', list.length ? `<div class="panel"><div class="pb">${list.map(actionRow).join('')}</div></div><div class="note">Soft due dates — deadlines, not calendar pins. Click an item to open it, tick to mark done.</div>` : '<div class="empty">Nothing due by tomorrow.</div>', '<button class="btn" data-close>Close</button>'); }
   else if (ds.received) { const x = items.find(i => i.id === ds.received); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast(`Received from ${pname(x.owner)} · done`); render(); }
   else if (ds.markdone) { const x = items.find(i => i.id === ds.markdone); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast('Done · movement logged'); render(); }
   else if (ds.park) { const x = items.find(i => i.id === ds.park); x.kind = 'someday'; x.since = TODAY; state.kinds[x.id] = 'someday'; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { since:TODAY }); save(); closeDrawer(); toast('Parked in someday / maybe'); render(); }
@@ -142,7 +143,9 @@ document.addEventListener('click', (e) => {
   else if ('copy' in ds) { const ta = $('#drawer textarea'); ta?.select(); try { navigator.clipboard?.writeText(ta.value); } catch (x) {} toast('Copied'); }
   else if ('reset' in ds) { try { localStorage.removeItem(STORE); } catch (x) {} location.reload(); }
 });
+
 document.addEventListener('input', (e) => { if (e.target.closest('.form')) { const er = $('#npErr'); if (er) er.textContent = ''; } });
+
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { it._prev = it.kind; it.kind = 'done'; it.doneAt = TODAY; state.done[it.id] = true; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { doneAt:TODAY }); toast('Done · logged for the weekly review'); } else { it.kind = it._prev || 'action'; delete state.done[it.id]; } save(); renderNav(); }
@@ -154,6 +157,7 @@ document.addEventListener('change', (e) => {
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
 });
 $('#drawerBg').addEventListener('click', closeDrawer);
+
 document.addEventListener('submit', (e) => {
   const f = e.target.closest('[data-sweepform]'); if (!f) return; e.preventDefault();
   const v = f.querySelector('input').value.trim(); if (!v) return;
@@ -169,6 +173,7 @@ $('#captureForm').addEventListener('submit', (e) => {
   items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save();
   $('#captureInput').value = ''; ui.sel = id; location.hash = '#inbox'; toast('Captured · waiting for you in the inbox'); render();
 });
+
 document.addEventListener('keydown', (e) => {
   if (e.target.matches('input,textarea,select') ) { if (e.key === 'Escape') e.target.blur(); return; }
   if (e.key === 'Escape') { closeDrawer(); return; }
@@ -181,3 +186,13 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'j') moveSel(1); else if (e.key === 'k') moveSel(-1);
     else if (e.key === 'a') acceptCurrent(); else if (e.key === 'x') acceptCurrent('done'); else if (e.key === 'w') acceptCurrent('waiting'); else if (e.key === 's') acceptCurrent('someday'); else if (e.key === 't') acceptCurrent('trash');
     else if (e.key === 'e') { e.preventDefault(); $('#pNext')?.focus(); $('#pNext')?.select(); }
+    else if (e.key === 'd') { const it = items.find(i => i.id === ui.sel); if (it?.p.ai) { ui.delegateOnAccept = true; acceptCurrent(); } }
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  const t = e.target.closest('[data-tip]');
+  if (!t) { tip.style.display = 'none'; return; }
+  tip.innerHTML = t.dataset.tip; tip.style.display = 'block';
+  tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 30) + 'px';
+});

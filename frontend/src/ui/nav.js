@@ -1,23 +1,15 @@
 // Rail navigation, health strip, instruction cards and the guide.
 
-import { d, people, programs, projects, wiki } from '../data/example.js';
-import { openDrawer } from '../drawers/people.js';
-import { activity, by, days, delegated, delegatedFor, nextActionFor, person, until, waitingFor } from '../model.js';
+import { programs, projects } from '../data/example.js';
+import { days, until } from '../lib/dates.js';
+import { $ } from '../lib/dom.js';
+import { by, delegated, projHealth } from '../model.js';
 import { state } from '../state.js';
-import { $ } from './fragments.js';
-
-    if (i.kind === 'done' && i.doneAt) ev.push({ when:new Date(i.doneAt), what: i.del ? 'Approved AI work' : 'Done', item:i });
-    if (i.del?.at) ev.push({ when:new Date(i.del.at), what:'Handed to AI', item:i });
-    if (i.del?.readyAt) ev.push({ when:new Date(i.del.readyAt), what:'AI delivered', item:i });
-  }
-  return ev.sort((a, b) => b.when - a.when);
-}
-export function lastMovement(pid) { return activity(pid)[0] || null; }
-export function projHealth(p) { const na = nextActionFor(p.id), w = waitingFor(p.id), dl = delegatedFor(p.id), lm = lastMovement(p.id); return { na, w, dl, lm, age: lm ? days(lm.when) : null, stalled: !lm || days(lm.when) > 7, noNext: !na && !w && !dl }; }
-export function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200); }
+import { openDrawer } from './drawer.js';
 
 /* ---------- nav & health ---------- */
 export const I = (d) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+
 export const icons = {
   now: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   inbox: I('<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'),
@@ -31,6 +23,7 @@ export const icons = {
   flow: I('<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>'),
   guide: I('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5"/><path d="M12 17h.01"/>'),
 };
+
 /* Instruction cards: one per view, dismissable, teach the GTD habit the view serves. */
 export const guides = {
   now: { stage:'Engage', text:'Work from here. Red tiles are promises the system can\'t keep for you — clear them first. Next actions are grouped by <b>context</b>: pick the group that matches where you are and the energy you have, not the item that looks most urgent. Tick <span class="kbd">x</span> when done — it logs movement on the project. Anything with a Hand to AI button, consider delegating.' },
@@ -44,10 +37,12 @@ export const guides = {
   review: { stage:'Reflect', text:'GTD\'s keystone habit: weekly, uninterrupted, top to bottom. The AI has gathered the evidence; you make the calls. Steps tick themselves when the data says so. Do not skip the AI audit — automatic actions are the ones to eyeball — or the wiki lint.' },
   flow: { stage:'Reflect · the system itself', text:'Is the system healthy, independent of the work in it? If <b>done</b> falls away from <b>captured</b>, lists are filling faster than you clear them. Cycle time shows where work waits. Watch this before you feel it.' },
 };
+
 export function guideBox(view) {
   const g = guides[view]; if (!g || state.guides[view]) return '';
   return `<div class="guide"><span class="gi">${icons.guide}</span><div><div class="gh"><b>${g.stage}</b><span class="faint">· how this view works</span></div><p>${g.text}</p></div><button class="btn sm" data-guide-dismiss="${view}">Got it</button></div>`;
 }
+
 export function guideDrawer() {
   openDrawer('Guide', `
     <div class="sec"><h3>The loop</h3><ol class="steps-l"><li><b>Capture</b> — anything, from anywhere, into the inbox. The capture box at the top, <span class="kbd">/</span>.</li><li><b>Clarify</b> — daily, to zero. Is it actionable? What is the next physical action? Who owns it? AI proposes, you confirm.</li><li><b>Organize</b> — nothing to file; Programs, Waiting for, People and Delegated are views over the same ledger.</li><li><b>Reflect</b> — the weekly review, Fridays. Steps tick themselves when the data says so.</li><li><b>Engage</b> — Now: what fits this hour, by context and energy.</li></ol></div>
@@ -56,8 +51,9 @@ export function guideDrawer() {
     <div class="sec"><h3>Keys</h3><ul><li><span class="kbd">1</span>–<span class="kbd">9</span>, <span class="kbd">0</span> switch view · <span class="kbd">/</span> capture · <span class="kbd">?</span> this guide</li><li>Inbox: <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">a</span> accept · <span class="kbd">w</span> waiting · <span class="kbd">s</span> someday · <span class="kbd">t</span> trash · <span class="kbd">e</span> edit · <span class="kbd">d</span> accept and hand to AI · <span class="kbd">x</span> do it now (two-minute rule)</li><li><span class="kbd">Esc</span> close</li></ul></div>`,
     `<button class="btn" data-guide-reset>Show view tips again</button><button class="btn primary" data-close>Close</button>`);
 }
+
 export const views = [
-  { id:'now', label:'Now', key:'1' },
+  { id:'now', label:'Engage', key:'1', sub:'Work from here — what fits this hour' },
   { id:'inbox', label:'Inbox', key:'2', count:() => by('inbox').length, hot:true },
   { id:'programs', label:'Programs', key:'3', count:() => projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, hot:true },
   { id:'waiting', label:'Waiting for', key:'4', count:() => by('waiting').filter(w => until(w.followUp) < 0).length, hot:true },
@@ -68,5 +64,17 @@ export const views = [
   { id:'review', label:'Weekly review', key:'9' },
   { id:'flow', label:'Flow', key:'0' },
 ];
+
 export function renderNav() {
   const cur = location.hash.slice(1) || 'now';
+  $('#nav').innerHTML = views.slice(0, 1).map(v => `<a href="#${v.id}" class="primary ${cur === v.id ? 'on' : ''}">${icons[v.id]}<span><b>${v.label}</b><small>${v.sub}</small></span><span class="key">${v.key}</span></a>`).join('') +
+    `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
+    `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');
+  const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lr = days(state.lastReview);
+  $('#healthbar').innerHTML = `<span class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></span><span class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></span><span class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></span><span class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr}d</b></span><span class="ai">AI for review <b>${delegated('ready').length}</b></span>`;
+}
+
+export function navLink(v, cur) {
+  const n = v.count ? v.count() : 0;
+  return `<a href="#${v.id}" class="${cur === v.id ? 'on' : ''}">${icons[v.id] || ''}<span>${v.label}</span>${n ? `<span class="cnt ${v.hot ? 'hot' : ''}${v.ai ? ' ai' : ''}">${n}</span>` : `<span class="key">${v.key}</span>`}</a>`;
+}

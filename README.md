@@ -11,8 +11,7 @@ an item *is*, and doing the weekly review.
 
 | Path | What |
 |---|---|
-| `frontend/commitment-ledger.html` | Self-contained front-end (vanilla JS, example data, localStorage). Published as an artifact for review. |
-| `frontend/replay.html` | Replay: a three.js scene where every item is a ball moving through the system (ports → inbox → clarify gate → project tracks / waiting shelf / AI machine → done heap, wiki wall behind), scrubbed over an event log derived from the same example data. Opens locally; not yet embedded in the ledger. |
+| `frontend/` | The front-end: a Vite project in plain ES modules. `src/data` (example ledger), `src/model.js` (derived reads), `src/views`, `src/drawers`, `src/replay` (the event log, its fold, and the three.js scene shown in Flow), `tests/` (Vitest). Built output is published as the artifact. |
 | `docs/architecture.md` | The architecture: GTD mapping, data model, capture, clarify engine, views, agents, trust invariants, phasing. |
 | `docs/backend-wiring.md` | How the front-end connects to a real back-end: event log, endpoints, the five typed model calls, confidence gating, evals. |
 | `docs/subscription-wiring.md` | The same back-end on a Claude subscription instead of an API key: skills + subagents per tier, the `gtd` CLI as the single write path, harness-enforced trust rules. |
@@ -29,5 +28,11 @@ Published prototype: https://claude.ai/code/artifact/11289ecb-31a3-4cdc-a8e5-c7b
 
 ## Running the front-end
 
-Open `frontend/commitment-ledger.html` in a browser. Everything is client-side;
-"Reset demo data" on the Flow view clears localStorage.
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Then open http://localhost:5173. Everything is client-side; "Reset demo data" on the
+Flow view clears localStorage. `npm test` runs the Vitest suites (event log, fold);
+`npm run lint` runs ESLint; `npm run build:artifact` writes `dist/` plus
+`dist/artifact.html`, the fragment published to the artifact URL above.

@@ -1,22 +1,12 @@
 // Prep brief, nudge draft, 1:1 agenda.
 
-import { d, items, meetings, projects, wiki } from '../data/example.js';
-import { by, days, esc, healthPill, person, pname, projOf, until } from '../model.js';
-import { cycle } from '../state.js';
-import { $ } from '../ui/fragments.js';
-import { I, projHealth } from '../ui/nav.js';
+import { items, meetings, wiki } from '../data/example.js';
+import { days, until } from '../lib/dates.js';
+import { esc } from '../lib/dom.js';
+import { by, person, pname, projHealth, projOf } from '../model.js';
+import { openDrawer } from '../ui/drawer.js';
+import { healthPill } from '../ui/fragments.js';
 
-  <div class="panel"><div class="ph"><h2>Cycle time by list</h2><span class="note">Where work waits</span></div><div class="tablewrap"><table><thead><tr><th>Stage</th><th>Median</th><th>P90</th><th>Note</th></tr></thead><tbody>${cycle.map(c => `<tr><td>${c.list}</td><td class="num">${c.median}</td><td class="num">${c.p90}</td><td class="muted">${c.note}</td></tr>`).join('')}</tbody></table></div></div>`;
-}
-
-/* ---------- drawer ---------- */
-export function openDrawer(title, body, foot = '') {
-  const dr = $('#drawer');
-  dr.innerHTML = `<div class="dh"><h2>${title}</h2><button class="btn sm" data-close>Close</button></div><div class="db">${body}</div>${foot ? `<div class="df">${foot}</div>` : ''}`;
-  dr.classList.add('open'); $('#drawerBg').classList.add('open');
-  dr.querySelector('button, textarea, input')?.focus();
-}
-export function closeDrawer() { $('#drawer').classList.remove('open'); $('#drawerBg').classList.remove('open'); }
 export function prepBrief(i) {
   const m = meetings[i];
   const open = items.filter(x => ((x.kind === 'action' && x.owner !== 'ai') || x.kind === 'waiting') && (m.projects.includes(x.project) || m.who.includes(x.owner)));
@@ -31,7 +21,20 @@ export function prepBrief(i) {
     <div class="note">Commitments from the ledger; decisions and risks from the wiki. Notes you take after the meeting are captured back into the inbox.</div>`,
     `<button class="btn" data-close>Done</button>`);
 }
+
 export function nudgeDraft(id) {
   const w = items.find(x => x.id === id), p = person(w.owner), j = projOf(w.project);
   const text = `Hi ${pname(w.owner)},\n\nQuick check-in on ${w.next.toLowerCase()} for ${j.name}. It's been ${days(w.since)} days${w.nudges ? ` and I've pinged once or twice already` : ''}, and it's now on the critical path${j.health === 'crit' ? ' — the project is blocked on it' : ''}.\n\nIs there anything I can do to make it easier — a 20-minute working session, or someone else I should loop in? A date, even a rough one, would help me plan around it.\n\nThanks,\nJeff`;
   openDrawer(`Nudge · ${esc(p.name)}`, `<div class="sec"><div class="eyebrow">Waiting ${days(w.since)} days · ${w.nudges || 0} previous nudge${w.nudges === 1 ? '' : 's'} · ${esc(j.name)}</div></div>
+    <textarea class="draft" id="nudgeText">${esc(text)}</textarea>
+    <div class="note">Drafted by AI from the ledger. Nothing is sent until you approve; approving logs the nudge and moves follow-up out 5 days.</div>`,
+    `<button class="btn" data-close>Discard</button><button class="btn primary" data-send="${id}">Approve and send</button>`);
+}
+
+export function agendaDrawer(pid) {
+  const p = person(pid);
+  openDrawer(`1:1 agenda · ${esc(p.name)}`, `<div class="sec"><div class="eyebrow">${esc(p.role)} · last touched ${days(p.lastTouched)}d ago</div></div>
+    <div class="sec"><h3>Queued to raise</h3><ul>${p.agenda.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>
+    <div class="sec"><h3>They owe me</h3><ul>${by('waiting').filter(w => w.owner === pid).map(w => `<li>${esc(w.next)} <span class="age ${until(w.followUp) < 0 ? 'over' : ''}">${days(w.since)}d</span></li>`).join('') || '<li class="faint">Nothing open</li>'}</ul></div>
+    <div class="note">Items tagged <code class="mono">@1:1/${pid}</code> and anything captured with their name queue here automatically.</div>`, `<button class="btn" data-close>Close</button>`);
+}

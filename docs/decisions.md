@@ -4,7 +4,19 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
-- **Replay is a three.js scene, not a chart** (`frontend/replay.html`). Every item is a
+- **Front-end restructured into modules** (`frontend/`, Vite + ES modules, Vitest, ESLint).
+  The single-file ledger is retired; one module per view, drawer and concern; `three`
+  from npm, lazy-loaded. The built `dist/` is what gets published to the existing
+  artifact. Reason: the file had passed 1,200 lines and a second visual was about to
+  double it; modules are also what the back-end phase needs.
+- **Replay lives in Flow, not the weekly review.** Flow is the meta view — the system
+  seen from above — so the eight-week playback belongs there; the review only links to
+  it, scoped to "since last review" (and to the AI's moves for the audit step).
+- **Program plates in the replay.** Each program's tracks sit on a translucent plate
+  outlined in the program's identity colour (`--c1..--c8`, the same as its chips), with
+  the program name at the plate's near edge, so it reads which projects belong to which
+  program without following lines.
+- **Replay is a three.js scene, not a chart** (`frontend/src/replay`). Every item is a
   ball; stations are the GTD lists laid out as a physical system; the playhead is a
   global clock and every position is a fold of events ≤ t (only motion is tweened,
   never state). Wireframe = AI-proposed, solid = confirmed, a bounce = corrected

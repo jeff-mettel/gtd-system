@@ -1,23 +1,9 @@
-import { active, activeProjects, calendarAhead, d, iso, items, levelLabel, meetings, people, programs, projChip, projects } from '../data/example.js';
-import { by, days, delegated, esc, fmtDate, person, pname, projName, srcLabel, until } from '../model.js';
-import { state } from '../state.js';
-import { actionRow } from '../ui/fragments.js';
-import { I } from '../ui/nav.js';
+import { levelLabel, people, projects } from '../data/example.js';
+import { d, days, fmtDate, iso } from '../lib/dates.js';
+import { esc } from '../lib/dom.js';
+import { active, by, person, pname, srcLabel } from '../model.js';
 import { ui } from '../ui/session.js';
-import { waitingRow } from './now.js';
-import { trashPanel } from './programs.js';
 
-    ${state.collapsed.strip ? '' : `<div class="cal week">${days7.map((day, i) => { const ms = i === 0 ? meetings.map(m => ({ time:m.time, title:m.title })) : calendarAhead.filter(c => until(c.on) === i); const hs = all.filter(a => a.hard && until(a.hard) === i); const ts = items.filter(x => (x.kind === 'someday' || x.kind === 'reference') && x.revisit && until(x.revisit) === i); const dow = day.getDay(), wk = dow === 0 || dow === 6;
-      return `<div class="cal-col ${i === 0 ? 'today' : ''} ${wk ? 'wk' : ''}"><div class="cal-h"><b>${i === 0 ? 'Today' : day.toLocaleDateString('en-GB', { weekday:'short' })}</b><span>${day.getDate()}</span></div>${ms.map((m, k) => i === 0 ? `<button class="cal-item mtg" data-prep="${k}" title="Prep brief">${m.time}<span>${esc(m.title)}</span></button>` : `<div class="cal-item mtg">${m.time}<span>${esc(m.title)}</span></div>`).join('')}${hs.map(a => `<button class="cal-item hard" data-proj="${a.project}" title="${esc(a.next)}">${esc(a.next)}<span>${esc(projName(a.project))}</span></button>`).join('')}${ts.map(t => `<div class="cal-item tick" title="Tickler: ${esc(t.next)}">↺ ${esc(t.next)}<span>resurfaces</span></div>`).join('')}</div>`; }).join('')}</div>`}</div>`; })()}
-
-    <div class="panel"><div class="ph"><h2>Next actions by ${byProg ? 'program' : 'context'}</h2><span class="seg" style="margin-left:6px"><button data-group="context" class="${byProg ? '' : 'on'}">by context</button><button data-group="program" class="${byProg ? 'on' : ''}">by program</button></span><span class="sp" style="flex:1"></span><span class="note num">${actions.length} shown · ${delegated().length} with AI</span></div>
-      <div class="filters"><span class="faint">I have</span><span class="seg">${[[0, 'any time'], [15, '≤ 15 min'], [30, '≤ 30 min'], [60, '60+ min']].map(f => `<button data-ftime="${f[0]}" class="${ui.nowTime === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">energy</span><span class="seg">${[['', 'any'], ['low', 'low'], ['high', 'high']].map(f => `<button data-fenergy="${f[0]}" class="${ui.nowEnergy === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">scope</span><select class="in" style="width:auto;padding:3px 8px;font-size:12px" data-fscope aria-label="Program or project"><option value="">all programs</option>${active().map(g => `<optgroup label="${esc(g.name)}"><option value="${g.id}" ${ui.nowScope === g.id ? 'selected' : ''}>${esc(g.name)} — whole program</option>${activeProjects(g.id).map(j => `<option value="${j.id}" ${ui.nowScope === j.id ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}</optgroup>`).join('')}</select>${ui.nowScope || ui.nowTime || ui.nowEnergy ? `<button class="btn sm ghost" data-fclear>Clear</button>` : ''}</div>
-      <div class="pb">${hardToday.length ? `<div class="ctxgroup"><span class="chip" style="color:var(--warn);background:var(--warn-soft)">pinned to today</span><span class="n">${hardToday.length}</span><span class="faint" style="font-size:11px">· must happen today — shown here, not in a context list</span></div>${hardToday.map(actionRow).join('')}` : ''}${keys.map(k => `<div class="ctxgroup">${byProg ? `${k === '—' ? '<span class="chip">No project</span>' : projChip(k)}` : `<span class="chip ctx">${esc(k)}</span>`}<span class="n">${groups[k].length}</span></div>${groups[k].map(actionRow).join('')}`).join('')}</div>
-    </div>
-  ${over.length ? `<div class="panel"><div class="ph"><h2>Past follow-up</h2><a href="#waiting" class="note">Full ledger →</a></div><div class="pb">${over.map(w => waitingRow(w, { showOwner:true })).join('')}</div></div>` : ''}`;
-}
-
-export let ui.sel = null, ui.delegateOnAccept = false, ui.nowTime = 0, ui.nowEnergy = '', ui.nowScope = '';
 export function viewInbox() {
   const inbox = by('inbox');
   if (!inbox.length) return `<div class="vhead"><div><h1>Inbox</h1><p>Every ask from every surface lands here. AI proposes what each one is; you confirm in one keystroke.</p></div></div><div class="panel"><div class="empty"><b>Inbox zero</b>Nothing waiting to be clarified. Capture something above or reset the demo from Flow.</div></div>${trashPanel()}`;
@@ -54,3 +40,14 @@ export function viewInbox() {
         ${p.kind === 'waiting' ? `<label>Follow up on</label><input id="pFollow" type="date" value="${p.followUp ? iso(p.followUp) : iso(d(3))}">` : ''}
       </div>
       <div class="rationale"><div class="why ${low ? 'low' : ''}"><b>${low ? 'Flagged · ' : ''}${Math.round(p.conf * 100)}% confident.</b> ${esc(p.why)}</div></div>
+      <div class="acts"><button class="btn primary" data-accept>Accept${p.ai && (p.kind === 'action' || p.kind === 'project') ? ' — I do it' : low ? ' as edited' : ''} <span class="kbd" style="margin-left:6px">a</span></button>${p.ai && (p.kind === 'action' || p.kind === 'project') ? `<button class="btn primary" style="background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent)" data-accept-ai>Accept, hand to AI <span class="kbd" style="margin-left:6px">d</span></button>` : ''}<button class="btn" data-draft>Draft reply</button><span class="sp"></span><button class="btn ghost" data-skip>Skip for now</button></div>
+    </div>
+  </div>
+  ${trashPanel()}`;
+}
+
+export function trashPanel() {
+  const tr = by('trash').filter(x => !x.trashedAt || days(x.trashedAt) <= 30);
+  if (!tr.length) return '';
+  return `<div class="panel"><div class="ph"><h2>Trash</h2><span class="note num">${tr.length} · kept 30 days, then gone</span></div><div class="pb">${tr.map(x => `<div class="row"><div class="t"><div class="muted">${esc(x.raw || x.next)}</div><div class="m"><span class="chip src">${srcLabel[x.source] || 'Item'}</span><span class="faint">trashed ${x.trashedAt ? fmtDate(x.trashedAt) : 'earlier'}</span></div></div><button class="btn sm ghost" data-restore="${x.id}">Restore to inbox</button></div>`).join('')}</div></div>`;
+}

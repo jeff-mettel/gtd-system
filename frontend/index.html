@@ -1,9 +1,13 @@
-  .nav{flex-direction:row;flex-wrap:wrap}
-  .nav .group,.rail .foot,.nav a .key{display:none}
-  .health{display:none}
-}
-</style>
-
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Commitment Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body>
 <div class="app">
   <aside class="rail">
     <div class="brand">
@@ -25,3 +29,12 @@
       <button class="btn sm iconbtn" data-guide title="Guide (?)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5"/><path d="M12 17h.01"/></svg> Guide</button>
     </header>
     <section class="view" id="view"></section>
+  </main>
+</div>
+<div class="drawer-bg" id="drawerBg"></div>
+<aside class="drawer" id="drawer" aria-label="Detail"></aside>
+<div class="toast" id="toast"></div>
+<div class="tip" id="tip"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

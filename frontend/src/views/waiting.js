@@ -1,17 +1,7 @@
-import { d, pcStyle, programs, projects, wiki } from '../data/example.js';
-import { activity, by, days, esc, fmtDate, healthPill, openActions, pname, until } from '../model.js';
-import { projHealth } from '../ui/nav.js';
-
-    return `<div class="prog" ${pcStyle(g.id)}><div class="head">${healthPill(h)}<div><h2><i class="pdot"></i>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-wiki="${g.id}">Wiki</button><button class="btn sm" data-addproj="${g.id}">Add project</button><button class="btn sm ghost" data-retire="${g.id}" title="Retire this program">Retire</button></div>
-    ${wiki[g.id] ? `<div class="wstatus"><span class="eyebrow">Status · compiled ${fmtDate(wiki[g.id].compiled)}${days(wiki[g.id].compiled) > 7 ? ' <span class="flag">stale</span>' : ''}</span><p>${esc(wiki[g.id].status)}</p><div class="wlinks">${wiki[g.id].links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>` : ''}
-    <div class="tablewrap"><table><thead><tr><th>Project</th><th>Health</th><th>Next action</th><th>Last movement</th><th>Flags</th></tr></thead><tbody>
-    ${js.map(j => { const s = projHealth(j); const n = openActions(j.id).length;
-      return `<tr><td><button class="linkish" data-proj="${j.id}">${esc(j.name)}</button><div class="sub">${esc(j.outcome)}</div></td><td>${healthPill(j.health)}</td>
-      <td>${s.na ? esc(s.na.next) + `<div class="sub"><span class="chip ctx">${esc(s.na.ctx)}</span>${n > 1 ? ` <span class="faint">+${n - 1} more open</span>` : ''}</div>` : s.dl ? `<span class="muted">Delegated to AI</span><div class="sub">${esc(s.dl.next)} · ${s.dl.del.status === 'ready' ? '<b>ready for review</b>' : s.dl.del.status}</div>` : s.w ? `<span class="muted">Waiting on ${esc(pname(s.w.owner))}</span><div class="sub">${esc(s.w.next)}</div>` : `<button class="btn sm" data-proj="${j.id}">Decide next action</button>`}</td>
-      <td class="num"><span class="age ${s.stalled ? 'over' : ''}">${s.lm ? s.age + 'd' : '—'}</span>${s.lm ? `<div class="sub">${esc(s.lm.what)}</div>` : '<div class="sub">No activity</div>'}</td><td>${[s.stalled ? '<span class="flag">Stalled</span>' : '', s.noNext ? '<span class="flag">No next action</span>' : ''].filter(Boolean).join('<br>') || '<span class="faint">—</span>'}</td></tr>`; }).join('') || `<tr><td colspan="5" class="muted">No projects yet.</td></tr>`}
-    </tbody></table></div></div>`; }).join('')}
-  ${programs.some(g => g.retired) ? `<div class="panel"><div class="ph"><h2>Retired</h2><span class="note">Purpose met or superseded. Wiki pages kept as history.</span></div><div class="pb">${programs.filter(g => g.retired).map(g => `<div class="row"><div class="t"><div class="muted">${esc(g.name)}</div><div class="m"><span class="faint">retired ${fmtDate(g.retired)}</span><span class="chip mono">wiki/${esc(wiki[g.id]?.page || '')}.md</span></div></div><button class="btn sm ghost" data-wiki="${g.id}">Wiki</button></div>`).join('')}</div></div>` : ''}`;
-}
+import { d, days, until } from '../lib/dates.js';
+import { esc } from '../lib/dom.js';
+import { by, initials, person, pname } from '../model.js';
+import { waitingRow } from '../ui/fragments.js';
 
 export function viewWaiting() {
   const ws = by('waiting');
@@ -28,3 +18,13 @@ export function viewWaiting() {
     ${daysAhead.map((day, i) => { const list = ws.filter(w => until(w.followUp) === i); const dow = day.getDay(), wk = dow === 0 || dow === 6; return `<div class="cal-col ${i === 0 ? 'today' : ''} ${wk ? 'wk' : ''}"><div class="cal-h"><b>${i === 0 ? 'Today' : day.toLocaleDateString('en-GB', { weekday:'short' })}</b><span>${day.getDate()}</span></div>${cell(list, '')}</div>`; }).join('')}
     <div class="cal-col later"><div class="cal-h"><b>Later</b><span>${later.length}</span></div>${cell(later, '')}</div></div></div>`; })()}
   <div class="cols">
+    <div class="panel"><div class="ph"><h2>Aging</h2><span class="note num">${ws.length} open · ${ws.filter(w => until(w.followUp) < 0).length} past follow-up</span></div>
+      <div class="aging">${buckets.map(b => { const n = ws.filter(b[1]).length; return `<div class="bar"><span class="lbl">${b[0]}</span><div class="trk"><i style="width:${n / max * 100}%;background:${b[2]}"></i></div><span class="n">${n}</span></div>`; }).join('')}</div>
+      <div class="ph" style="border-top:1px solid var(--line);border-bottom:0"><h2>Oldest</h2></div>
+      <div class="pb">${[...ws].sort((a, b) => days(b.since) - days(a.since)).slice(0, 3).map(w => `<div class="row"><div class="t"><div>${esc(w.next)}</div><div class="m"><span class="chip">${esc(pname(w.owner))}</span><span class="age over">${days(w.since)}d</span></div></div></div>`).join('')}</div>
+    </div>
+    <div class="panel"><div class="ph"><h2>By person</h2><span class="note">Sorted by oldest item</span></div>
+      <div class="pb">${ppl.map(pid => `<div class="person-h"><span class="av">${initials(pid)}</span><b>${esc(person(pid).name)}</b><span class="note">${esc(person(pid).role)}</span></div>${byPerson[pid].map(w => waitingRow(w)).join('')}`).join('')}</div>
+    </div>
+  </div>`;
+}

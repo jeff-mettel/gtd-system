@@ -1,18 +1,9 @@
-import { iso, items, programs, wiki } from '../data/example.js';
-import { openDrawer } from './people.js';
-import { activity, by, days, esc, fmtDate, healthPill, person, pname, projOf, srcLabel } from '../model.js';
+import { items, levelLabel, programs } from '../data/example.js';
+import { days, fmtDate, iso } from '../lib/dates.js';
+import { esc } from '../lib/dom.js';
+import { activity, energyOf, person, projOf, srcLabel } from '../model.js';
+import { openDrawer } from '../ui/drawer.js';
 
-  openDrawer(esc(g.name), `
-    <div class="sec"><div class="eyebrow">wiki/${esc(w.page)}.md · living doc · compiled ${fmtDate(w.compiled)}</div></div>
-    <div class="sec"><h3>Purpose</h3><p class="muted" style="margin:0">${esc(g.purpose)}</p></div>
-    <div class="sec"><h3>Key links</h3><div class="wlinks">${w.links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>
-    <div class="sec"><h3>Current status <span class="faint" style="font-weight:400">· compiled</span></h3><p class="muted" style="margin:0">${healthPill(w.health)} ${esc(w.status)}</p></div>
-    <div class="sec"><h3>Milestones</h3><div class="tablewrap"><table class="mini"><tbody>${w.milestones.map(m => `<tr><td class="mono num">${esc(m[0])}</td><td>${esc(m[1])}</td><td><span class="pill ${st(m[2])}"><i></i>${esc(m[2])}</span></td></tr>`).join('')}</tbody></table></div></div>
-    <div class="sec"><h3>Decisions</h3>${w.decisions.map(x => `<div class="wrow"><span class="mono num faint">${x.on}</span><div><b>${esc(x.what)}</b> <span class="faint">· ${esc(x.who)}</span><div class="muted">${esc(x.why)}</div>${x.status !== 'decided' ? `<span class="pill warn" style="margin-top:4px"><i></i>${esc(x.status)}</span>` : ''}</div></div>`).join('')}${w.pending.length ? `<div class="wrow"><span class="eyebrow">Pending</span><ul style="margin:0">${w.pending.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}</div>
-    <div class="sec"><h3>Risks</h3><ul>${w.risks.map(r => `<li><span class="pill ${r.level === 'high' ? 'crit' : r.level === 'medium' ? 'warn' : 'neutral'}"><i></i>${r.level}</span> ${esc(r.what)} <span class="faint">· ${r.owner ? esc(pname(r.owner)) : 'no owner'}</span></li>`).join('')}</ul></div>
-    <div class="note">Compiled sections are rewritten from the ledger; purpose, links, decisions and risks are written by you or by reviewed ingests. Full page and history in the repo.</div>`,
-    `<button class="btn" data-close>Close</button><button class="btn primary" data-ingest="${pid}">Ingest notes into this page</button>`);
-}
 export function itemDrawer(id) {
   const x = items.find(i => i.id === id); if (!x) return;
   const isW = x.kind === 'waiting', j = x.project ? projOf(x.project) : null, g = j ? (programs.find(p => p.id === (j.program || j.id))) : null;
@@ -23,3 +14,14 @@ export function itemDrawer(id) {
     <div class="sec">
       ${isW ? `<div class="wrow"><span class="eyebrow">Owed by</span><div><button class="linkish" data-agenda="${x.owner}">${esc(person(x.owner)?.name || '—')}</button> <span class="faint">· ${esc(person(x.owner)?.role || '')}</span></div></div>
       <div class="wrow"><span class="eyebrow">Waiting</span><div><span class="age ${days(x.since) > 14 ? 'over' : ''}">${days(x.since)} days</span> since ${fmtDate(x.since)} · ${x.nudges || 0} nudge${x.nudges === 1 ? '' : 's'}${x.lastNudged ? `, last ${fmtDate(x.lastNudged)}` : ''}</div></div>
+      ${date('Follow up on', 'followUp', x.followUp)}` : `
+      <div class="wrow"><span class="eyebrow">Context</span><div><span class="chip ctx">${esc(x.ctx || '—')}</span> ${x.min ? `<span class="num">${x.min} min</span>` : ''} <span class="faint">· ${energyOf(x)} energy</span></div></div>
+      ${date('Due (soft)', 'due', x.due)}${date('Pinned to a day', 'hard', x.hard)}
+      ${x.ai ? `<div class="wrow"><span class="eyebrow">AI can</span><div><span class="chip aichip">${levelLabel[x.ai.level]}</span> ${esc(x.ai.what)}</div></div>` : ''}`}
+      ${j ? `<div class="wrow"><span class="eyebrow">Project</span><div><button class="linkish" data-proj="${j.id}">${esc(j.name)}</button>${g && g.id !== j.id ? ` <span class="faint">· ${esc(g.name)}</span>` : ''}${j.outcome ? `<div class="muted" style="font-size:12px">${esc(j.outcome)}</div>` : ''}</div></div>` : ''}
+    </div>
+    <div class="sec"><h3>History</h3>${ev.length ? `<ul class="hist">${ev.map(e => `<li><span class="mono num">${fmtDate(e.when)}</span> <span class="muted">${esc(e.what)}</span></li>`).join('')}</ul>` : '<div class="note">No ledger events yet.</div>'}</div>
+    <div class="note">Dates save as you change them. ${isW ? '"Received" closes the waiting-for as done and logs movement on the project.' : 'Pinning to a day moves this out of the context lists onto the calendar.'}</div>`,
+    isW ? `<button class="btn ghost" data-drop="${id}">Drop</button><button class="btn" data-nudge="${id}">Draft nudge</button><button class="btn primary" data-received="${id}">Received — done</button>`
+        : `<button class="btn ghost" data-park="${id}">Park in someday</button>${x.ai && x.kind !== 'done' ? `<button class="btn" data-hand="${id}">Hand to AI</button>` : ''}${x.kind !== 'done' ? `<button class="btn primary" data-markdone="${id}">Done</button>` : '<button class="btn" data-close>Close</button>'}`);
+}

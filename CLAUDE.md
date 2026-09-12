@@ -2,9 +2,16 @@
 
 - Read `docs/architecture.md` first; `docs/decisions.md` is the running log — append a
   line there for every design decision made in conversation.
-- `frontend/commitment-ledger.html` is a single self-contained file. Keep it that way
-  until a back-end exists. Publish updates to the existing artifact URL in `README.md`
-  (pass `url` to the Artifact tool) — never create a second artifact.
+- `frontend/` is a Vite project in plain ES modules — no framework, no TypeScript yet.
+  One module per view (`src/views`), drawer (`src/drawers`) and concern; example data in
+  `src/data/example.js`; derived reads in `src/model.js`; the Replay (event log → fold →
+  three.js scene) in `src/replay`. Run `npm run dev` from `frontend/`; `npm test` and
+  `npm run lint` must pass before publishing. Publish with `npm run build:artifact`, then
+  the Artifact tool with `frontend/dist/artifact.html`, `root: frontend/dist`, the
+  `assets/*` files (not the `.map`s), and the existing artifact `url` from `README.md` —
+  never create a second artifact.
+- One session in this checkout at a time. A parallel session that commits with
+  `git add -A` sweeps another session's half-finished work into unrelated commits.
 - Demo "today" is Mon 14 Sep 2026; dates in example data are relative to `TODAY`.
 - Trust invariants are not negotiable in the UI: the AI never sends, books, or deletes
   without approval; every AI write is tagged; "what approving does" is declared, not
