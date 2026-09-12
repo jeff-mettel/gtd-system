@@ -12,6 +12,7 @@ an item *is*, and doing the weekly review.
 | Path | What |
 |---|---|
 | `frontend/commitment-ledger.html` | Self-contained front-end (vanilla JS, example data, localStorage). Published as an artifact for review. |
+| `frontend/replay.html` | Replay: a three.js scene where every item is a ball moving through the system (ports → inbox → clarify gate → project tracks / waiting shelf / AI machine → done heap, wiki wall behind), scrubbed over an event log derived from the same example data. Opens locally; not yet embedded in the ledger. |
 | `docs/architecture.md` | The architecture: GTD mapping, data model, capture, clarify engine, views, agents, trust invariants, phasing. |
 | `docs/backend-wiring.md` | How the front-end connects to a real back-end: event log, endpoints, the five typed model calls, confidence gating, evals. |
 | `docs/subscription-wiring.md` | The same back-end on a Claude subscription instead of an API key: skills + subagents per tier, the `gtd` CLI as the single write path, harness-enforced trust rules. |

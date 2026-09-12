@@ -4,6 +4,15 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Replay is a three.js scene, not a chart** (`frontend/replay.html`). Every item is a
+  ball; stations are the GTD lists laid out as a physical system; the playhead is a
+  global clock and every position is a fold of events ≤ t (only motion is tweened,
+  never state). Wireframe = AI-proposed, solid = confirmed, a bounce = corrected
+  proposal; waiting-fors age through the receivable colours; stalled tracks grey with a
+  pulsing ring; wiki pages are columns that grow on `wiki_changed`. Requires the event
+  log to carry `program_created/retired`, `project_created/dropped`, `health_set`,
+  `wiki_changed`, `closed` (waiting received) and `working`/`delivered` — added to
+  `backend-wiring.md`. The prototype's example data becomes an event log for this.
 - **Subscription wiring** (`docs/subscription-wiring.md`): with a Claude subscription
   instead of an API key, AI jobs run as Claude Code skills + subagents under the login,
   scheduled deterministically; tiers per agent (Haiku ingest/filing, Sonnet clarify and

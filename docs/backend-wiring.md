@@ -13,10 +13,17 @@ events (append-only)
   id, at, actor ('jeff' | 'ai:clarify' | 'ai:draft' | 'ingest:gmail' | ...),
   type, item_id, payload, confirmed_by, confirmed_at
 
-types: captured · clarified · accepted · edited · done · nudged · promoted · dropped ·
-       project_created · next_action_set · delegated · delivered · approved ·
-       taken_back · review_completed
+types: captured · clarified · accepted · edited · done · closed · nudged · promoted ·
+       dropped · program_created · program_retired · project_created · project_dropped ·
+       health_set · next_action_set · delegated · working · delivered · approved ·
+       taken_back · review_completed · wiki_changed
 ```
+
+`closed` is a waiting-for received (the counterpart of `done`). `health_set` records a
+human health judgment; it is the one status-like field, and it lives in the log so it
+has a date. `wiki_changed {page, entry_type, words_delta}` is written by the compile,
+ingest and file jobs — the wiki's own history stays in git and `log.md`, but this puts
+wiki growth on the same clock as commitments, which the Replay view needs.
 
 `items`, `projects`, `people` are materialized from the log (SQLite, rebuilt on demand).
 This gives, for free:

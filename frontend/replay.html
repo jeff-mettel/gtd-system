@@ -413,11 +413,12 @@ const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(20, 40, 
 
 let P = {};                      // palette in THREE colors
 const themed = [];               // [material, palette key] — re-coloured on theme change
+let built = false;
 function palette() {
   P = { s1: col('--s1'), s2: col('--s2'), s3: col('--s3'), o1: col('--o1'), o2: col('--o2'), accent: col('--accent'), ink3: col('--ink-3'), line2: col('--line-2'), good: col('--good'), warn: col('--warn'), crit: col('--crit'), floor: col('--scene-floor'), grid: col('--scene-grid'), bg: col('--scene-bg'), surface2: col('--surface-2'), ink: col('--ink') };
   scene.background = P.bg; scene.fog = new THREE.Fog(P.bg, 120, 230);
   for (const [m, key] of themed) { m.color.copy(P[key]); if (m.emissive && key === 'crit') m.emissive.copy(P.crit); }
-  if (typeof grid !== 'undefined') { grid.material.color.copy(P.grid); }
+  if (built) grid.material.color.copy(P.grid);
 }
 palette();
 
@@ -437,6 +438,7 @@ box(5, 1.2, 4, 'surface2', [LAY.someday[0], 0.6, LAY.someday[2]], { transparent:
 const aiRing = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.14, 10, 48), mat('accent', { roughness: .4 })); aiRing.position.set(...LAY.ai.ring); aiRing.rotation.x = Math.PI / 2; statics.add(aiRing);
 box(7, 0.3, 3, 'surface2', [LAY.ai.tray[0], 0.15, LAY.ai.tray[2]]);                                  // review tray
 const chute = box(6, 0.2, 3, 'surface2', [LAY.chute[0] + 1.5, 1.2, 0]); chute.rotation.z = -0.35;
+built = true;
 const wall = box(LAY.wiki.x1 - LAY.wiki.x0 + 3, 0.5, 3, 'surface2', [0, 0.25, LAY.wiki.z]);
 
 // dynamic geometry: tracks (one box per project, rebuilt when the project set changes) and wiki columns

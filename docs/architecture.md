@@ -115,6 +115,9 @@ The triage view is the single most important UI. If it's fast the system runs.
 6. **Flow** — captured / clarified / done per week, cycle time by list, inbox-zero
    streak. Tells you the *system* is decaying before you feel it.
 7. **Delegated to AI** — see `delegation.md`.
+8. **Replay** — the ledger played back over time as balls moving through the system
+   (`frontend/replay.html`); any date is a fold of the event log, so the other views
+   can be rewound too.
 8. **Someday / maybe** — parked items with optional revisit dates (ticklers).
 9. **Reference** — the wiki index: program hubs and key links, filed items, people pages.
 

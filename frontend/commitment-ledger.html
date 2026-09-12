@@ -11,6 +11,7 @@
   --good:#1e8a4c; --good-soft:#e3f3e9; --warn:#b8720c; --warn-soft:#fbf0dc; --crit:#c53a3a; --crit-soft:#fbe5e5;
   --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
   --o1:#86b6ef; --o2:#5598e7; --o3:#2a78d6; --o4:#184f95;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#4a3aa7; --c8:#e34948; --c0:#888780;
   --shadow:0 12px 32px rgba(23,26,33,.14);
   --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -25,6 +26,7 @@
     --good:#3fb46f; --good-soft:#15291d; --warn:#e09a2b; --warn-soft:#2e2311; --crit:#e5615f; --crit-soft:#331717;
     --s1:#3987e5; --s2:#d95926; --s3:#199e70;
     --o1:#9ec5f4; --o2:#6da7ec; --o3:#3987e5; --o4:#256abf;
+    --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767; --c0:#888780;
     --shadow:0 12px 32px rgba(0,0,0,.5);
   }
 }
@@ -36,6 +38,7 @@
   --good:#3fb46f; --good-soft:#15291d; --warn:#e09a2b; --warn-soft:#2e2311; --crit:#e5615f; --crit-soft:#331717;
   --s1:#3987e5; --s2:#d95926; --s3:#199e70;
   --o1:#9ec5f4; --o2:#6da7ec; --o3:#3987e5; --o4:#256abf;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767; --c0:#888780;
   --shadow:0 12px 32px rgba(0,0,0,.5);
 }
 *{box-sizing:border-box}
@@ -138,7 +141,10 @@ main{min-width:0;display:flex;flex-direction:column}
 .chk:checked::after{content:"";width:8px;height:5px;border:2px solid var(--accent-ink);border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
 .chip{display:inline-flex;align-items:center;gap:5px;padding:1px 7px;border-radius:5px;font-size:11.5px;font-weight:500;background:var(--surface-2);color:var(--ink-2);white-space:nowrap}
 .chip.ctx{font-family:var(--mono);font-size:11px}
-.chip.proj{color:var(--accent-text);background:var(--accent-soft)}
+.chip.proj{--pc:var(--c0);color:var(--ink);background:color-mix(in srgb, var(--pc) 13%, var(--surface));padding-left:6px}
+.chip.proj::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--pc);flex:none}
+.pdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--pc,var(--c0));margin-right:8px;vertical-align:1px}
+.prog{border-top:3px solid var(--pc,var(--line))}
 .chip.src{background:transparent;border:1px solid var(--line);color:var(--ink-3)}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
 .pill i{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block}
@@ -207,8 +213,9 @@ main{min-width:0;display:flex;flex-direction:column}
 .empty b{display:block;color:var(--ink);font-family:var(--display);font-size:18px;font-weight:600;margin-bottom:4px}
 
 .prog{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.prog .head{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line)}
-.prog .head .purpose{color:var(--ink-2);font-size:13px;flex:1;min-width:0}
+.prog .head{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.prog .head h2{white-space:nowrap}
+.prog .head .purpose{color:var(--ink-2);font-size:13px;flex:1 1 280px;min-width:0}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500;padding:8px 18px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{padding:10px 18px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -461,6 +468,11 @@ const slug = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g
 const wikiStub = (g) => ({ page:'program-' + slug(g.name), compiled:null, health:'good', status:'Not compiled yet — the compile job runs Friday, or on the first health change.', links:[], milestones:[], decisions:[], pending:[], risks:[] });
 const active = () => programs.filter(g => !g.retired);
 const activeProjects = (gid) => projects.filter(j => j.program === gid && !j.dropped);
+/* Program identity color: slot by program order, fixed for life; beyond 8 programs folds to gray. */
+const progIdx = (gid) => { const i = programs.findIndex(g => g.id === gid); return i < 0 || i > 7 ? 0 : i + 1; };
+const progOfAny = (pid) => programs.find(g => g.id === pid) ? pid : projOf(pid)?.program;
+const pcStyle = (pid) => `style="--pc:var(--c${progIdx(progOfAny(pid))})"`;
+const projChip = (pid, label) => pid ? `<span class="chip proj" ${pcStyle(pid)}>${esc(label ?? projName(pid))}</span>` : `<span class="chip">${esc(label ?? '—')}</span>`;
 const wikiOf = (pid) => wiki[pid] || wiki[projOf(pid)?.program] || null;
 const aiLog = [
   { at:d(-3), what:'Compiled status, commitments and history sections on 3 program wiki pages', cap:'wiki', mode:'auto' },
@@ -645,14 +657,14 @@ function navLink(v, cur) {
 /* ---------- shared fragments ---------- */
 function actionRow(a) {
   return `<div class="row ${a.kind === 'done' ? 'done' : ''}"><label class="lab" style="flex:none"><input class="chk" type="checkbox" data-done="${a.id}" ${a.kind === 'done' ? 'checked' : ''}></label>
-    <div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}</div><div class="m">${a.project ? `<span class="chip proj">${esc(projName(a.project))}</span>` : ''}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(a.hard)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
+    <div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}</div><div class="m">${a.project ? `${projChip(a.project)}` : ''}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(a.hard)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
 }
 function readyRow(x) {
-  return `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m"><span class="chip aichip">AI · ${esc(capLabel[x.cap] || x.cap)}</span><span class="chip proj">${esc(projName(x.project))}</span><span class="effect">On approval: ${esc(x.del.effect)}</span></div></div><button class="btn sm primary" data-review="${x.id}">Review</button></div>`;
+  return `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m"><span class="chip aichip">AI · ${esc(capLabel[x.cap] || x.cap)}</span>${projChip(x.project)}<span class="effect">On approval: ${esc(x.del.effect)}</span></div></div><button class="btn sm primary" data-review="${x.id}">Review</button></div>`;
 }
 function waitingRow(w, opts = {}) {
   const over = until(w.followUp) < 0;
-  return `<div class="row"><div class="t clickable" data-item="${w.id}"><div>${esc(w.next)}</div><div class="m">${opts.showOwner ? `<span class="chip">${esc(pname(w.owner))}</span>` : ''}<span class="chip proj">${esc(projName(w.project))}</span><span class="age">${days(w.since)}d waiting</span><span class="age ${over ? 'over' : ''}">follow up ${dueLabel(w.followUp)}</span>${w.nudges ? `<span class="faint num">${w.nudges} nudge${w.nudges > 1 ? 's' : ''}</span>` : ''}</div></div>
+  return `<div class="row"><div class="t clickable" data-item="${w.id}"><div>${esc(w.next)}</div><div class="m">${opts.showOwner ? `<span class="chip">${esc(pname(w.owner))}</span>` : ''}${projChip(w.project)}<span class="age">${days(w.since)}d waiting</span><span class="age ${over ? 'over' : ''}">follow up ${dueLabel(w.followUp)}</span>${w.nudges ? `<span class="faint num">${w.nudges} nudge${w.nudges > 1 ? 's' : ''}</span>` : ''}</div></div>
     <button class="btn sm" data-nudge="${w.id}">Draft nudge</button></div>`;
 }
 
@@ -685,7 +697,7 @@ function viewNow() {
 
     <div class="panel"><div class="ph"><h2>Next actions by ${byProg ? 'program' : 'context'}</h2><span class="seg" style="margin-left:6px"><button data-group="context" class="${byProg ? '' : 'on'}">by context</button><button data-group="program" class="${byProg ? 'on' : ''}">by program</button></span><span class="sp" style="flex:1"></span><span class="note num">${actions.length} shown · ${delegated().length} with AI</span></div>
       <div class="filters"><span class="faint">I have</span><span class="seg">${[[0, 'any time'], [15, '≤ 15 min'], [30, '≤ 30 min'], [60, '60+ min']].map(f => `<button data-ftime="${f[0]}" class="${nowTime === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">energy</span><span class="seg">${[['', 'any'], ['low', 'low'], ['high', 'high']].map(f => `<button data-fenergy="${f[0]}" class="${nowEnergy === f[0] ? 'on' : ''}">${f[1]}</button>`).join('')}</span><span class="faint">scope</span><select class="in" style="width:auto;padding:3px 8px;font-size:12px" data-fscope aria-label="Program or project"><option value="">all programs</option>${active().map(g => `<optgroup label="${esc(g.name)}"><option value="${g.id}" ${nowScope === g.id ? 'selected' : ''}>${esc(g.name)} — whole program</option>${activeProjects(g.id).map(j => `<option value="${j.id}" ${nowScope === j.id ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}</optgroup>`).join('')}</select>${nowScope || nowTime || nowEnergy ? `<button class="btn sm ghost" data-fclear>Clear</button>` : ''}</div>
-      <div class="pb">${hardToday.length ? `<div class="ctxgroup"><span class="chip" style="color:var(--warn);background:var(--warn-soft)">pinned to today</span><span class="n">${hardToday.length}</span><span class="faint" style="font-size:11px">· must happen today — shown here, not in a context list</span></div>${hardToday.map(actionRow).join('')}` : ''}${keys.map(k => `<div class="ctxgroup">${byProg ? `<span class="chip proj">${esc(k === '—' ? 'No project' : projName(k))}</span>` : `<span class="chip ctx">${esc(k)}</span>`}<span class="n">${groups[k].length}</span></div>${groups[k].map(actionRow).join('')}`).join('')}</div>
+      <div class="pb">${hardToday.length ? `<div class="ctxgroup"><span class="chip" style="color:var(--warn);background:var(--warn-soft)">pinned to today</span><span class="n">${hardToday.length}</span><span class="faint" style="font-size:11px">· must happen today — shown here, not in a context list</span></div>${hardToday.map(actionRow).join('')}` : ''}${keys.map(k => `<div class="ctxgroup">${byProg ? `${k === '—' ? '<span class="chip">No project</span>' : projChip(k)}` : `<span class="chip ctx">${esc(k)}</span>`}<span class="n">${groups[k].length}</span></div>${groups[k].map(actionRow).join('')}`).join('')}</div>
     </div>
   ${over.length ? `<div class="panel"><div class="ph"><h2>Past follow-up</h2><a href="#waiting" class="note">Full ledger →</a></div><div class="pb">${over.map(w => waitingRow(w, { showOwner:true })).join('')}</div></div>` : ''}`;
 }
@@ -741,7 +753,7 @@ function trashPanel() {
 function viewPrograms() {
   return `<div class="vhead"><div><h1>Programs</h1><p>Every project must have a next action or a waiting-for. Last movement is computed from ledger activity — accepted, done, nudged — never typed in. Stalled means nothing has moved in more than 7 days. Click a project for its history.</p></div><div style="display:flex;gap:10px;align-items:center"><span class="note">Health rolls up: any blocked project blocks the program</span><button class="btn" data-addprog>Add program</button></div></div>
   ${active().map(g => { const js = activeProjects(g.id); const h = js.some(j => j.health === 'crit') ? 'crit' : js.some(j => j.health === 'warn') ? 'warn' : 'good';
-    return `<div class="prog"><div class="head">${healthPill(h)}<div><h2>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-wiki="${g.id}">Wiki</button><button class="btn sm" data-addproj="${g.id}">Add project</button><button class="btn sm ghost" data-retire="${g.id}" title="Retire this program">Retire</button></div>
+    return `<div class="prog" ${pcStyle(g.id)}><div class="head">${healthPill(h)}<div><h2><i class="pdot"></i>${esc(g.name)}</h2></div><div class="purpose">${esc(g.purpose)}</div><span class="note">${esc(g.cadence)}</span><button class="btn sm" data-wiki="${g.id}">Wiki</button><button class="btn sm" data-addproj="${g.id}">Add project</button><button class="btn sm ghost" data-retire="${g.id}" title="Retire this program">Retire</button></div>
     ${wiki[g.id] ? `<div class="wstatus"><span class="eyebrow">Status · compiled ${fmtDate(wiki[g.id].compiled)}${days(wiki[g.id].compiled) > 7 ? ' <span class="flag">stale</span>' : ''}</span><p>${esc(wiki[g.id].status)}</p><div class="wlinks">${wiki[g.id].links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>` : ''}
     <div class="tablewrap"><table><thead><tr><th>Project</th><th>Health</th><th>Next action</th><th>Last movement</th><th>Flags</th></tr></thead><tbody>
     ${js.map(j => { const s = projHealth(j); const n = openActions(j.id).length;
@@ -781,7 +793,7 @@ function viewWaiting() {
 function viewSomeday() {
   const some = by('someday').sort((a, b) => (a.revisit ? until(a.revisit) : 9e9) - (b.revisit ? until(b.revisit) : 9e9));
   return `<div class="vhead"><div><h1>Someday / maybe</h1><p>Ideas and commitments you have deliberately not made yet. Reviewed weekly; a revisit date turns one into a tickler.</p></div><span class="note num">${some.length} parked · ${some.filter(x => x.revisit).length} with a revisit date</span></div>
-  <div class="panel"><div class="ph"><h2>Parked</h2><span class="note">Sorted by revisit date</span></div><div class="pb">${some.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m">${x.project ? `<span class="chip proj">${esc(projName(x.project))}</span>` : ''}<span class="age">${days(x.since)}d parked</span>${x.revisit ? `<span class="chip" style="color:var(--accent-text);background:var(--accent-soft)">↺ revisit ${dueLabel(x.revisit)}</span>` : '<span class="faint">no revisit date</span>'}</div></div><input type="date" class="in" style="width:auto;padding:4px 8px" value="${x.revisit ? iso(x.revisit) : ''}" data-revisit="${x.id}" title="Revisit on"><button class="btn sm" data-promote="${x.id}">Promote</button><button class="btn sm ghost" data-drop="${x.id}">Drop</button></div>`).join('') || '<div class="empty">Nothing parked.</div>'}</div></div>`;
+  <div class="panel"><div class="ph"><h2>Parked</h2><span class="note">Sorted by revisit date</span></div><div class="pb">${some.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m">${x.project ? `${projChip(x.project)}` : ''}<span class="age">${days(x.since)}d parked</span>${x.revisit ? `<span class="chip" style="color:var(--accent-text);background:var(--accent-soft)">↺ revisit ${dueLabel(x.revisit)}</span>` : '<span class="faint">no revisit date</span>'}</div></div><input type="date" class="in" style="width:auto;padding:4px 8px" value="${x.revisit ? iso(x.revisit) : ''}" data-revisit="${x.id}" title="Revisit on"><button class="btn sm" data-promote="${x.id}">Promote</button><button class="btn sm ghost" data-drop="${x.id}">Drop</button></div>`).join('') || '<div class="empty">Nothing parked.</div>'}</div></div>`;
 }
 function viewReference() {
   const refs = by('reference');
@@ -814,10 +826,10 @@ function viewReview() {
     { id:'sweep', title:'Mind sweep — empty your head', status: `${items.filter(i => i.source === 'sweep' && i.captured && days(i.captured) === 0).length} captured today`, body: `<div class="row"><div class="t"><div class="muted" style="margin-bottom:6px">Walk the triggers; capture anything that surfaces. Don't clarify yet — that's the inbox's job.</div><div class="trig">${sweepTriggers.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div></div></div><div class="row"><form class="capture" data-sweepform style="max-width:none;flex:1"><span class="faint">+</span><input placeholder="What's on your mind?" aria-label="Mind sweep capture"><span class="hint">⏎</span></form></div>` },
     { id:'pastcal', title:'Sweep last week\'s calendar', status: `${pastMeetings.filter(m => !m.captured).length} meetings with nothing captured`, body: pastMeetings.map(m => `<div class="row"><div class="t"><div>${esc(m.title)}</div><div class="m"><span class="faint">${fmtDate(m.on)} · ${m.who.map(pname).join(', ')}</span>${m.captured ? `<span class="chip">${m.captured} captured</span>` : '<span class="flag">nothing captured</span>'}</div></div>${m.captured ? '' : `<button class="btn sm" data-capfrom="${esc(m.title)}">Capture follow-ups</button>`}</div>`).join('') + `<div class="row"><div class="t muted">A meeting with no captured items usually means loose ends in your head, not a meeting with none.</div></div>` },
     { id:'upcoming', title:'Preview the next two weeks', status: `${calendarAhead.length + mine().filter(a => a.hard && until(a.hard) > 0 && until(a.hard) <= 14).length} on the calendar`, body: [...calendarAhead.map(c => ({ on:c.on, txt:`${c.time} ${c.title}`, sub:c.who.map(pname).join(', '), mtg:true })), ...mine().filter(a => a.hard && until(a.hard) > 0 && until(a.hard) <= 14).map(a => ({ on:a.hard, txt:a.next, sub:projName(a.project), mtg:false }))].sort((a, b) => a.on - b.on).map(e => `<div class="row"><div class="t"><div>${esc(e.txt)}${e.mtg ? '' : ' <span class="chip" style="color:var(--warn);background:var(--warn-soft)">day-specific action</span>'}</div><div class="m"><span class="faint">${fmtDate(e.on)} · ${esc(e.sub)}</span></div></div>${e.mtg ? `<button class="btn sm ghost" data-capprep="${esc(e.txt.replace(/^\d\d:\d\d /, ''))}|${iso(e.on)}">Capture prep</button>` : ''}</div>`).join('') + `<div class="row"><div class="t"><div class="muted" style="margin-bottom:6px">Anything here that needs prep you haven't got a next action for? Capture it now — it goes to the inbox to clarify.</div><form class="capture" data-sweepform="calendar" style="max-width:none"><span class="faint">+</span><input placeholder="e.g. Pull savings numbers before board prep with Ingrid" aria-label="Capture prep"><span class="hint">⏎</span></form></div></div>` },
-    { id:'next', title:'Every project has a next action', auto: noNext.length === 0, status: noNext.length ? `${noNext.length} missing` : 'All covered', body: noNext.map(p => `<div class="row"><div class="t"><div>${esc(p.name)}</div><div class="m"><span class="chip proj">${esc(projName(p.program))}</span><span class="age over">${projHealth(p).lm ? projHealth(p).age + 'd since movement' : 'no activity'}</span></div></div><button class="btn sm" data-proj="${p.id}">Decide next action</button></div>`).join('') || `<div class="row"><div class="t muted">Every active project has an action or a waiting-for.</div></div>` },
+    { id:'next', title:'Every project has a next action', auto: noNext.length === 0, status: noNext.length ? `${noNext.length} missing` : 'All covered', body: noNext.map(p => `<div class="row"><div class="t"><div>${esc(p.name)}</div><div class="m">${projChip(p.program)}<span class="age over">${projHealth(p).lm ? projHealth(p).age + 'd since movement' : 'no activity'}</span></div></div><button class="btn sm" data-proj="${p.id}">Decide next action</button></div>`).join('') || `<div class="row"><div class="t muted">Every active project has an action or a waiting-for.</div></div>` },
     { id:'waiting', title:'Review waiting-fors older than 14 days', status: `${aged.length} aged`, body: aged.map(w => waitingRow(w, { showOwner:true })).join('') },
     { id:'someday', title:'Someday / maybe: promote or drop', status: `${some.length} parked`, body: some.map(s => `<div class="row"><div class="t"><div>${esc(s.next)}</div><div class="m"><span class="age">${days(s.since)}d parked</span></div></div><button class="btn sm" data-promote="${s.id}">Promote</button><button class="btn sm ghost" data-drop="${s.id}">Drop</button></div>`).join('') },
-    { id:'wins', title:'Wins this week → status draft', status: `${done.length} done`, body: done.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m"><span class="chip proj">${esc(projName(x.project))}</span><span class="faint">${fmtDate(x.doneAt || TODAY)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">These become the "done" section of Friday's status.</div><button class="btn sm" data-status>Draft status report</button></div>` },
+    { id:'wins', title:'Wins this week → status draft', status: `${done.length} done`, body: done.map(x => `<div class="row"><div class="t"><div>${esc(x.next)}</div><div class="m">${projChip(x.project)}<span class="faint">${fmtDate(x.doneAt || TODAY)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">These become the "done" section of Friday's status.</div><button class="btn sm" data-status>Draft status report</button></div>` },
     { id:'ai', title:'Audit what the AI did this week', status: `${aiLog.length} runs · ${items.filter(i => i.del?.status === 'approved').length + 3} approved`, body: aiLog.map(l => `<div class="row"><div class="t"><div>${esc(l.what)}</div><div class="m"><span class="chip ${l.mode === 'auto' ? 'aichip' : ''}">${l.mode === 'auto' ? 'automatic' : 'you approved'}</span><span class="faint">${fmtDate(l.at)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Automatic actions are the ones to eyeball: if any look wrong, lower that capability's autonomy.</div><a class="btn sm" href="#delegated">Autonomy settings</a></div>` },
     { id:'lint', title:'Wiki lint', status: `${wikiLint.length} findings`, body: wikiLint.map(l => `<div class="row"><div class="t"><div>${esc(l.what)}</div><div class="m"><span class="chip mono">${esc(l.page)}.md</span><span class="faint">${esc(l.fix)}</span></div></div></div>`).join('') + `<div class="row"><div class="t muted">Stale compiled sections, wiki–ledger contradictions, orphan pages. Fixes go through a reviewed ingest.</div></div>` },
     { id:'horizons', title:'Look up: programs still serve their purpose?', status: `${active().length} programs`, body: active().map(g => `<div class="row"><div class="t"><div>${esc(g.name)}</div><div class="m muted">${esc(g.purpose)}</div><div class="m"><span class="faint num">${activeProjects(g.id).length} projects · sponsor ${esc(pname(g.sponsor))}</span></div></div><button class="btn sm ghost" data-retire="${g.id}">Retire</button></div>`).join('') + `<div class="row"><div class="t muted">A program is an area of responsibility: rare, deliberate, with a purpose you can check projects against. Add one here or from Programs; retire one when its purpose is met.</div><button class="btn sm" data-addprog>Add program</button></div>` },
@@ -996,7 +1008,7 @@ function viewDelegated() {
   const q = delegated('queued'), w = delegated('working'), r = delegated('ready');
   const approved = items.filter(i => i.del?.status === 'approved').length + 3;
   const hours = ((delegated().reduce((n, i) => n + (i.del.minutes || 0), 0) + 130) / 60).toFixed(1);
-  const card = (x) => `<div class="dcard ${x.del.status}"><div>${esc(x.next)}</div><div class="m" style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px"><span class="chip proj">${esc(projName(x.project))}</span><span class="chip">${esc(capLabel[x.cap] || x.cap)}</span><span class="faint num">~${x.del.minutes} min</span></div>
+  const card = (x) => `<div class="dcard ${x.del.status}"><div>${esc(x.next)}</div><div class="m" style="display:flex;gap:6px;flex-wrap:wrap;font-size:12px">${projChip(x.project)}<span class="chip">${esc(capLabel[x.cap] || x.cap)}</span><span class="faint num">~${x.del.minutes} min</span></div>
     ${x.del.status === 'working' ? `<div class="pbar"><i style="width:${Math.round((x.del.progress || .1) * 100)}%"></i></div>` : ''}
     ${x.del.status === 'ready' && x.del.deliverable ? `<div class="preview">${esc(x.del.deliverable)}</div>` : ''}
     <div class="effect">On approval: <b>${esc(x.del.effect)}</b></div>
