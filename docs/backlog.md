@@ -5,6 +5,20 @@ item to `decisions.md` when it's decided and built.
 
 ## 2026-09-12 (evening review pass)
 
+- **Configurable models per use case.** Each AI job (clarify, suggest next action, draft
+  nudge, prep brief, weekly review prep, wiki compile/ingest, URL enrich) gets its own
+  model setting: a Claude model + effort, or a local model (Ollama / Draw-Things-style
+  HTTP endpoint on the Mac). Config lives with the job registry in the back-end
+  (`jobs.yaml` or the autonomy table's neighbour in the UI): `{ job, provider:
+  claude|local, model, effort?, endpoint?, fallback? }`. Cheap/high-volume jobs
+  (clarify, enrich) are the natural local candidates; synthesis jobs (review prep,
+  prep brief) stay on Claude. Show the choice in the Delegated view next to
+  autonomy so trust and cost are tuned in one place. — Jeff, in conversation.
+- **Paste-a-URL enrichment.** A Slack permalink (or Google Doc / Linear URL) pasted
+  into capture is resolved by the back-end (`resolve(url) → {raw, context}`: message +
+  thread, author, channel) before clarify runs, so triage sees the thread, not one
+  line. Needs a Slack app token with history scopes; private channels need the bot
+  invited. — Jeff, in conversation.
 - **Google Calendar integration.** Both calendar sweeps in the weekly review and the
   hard-landscape strip should read the real calendar (Google Calendar connector or
   ingestor) instead of example `meetings` / `calendarAhead` / `pastMeetings`. Front-end
