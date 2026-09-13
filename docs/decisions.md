@@ -4,6 +4,9 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-13
 
+- **Beta plan adopted** (`beta-plan.md`): data outside the app in `~/GTD-data/` (private
+  repo), append-only versioned event log with upcasters, one writer (local service),
+  Calendar first, Claude via subscription skills. Event contract in `ledger-events.md`.
 - **Renamed to "Delivery System"** (was Commitment Ledger); same subtitle; new route-and-check
   mark. Artifact URL unchanged.
 - **Settings view** (rail, key `,`): autonomy moved here from Delegated; per-job model
