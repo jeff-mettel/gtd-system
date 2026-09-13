@@ -241,6 +241,8 @@ document.addEventListener('keydown', (e) => {
   /* Inbox: Cmd/Ctrl+Enter accepts from anywhere (fields included); Tab walks list → kinds → next action; arrows inside a kind group. */
   if (inInbox && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); const before = JSON.stringify(state); acceptCurrent(); if (JSON.stringify(state) !== before) offerUndo(before); return; }
   if (inInbox && e.key === 'Tab' && inboxTab(e)) return;
+  /* Sidebar toggle: plain [ outside fields; Cmd/Ctrl+[ anywhere, even while typing. */
+  if (e.key === '[' && (e.metaKey || e.ctrlKey || !e.target.matches('input,textarea,select'))) { e.preventDefault(); state.collapsed.rail = !state.collapsed.rail; save(); render(); return; }
   if (e.target.matches('input,textarea,select') ) { if (e.key === 'Escape') e.target.blur(); return; }
   if (inInbox && kgKeys(e)) return;
   if (e.key === 'Escape') { closeDrawer(); return; }
@@ -248,7 +250,6 @@ document.addEventListener('keydown', (e) => {
   const v = views.find(x => x.key === e.key); if (v) { location.hash = '#' + v.id; return; }
   if (e.key === '/') { e.preventDefault(); $('#captureInput').focus(); return; }
   if (e.key === '?') { guideDrawer(); return; }
-  if (e.key === '[') { state.collapsed.rail = !state.collapsed.rail; save(); render(); return; }
   if (cur === 'inbox') {
     if (e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const inList = !!document.activeElement?.closest?.('.ilist'); moveSel(e.key === 'j' || e.key === 'ArrowDown' ? 1 : -1); if (inList || e.key.startsWith('Arrow')) $('.ilist .row.sel')?.focus({ preventScroll:false }); }
     else if ('axwst'.includes(e.key) && e.key.length === 1) { const before = JSON.stringify(state); acceptCurrent({ a:undefined, x:'done', w:'waiting', s:'someday', t:'trash' }[e.key]); if (JSON.stringify(state) !== before) offerUndo(before); }
