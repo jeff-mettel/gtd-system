@@ -13,7 +13,7 @@ const fmtD = (ms) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short'
 
 export function createScene(THREE, root, data) {
   const { EV, ITEMS, REVIEWS, PAGES, T0, T1 } = data;
-  const stage = root.querySelector('.rp-stage'), statsEl = root.querySelector('.rp-stats'), scrub = root.querySelector('.rp-scrub input'), ticks = root.querySelector('.rp-ticks'), dateEl = root.querySelector('.rp-date'), capEl = root.querySelector('.rp-caption'), playBtn = root.querySelector('[data-rpplay]');
+  const stage = root.querySelector('.rp-stage'), statEls = [...root.querySelectorAll('.rp-stats [data-stat]')], scrub = root.querySelector('.rp-scrub input'), ticks = root.querySelector('.rp-ticks'), dateEl = root.querySelector('.rp-date'), capEl = root.querySelector('.rp-caption'), playBtn = root.querySelector('[data-rpplay]');
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim(), col = (v) => new THREE.Color(css(v) || '#888');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); stage.appendChild(renderer.domElement);
@@ -36,7 +36,8 @@ export function createScene(THREE, root, data) {
   box(LAY.shelf.x1 - LAY.shelf.x0 + 2, 0.4, 5, 'surface2', [0, LAY.shelf.y - 0.2, LAY.shelf.z]);
   for (const p of people) box(0.35, 2.4, 0.35, 'line2', [postX(p.id), LAY.shelf.y + 1.2, LAY.shelf.z - 1.6]);
   box(5, 1.2, 4, 'surface2', [LAY.someday[0], 0.6, LAY.someday[2]], { transparent: true, opacity: .7 });
-  const chute = box(6, 0.2, 3, 'surface2', [LAY.chute[0] + 1.5, 1.2, 0]); chute.rotation.z = -0.35;
+  // the drop into the done heap is the balls' own arc (see the `default` case in frame); a thin floor ring marks where they land
+  const heapRing = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 64 }, (_, i) => new THREE.Vector3(Math.cos(i / 64 * 2 * Math.PI) * 4.2, Math.sin(i / 64 * 2 * Math.PI) * 4.2, 0))), new THREE.LineBasicMaterial({ color: P.line2, transparent: true, opacity: .8 })); heapRing.rotation.x = -Math.PI / 2; heapRing.position.set(LAY.heap[0], 0.02, 0); scene.add(heapRing); themed.push([heapRing.material, 'line2']);
   const trackGeo = new THREE.BoxGeometry(LAY.floorX[1] - LAY.floorX[0], 0.16, 1.4);
   // one wiki bar per program at the end of its lane: height = words on that program's pages (fold.wikiByProgram)
   const barGeo = new THREE.BoxGeometry(LAY.wiki.w, 1, LAY.wiki.w); barGeo.translate(0, 0.5, 0);
@@ -212,7 +213,8 @@ export function createScene(THREE, root, data) {
     for (const it of S.items.values()) { if (it.stage === 'inbox' || it.stage === 'gate') c.inbox++; else if (it.stage === 'action') c.action++; else if (it.stage === 'waiting') c.waiting++; else if (it.stage === 'delegated' || it.stage === 'ready') c.ai++; else if (it.stage === 'someday') c.someday++; else if (it.stage === 'done') c.done++; }
     let words = 0; for (const w of S.wiki.values()) words += w;
     const stalledN = [...S.projects.values()].filter(p => !p.dropped && (t - p.lastMove) / DAY > 7).length;
-    statsEl.innerHTML = [['Inbox', c.inbox], ['Next actions', c.action], ['Waiting for', c.waiting], ['With the AI', c.ai], ['Someday', c.someday], ['Done (cum.)', c.done], ['Stalled', stalledN], ['Wiki words', words.toLocaleString()], ['Reviews', S.reviews]].map(([kk, v]) => `<div><b>${v}</b><span>${kk}</span></div>`).join('');
+    const stats = { inbox: c.inbox, action: c.action, waiting: c.waiting, ai: c.ai, someday: c.someday, done: c.done, stalled: stalledN, words: words.toLocaleString(), reviews: S.reviews };
+    for (const el of statEls) { const v = String(stats[el.dataset.stat]); if (el.textContent !== v) el.textContent = v; }
     const e = S.last; if (e) { const ai = e.actor.startsWith('ai:'); const what = ({ captured: 'Captured', clarified: 'Proposed ' + (e.kind || ''), accepted: (e.corrected ? 'Corrected to ' : 'Accepted as ') + e.kind, done: 'Done', closed: 'Received', nudged: 'Nudged ' + pname(e.owner), nudge_drafted: 'Drafted nudge to ' + pname(e.owner), delegated: 'Handed to the AI (' + e.cap + ')', working: 'AI working', delivered: 'Ready for review', approved: 'Approved', taken_back: 'Taken back', promoted: 'Promoted from someday', dropped: 'Trashed', wiki_changed: 'Wiki · ' + (e.text || e.page), review_completed: 'Weekly review completed', program_created: 'Program created · ' + e.text, program_retired: 'Program retired · ' + e.text, project_created: 'Project created · ' + e.text, project_dropped: 'Project dropped', health_set: 'Health set' })[e.type] || e.type; const it = e.item ? S.items.get(e.item) : null; capEl.innerHTML = `<span class="when">${fmtD(e.at)} ${fmtT(e.at)}</span><span class="who ${ai ? 'ai' : ''}">${e.actor}</span><span>${esc(what)}${it ? ' · ' + esc(it.text) : ''}</span>`; }
   }
   const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
