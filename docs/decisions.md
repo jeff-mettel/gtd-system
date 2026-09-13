@@ -4,6 +4,12 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Replay: one wiki bar per program**, at the end of its lane, growing with the
+  program's total wiki words; the per-page wall is gone. **Delegated items stay in
+  their lane** with a charged/electrical look (emissive, halo, sparks while moving;
+  hovering when ready for review) — the separate AI machine is removed.
+- **Milestones are added in the wiki drawer** (what, date, state) and appended to the
+  program hub's Milestones table; prep briefs list milestones due in the next 14 days.
 - **Trash is never deleted.** The ledger is append-only; trashing is an event, not a
   removal. The UI shows all trashed items with Restore; the earlier "kept 30 days" copy
   was wrong and is gone.
