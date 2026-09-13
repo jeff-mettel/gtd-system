@@ -25,9 +25,16 @@ import { viewReference } from './views/reference.js';
 import { viewReview } from './views/review.js';
 import { viewSomeday } from './views/someday.js';
 import { viewWaiting } from './views/waiting.js';
+/* inbox batch */
+import { initAutocomplete, parseMentions } from './features/autocomplete.js';
+import { initFuzzyInputs } from './features/fuzzyinput.js';
+import { inboxTab, kgKeys } from './features/inboxkeys.js';
+import { completeItem, doneToast, uncompleteItem } from './features/repeat.js';
+import { resurfaceDue } from './state.js';
 
 /* ---------- render & events ---------- */
 export function render() {
+  resurfaceDue();
   const cur = location.hash.slice(1) || 'now';
   const v = { now:viewNow, inbox:viewInbox, programs:viewPrograms, waiting:viewWaiting, delegated:viewDelegated, someday:viewSomeday, reference:viewReference, people:viewPeople, review:viewReview, flow:viewFlow }[cur] || viewNow;
   $('#view').innerHTML = v();
@@ -51,15 +58,23 @@ export function acceptCurrent(overrideKind) {
   }
   else {
     it.next = next; it.project = $('#pProj')?.value || it.p.project || null;
-    if (kind === 'action' || kind === 'project') { it.ctx = $('#pCtx')?.value || it.p.ctx || '@quick'; it.min = +($('#pMin')?.value) || it.p.min; const dv = $('#pDue')?.value; it.due = dv ? new Date(dv + 'T08:00:00') : it.p.due; }
+    if (kind === 'project') {
+      /* The inbox creates the project itself; this item becomes its first (primary) action. */
+      const name = $('#pNewProj')?.value.trim(), program = $('#pProg')?.value;
+      if (!name || !program) { toast('A project needs a name and a program'); $('#pNewProj')?.focus(); return; }
+      const jid = 'JN' + Date.now();
+      const j = { id:jid, program, name, outcome:$('#pOutcome')?.value.trim() || '', health:'good', suggest:'Decide the next action once this first one is done' };
+      projects.push(j); state.projects.push(j); it.project = jid; state.primary[jid] = it.id;
+    }
+    if (kind === 'action' || kind === 'project') { it.min = +($('#pMin')?.value) || it.p.min; const cv = $('#pCtx'); it.ctx = (cv ? cv.value : it.p.ctx) || ((it.min || 0) <= 15 ? '@quick' : '@deep'); const dv = $('#pDue')?.value; it.due = dv ? new Date(dv + 'T08:00:00') : it.p.due; it.repeat = $('#pRepeat')?.value || it.p.repeat || null; }
     if (kind === 'waiting') { it.owner = $('#pOwner')?.value || it.p.owner || it.from; it.since = TODAY; const fv = $('#pFollow')?.value; it.followUp = fv ? new Date(fv + 'T08:00:00') : d(3); it.nudges = 0; }
     if (kind === 'someday') { it.since = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; }
     if (kind === 'reference') { it.refPage = $('#pRef')?.value || null; it.filedAt = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; if (wiki[it.refPage] && !wiki[it.refPage].links.some(l => l[0] === next)) wiki[it.refPage].links.push([next, '']); }
     if (kind === 'action' || kind === 'project') { it.createdAt = TODAY; const hv = $('#pHard')?.value; it.hard = hv ? new Date(hv + 'T08:00:00') : null; }
-    if (it.wasKind) { state.resurfaced[it.id + ':' + new Date(it.revisit || TODAY).toDateString()] = true; delete it.wasKind; }
+    if (it.wasKind) { state.resurfaced[it.id + ':' + (it.tickledFor || new Date(TODAY).toDateString())] = true; delete it.wasKind; delete it.tickledFor; }
     if (ui.delegateOnAccept && it.p.ai && (kind === 'action' || kind === 'project')) handOff(it, it.p.ai.cap, it.p.ai.what);
     it.kind = kind === 'project' ? 'action' : kind;
-    state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, hard:it.hard, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt, revisit:it.revisit, refPage:it.refPage, filedAt:it.filedAt, energy:it.energy };
+    state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, hard:it.hard, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt, revisit:it.revisit, refPage:it.refPage, filedAt:it.filedAt, energy:it.energy, repeat:it.repeat };
   }
   save();
   const labels = { action:'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', done:'Done — two-minute rule; movement logged', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
@@ -111,7 +126,7 @@ function onClick(e) {
   else if (ds.item) itemDrawer(ds.item);
   else if ('duelist' in ds) { const list = mine().filter(a => a.due && until(a.due) <= 1).sort((a, b) => a.due - b.due); openDrawer('Due by tomorrow', list.length ? `<div class="panel"><div class="pb">${list.map(actionRow).join('')}</div></div><div class="note">Soft due dates — deadlines, not calendar pins. Click an item to open it, tick to mark done.</div>` : '<div class="empty">Nothing due by tomorrow.</div>', '<button class="btn" data-close>Close</button>'); }
   else if (ds.received) { const x = items.find(i => i.id === ds.received); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast(`Received from ${pname(x.owner)} · done`); render(); }
-  else if (ds.markdone) { const x = items.find(i => i.id === ds.markdone); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast('Done · movement logged'); render(); }
+  else if (ds.markdone) { const x = items.find(i => i.id === ds.markdone); const spawned = completeItem(x); save(); closeDrawer(); toast(doneToast(spawned)); render(); }
   else if (ds.park) { const x = items.find(i => i.id === ds.park); x.kind = 'someday'; x.since = TODAY; state.kinds[x.id] = 'someday'; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { since:TODAY }); save(); closeDrawer(); toast('Parked in someday / maybe'); render(); }
   else if (ds.restore) { const x = items.find(i => i.id === ds.restore); x.kind = 'inbox'; x.captured = TODAY; if (!x.p) x.p = { kind:'action', next:x.next, project:null, ctx:'@quick', min:15, conf:.5, why:'Restored from trash — clarify again.' }; delete state.kinds[x.id]; save(); ui.sel = x.id; toast('Restored to inbox'); render(); }
   else if (ds.capprep) { const [title, on] = ds.capprep.split('|'); const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'calendar', from:null, captured:TODAY, raw:`Prep for ${title} on ${fmtDate(new Date(on + 'T08:00:00'))}`, p:{ kind:'action', next:`Prepare for ${title}`, project:null, ctx:'@deep', min:30, due:new Date(on + 'T08:00:00'), conf:.65, why:'From the two-week preview. Due the day of the meeting; set the project and what "prepared" means.' } }; items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); toast('Captured — clarify it in the inbox'); render(); }
@@ -192,7 +207,7 @@ document.addEventListener('change', (e) => {
 function onChange(e) {
   const t = e.target;
   if (t.dataset.moveitem && t.value) { const it = items.find(i => i.id === t.dataset.moveitem); if (moveItem(it.id, t.value)) { itemDrawer(it.id); render(); } }
-  if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { it._prev = it.kind; it.kind = 'done'; it.doneAt = TODAY; state.done[it.id] = true; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { doneAt:TODAY }); toast('Done · logged for the weekly review'); } else { it.kind = it._prev || 'action'; delete state.done[it.id]; } save(); renderNav(); }
+  if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { const spawned = completeItem(it); toast(doneToast(spawned)); if (spawned) render(); } else uncompleteItem(it); save(); renderNav(); }
   if (t.dataset.step) { state.review[t.dataset.step] = t.checked; save(); render(); }
   if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
   if (t.dataset.revisit) { const x = items.find(i => i.id === t.dataset.revisit); x.revisit = t.value ? new Date(t.value + 'T08:00:00') : null; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { revisit:x.revisit }); save(); toast(x.revisit ? `Will resurface ${fmtDate(x.revisit)}` : 'Revisit date cleared'); renderNav(); }
@@ -204,32 +219,38 @@ $('#drawerBg').addEventListener('click', closeDrawer);
 
 document.addEventListener('submit', (e) => {
   const f = e.target.closest('[data-sweepform]'); if (!f) return; e.preventDefault();
+  const before = JSON.stringify(state); setTimeout(() => { if (JSON.stringify(state) !== before) offerUndo(before); }, 0);
   const v = f.querySelector('input').value.trim(); if (!v) return;
   const src = f.dataset.sweepform || 'sweep';
   const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:src, from:null, captured:TODAY, raw:v, p:{ kind:'action', next:v, project:null, ctx:'@quick', min:15, conf:.6, why: src === 'calendar' ? 'Captured from the two-week preview — prep for something on the calendar.' : 'From the mind sweep — clarify in the inbox.' } };
   items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); f.querySelector('input').value = ''; toast(src === 'calendar' ? 'Captured — clarify it in the inbox' : 'Captured — keep sweeping'); render(); $(`[data-sweepform="${src === 'sweep' ? '' : src}"] input`)?.focus();
 });
 $('#captureForm').addEventListener('submit', (e) => {
-  e.preventDefault(); const v = $('#captureInput').value.trim(); if (!v) return;
+  e.preventDefault(); const before = JSON.stringify(state); setTimeout(() => { if (JSON.stringify(state) !== before) offerUndo(before); }, 0); const v = $('#captureInput').value.trim(); if (!v) return;
   const id = 'C' + Date.now();
   const guessWait = /waiting|will send|said (he|she|they)|promised|get back/i.test(v), guessSome = /idea|someday|maybe|could/i.test(v);
-  const n = { id, kind:'inbox', source:'capture', from:null, captured:TODAY, raw:v, p:{ kind: guessWait ? 'waiting' : guessSome ? 'someday' : 'action', next:v.replace(/^(todo|remember to|remind me to)\s*/i, ''), owner: guessWait ? 'priya' : undefined, project:null, ctx:'@quick', min:15, conf:.66, why:'Captured just now with no source thread to read, so this is a first guess from the wording alone.' } };
+  const m = parseMentions(v);           // @Program / @Project / @Person — text is kept as typed
+  const n = { id, kind:'inbox', source:'capture', from:null, captured:TODAY, raw:v, mentions:m.ids, p:{ kind: guessWait ? 'waiting' : guessSome ? 'someday' : 'action', next:v.replace(/^(todo|remember to|remind me to)\s*/i, ''), owner: guessWait ? (m.owner || 'priya') : m.owner || undefined, project:m.project, ctx:'@quick', min:15, conf: m.ids.length ? .72 : .66, why: m.ids.length ? 'Captured just now; the @-mentions set the project and person, the rest is a first guess from the wording.' : 'Captured just now with no source thread to read, so this is a first guess from the wording alone.' } };
   items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save();
   $('#captureInput').value = ''; ui.sel = id; location.hash = '#inbox'; toast('Captured · waiting for you in the inbox'); render();
 });
 
 document.addEventListener('keydown', (e) => {
+  const cur = location.hash.slice(1) || 'now', inInbox = cur === 'inbox' && !$('#drawer').classList.contains('open');
+  /* Inbox: Cmd/Ctrl+Enter accepts from anywhere (fields included); Tab walks list → kinds → next action; arrows inside a kind group. */
+  if (inInbox && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); const before = JSON.stringify(state); acceptCurrent(); if (JSON.stringify(state) !== before) offerUndo(before); return; }
+  if (inInbox && e.key === 'Tab' && inboxTab(e)) return;
   if (e.target.matches('input,textarea,select') ) { if (e.key === 'Escape') e.target.blur(); return; }
+  if (inInbox && kgKeys(e)) return;
   if (e.key === 'Escape') { closeDrawer(); return; }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const v = views.find(x => x.key === e.key); if (v) { location.hash = '#' + v.id; return; }
   if (e.key === '/') { e.preventDefault(); $('#captureInput').focus(); return; }
   if (e.key === '?') { guideDrawer(); return; }
   if (e.key === '[') { state.collapsed.rail = !state.collapsed.rail; save(); render(); return; }
-  const cur = location.hash.slice(1) || 'now';
   if (cur === 'inbox') {
-    if (e.key === 'j') moveSel(1); else if (e.key === 'k') moveSel(-1);
-    else if (e.key === 'a') acceptCurrent(); else if (e.key === 'x') acceptCurrent('done'); else if (e.key === 'w') acceptCurrent('waiting'); else if (e.key === 's') acceptCurrent('someday'); else if (e.key === 't') acceptCurrent('trash');
+    if (e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const inList = !!document.activeElement?.closest?.('.ilist'); moveSel(e.key === 'j' || e.key === 'ArrowDown' ? 1 : -1); if (inList || e.key.startsWith('Arrow')) $('.ilist .row.sel')?.focus({ preventScroll:false }); }
+    else if ('axwst'.includes(e.key) && e.key.length === 1) { const before = JSON.stringify(state); acceptCurrent({ a:undefined, x:'done', w:'waiting', s:'someday', t:'trash' }[e.key]); if (JSON.stringify(state) !== before) offerUndo(before); }
     else if (e.key === 'e') { e.preventDefault(); $('#pNext')?.focus(); $('#pNext')?.select(); }
     else if (e.key === 'd') { const it = items.find(i => i.id === ui.sel); if (it?.p.ai) { ui.delegateOnAccept = true; acceptCurrent(); } }
   }
@@ -241,3 +262,6 @@ document.addEventListener('mousemove', (e) => {
   tip.innerHTML = t.dataset.tip; tip.style.display = 'block';
   tip.style.left = (e.clientX + 12) + 'px'; tip.style.top = (e.clientY - 30) + 'px';
 });
+
+/* inbox batch: capture-box @autocomplete and fuzzy-date companions (delegated; safe across re-renders) */
+initAutocomplete(); initFuzzyInputs();

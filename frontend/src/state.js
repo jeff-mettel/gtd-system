@@ -23,13 +23,22 @@ export function applyState() {
     if (state.done[it.id]) it.kind = 'done';
     if (state.nudged[it.id]) { it.nudges = (it.nudges || 0) + state.nudged[it.id]; it.followUp = d(5); it.lastNudged = TODAY; }
     if (state.overrides[it.id]) Object.assign(it, state.overrides[it.id]);
-    /* Tickler: a someday or reference item whose revisit date has arrived re-enters the inbox as a decision. */
-    if ((it.kind === 'someday' || it.kind === 'reference') && it.revisit && new Date(it.revisit) <= TODAY && !state.kinds[it.id] && !state.resurfaced[it.id + ':' + new Date(it.revisit).toDateString()]) {
-      it.wasKind = it.kind; it.kind = 'inbox'; it.source = 'tickler'; it.from = null; it.captured = TODAY; it.raw = it.next;
-      it.p = { kind:'action', next:it.next, project: it.project || (wiki[it.refPage] ? it.refPage : null), ctx:'@quick', min:15, conf:.7, why:`Tickler — you asked to revisit this on ${new Date(it.revisit).toLocaleDateString('en-GB', { day:'numeric', month:'short' })}. Decide now: act on it, park it again with a new date, or drop it.` };
-    }
     const dg = state.delegated[it.id];
     if (dg) { if (dg.status === 'taken') { delete it.owner; delete it.del; } else { it.owner = 'ai'; it.cap = it.cap || dg.cap; it.del = Object.assign({}, it.del || {}, dg); if (dg.status === 'approved') it.kind = 'done'; if (dg.status === 'working') { it.del.status = 'ready'; it.del.readyAt = it.del.readyAt || TODAY; it.del.deliverable = it.del.deliverable || `${it.next}\n\n(Finished while you were away — in the live system the assistant's output appears here.)`; } } }
+  }
+  resurfaceDue();
+}
+
+/* Tickler: a someday or reference item whose revisit date has arrived re-enters the inbox as a decision.
+   Idempotent — safe to call on every render. `tickledFor` remembers which revisit date brought it back; accepting
+   records `resurfaced[id:tickledFor]` so the same date never fires twice, while a new revisit date can. */
+export function resurfaceDue() {
+  for (const it of items) {
+    if (!(it.kind === 'someday' || it.kind === 'reference') || !it.revisit || new Date(it.revisit) > TODAY) continue;
+    const key = new Date(it.revisit).toDateString();
+    if (state.resurfaced[it.id + ':' + key]) continue;
+    it.tickledFor = key; it.wasKind = it.kind; it.kind = 'inbox'; it.source = 'tickler'; it.from = null; it.captured = TODAY; it.raw = it.next;
+    it.p = { kind:'action', next:it.next, project: it.project || (wiki[it.refPage] ? it.refPage : null), ctx:'@quick', min:15, conf:.7, why:`Tickler — you asked to revisit this on ${new Date(it.revisit).toLocaleDateString('en-GB', { day:'numeric', month:'short' })}. Decide now: act on it, park it again with a new date, or drop it.` };
   }
 }
 

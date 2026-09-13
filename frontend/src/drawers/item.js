@@ -8,7 +8,7 @@ export function itemDrawer(id) {
   const x = items.find(i => i.id === id); if (!x) return;
   const isW = x.kind === 'waiting', j = x.project ? projOf(x.project) : null, g = j ? (programs.find(p => p.id === (j.program || j.id))) : null;
   const ev = x.project ? activity(x.project).filter(e => e.item.id === id) : [];
-  const date = (label, field, val) => `<div class="wrow"><span class="eyebrow">${label}</span><input type="date" class="in" style="width:auto;padding:4px 8px" value="${val ? iso(val) : ''}" data-setdate="${field}" data-id="${id}"></div>`;
+  const date = (label, field, val) => `<div class="wrow"><span class="eyebrow">${label}</span><div class="datewrap"><input type="date" class="in" style="width:auto;padding:4px 8px" value="${val ? iso(val) : ''}" data-setdate="${field}" data-id="${id}"><input class="fuzzy in" data-for-sel="[data-setdate]" placeholder="or: tomorrow, fri, +3" aria-label="${label} — fuzzy date"></div></div>`;
   openDrawer(esc(x.next), `
     <div class="sec"><div class="eyebrow">${isW ? 'Waiting for' : x.kind === 'done' ? 'Done' : 'Next action'}${x.source ? ' · from ' + (srcLabel[x.source] || x.source) : ''}${x.raw && x.raw !== x.next ? `</div><p class="muted" style="margin:6px 0 0">"${esc(x.raw)}"</p><div>` : ''}</div></div>
     <div class="sec">
