@@ -4,6 +4,21 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Trash is never deleted.** The ledger is append-only; trashing is an event, not a
+  removal. The UI shows all trashed items with Restore; the earlier "kept 30 days" copy
+  was wrong and is gone.
+- **Undo everywhere, via state snapshot.** Every mutating action offers a ~4s Undo in
+  the toast; in the prototype Undo restores the pre-action state snapshot and reloads
+  (state is applied over example data at load). With a real back-end, undo becomes a
+  compensating event.
+- **Repeating actions** carry `repeat: daily|weekly|monthly`; completing one spawns the
+  next instance with dates advanced. No recurrence engine beyond that — GTD treats a
+  Friday status as a calendar item that regenerates, not a standing task.
+- **Program colors are configurable** per program (8 slots from the categorical
+  palette), overriding the default slot-by-order assignment; the choice follows the
+  program everywhere.
+- **`docs/backlog.md`** holds recorded asks not yet built (Google Calendar, Replay
+  tweaks, chrono-node upgrade, reference pages).
 - **Desktop shell deferred; Tauri when it comes.** A shell would live in `desktop/`
   beside `frontend/` (which stays a plain web app), with CI and release workflows in
   `.github/workflows/`. Open question for then: webview → ledger over Tauri IPC or the
