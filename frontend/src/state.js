@@ -7,7 +7,7 @@ import { wikiStub } from './model.js';
 /* ---------- state (persisted lightly) ---------- */
 export const STORE = 'commitment-ledger-demo-v1';
 
-export const state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, nowGroup:'context', programs:[], retired:{}, projOverrides:{}, resurfaced:{}, progColor:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
+export const state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, nowGroup:'context', programs:[], retired:{}, projOverrides:{}, resurfaced:{}, progColor:{}, milestones:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
 try { const s = localStorage.getItem(STORE); if (s) Object.assign(state, JSON.parse(s)); } catch (e) {}
 
 export function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
@@ -40,6 +40,11 @@ export function resurfaceDue() {
     it.tickledFor = key; it.wasKind = it.kind; it.kind = 'inbox'; it.source = 'tickler'; it.from = null; it.captured = TODAY; it.raw = it.next;
     it.p = { kind:'action', next:it.next, project: it.project || (wiki[it.refPage] ? it.refPage : null), ctx:'@quick', min:15, conf:.7, why:`Tickler — you asked to revisit this on ${new Date(it.revisit).toLocaleDateString('en-GB', { day:'numeric', month:'short' })}. Decide now: act on it, park it again with a new date, or drop it.` };
   }
+}
+
+/* Milestones added in the UI live on the program's wiki hub; persisted per program as [label, what, state, iso]. */
+export function applyMilestones() {
+  for (const gid in state.milestones) { const w = wiki[gid]; if (!w) continue; for (const m of state.milestones[gid]) if (!w.milestones.some(x => x[1] === m[1] && x[3] === m[3])) w.milestones.push(m); }
 }
 
 export function linkReferences() {

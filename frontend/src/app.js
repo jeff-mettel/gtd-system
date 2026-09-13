@@ -104,7 +104,7 @@ document.addEventListener('click', (e) => {
 });
 
 function onClick(e) {
-  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.goflow) { Replay.preset(ds.goflow); location.hash = '#flow'; }
@@ -121,6 +121,7 @@ function onClick(e) {
   else if (ds.send) { state.nudged[ds.send] = (state.nudged[ds.send] || 0) + 1; const w = items.find(i => i.id === ds.send); w.nudges = (w.nudges || 0) + 1; w.followUp = d(5); w.lastNudged = TODAY; save(); closeDrawer(); toast(`Nudge sent to ${pname(w.owner)} · follow-up moved to ${fmtDate(w.followUp)}`); render(); }
   else if (ds.proj) projectDrawer(ds.proj);
   else if (ds.wiki) wikiDrawer(ds.wiki);
+  else if (ds.addmilestone) { const gid = ds.addmilestone, what = $('#msWhat').value.trim(), dv = $('#msDate').value, st = $('#msState').value, err = $('#npErr'); if (!what) { err.textContent = 'Say what the milestone is.'; $('#msWhat').focus(); return; } if (!dv) { err.textContent = 'Give it a date — a milestone without one is a hope.'; $('#msDate').focus(); return; } const label = new Date(dv + 'T08:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' }); const row = [label, what, st, dv]; wiki[gid].milestones.push(row); (state.milestones[gid] ||= []).push(row); save(); toast(`Milestone added to wiki/${wiki[gid].page}.md`); wikiDrawer(gid); }
   else if ('guide' in ds) guideDrawer();
   else if ('ftime' in ds) { ui.nowTime = +ds.ftime; render(); }
   else if (ds.item) itemDrawer(ds.item);

@@ -3,7 +3,7 @@
 import { items, meetings, wiki } from '../data/example.js';
 import { days, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
-import { by, person, pname, projHealth, projOf } from '../model.js';
+import { by, msDate, person, pname, projHealth, projOf } from '../model.js';
 import { openDrawer } from '../ui/drawer.js';
 import { healthPill } from '../ui/fragments.js';
 
@@ -16,7 +16,8 @@ export function prepBrief(i) {
     <div class="sec"><h3>Projects in play</h3><ul>${m.projects.map(p => { const j = projOf(p), s = projHealth(j); return `<li><b>${esc(j.name)}</b> ${healthPill(j.health)}<br><span class="muted">${s.na ? 'Next: ' + esc(s.na.next) : s.w ? 'Waiting on ' + esc(pname(s.w.owner)) : 'No next action'}</span></li>`; }).join('')}</ul></div>
     <div class="sec"><h3>Open between you and attendees</h3><ul>${open.map(x => `<li>${x.kind === 'waiting' ? `<span class="chip">${esc(pname(x.owner))} owes</span> ` : ''}${esc(x.next)}${x.kind === 'waiting' ? ` <span class="age ${until(x.followUp) < 0 ? 'over' : ''}">${days(x.since)}d</span>` : ''}</li>`).join('') || '<li class="faint">Nothing open</li>'}</ul></div>
     <div class="sec"><h3>Raise</h3><ul>${agenda.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>
-    ${(() => { const ws = [...new Set(m.projects.map(p => projOf(p)?.program || p))].map(g => wiki[g]).filter(Boolean); const dec = ws.flatMap(w => w.decisions.slice(0, 2)); const rk = ws.flatMap(w => w.risks.filter(r => !r.owner || m.who.includes(r.owner))); return `${dec.length ? `<div class="sec"><h3>Recent decisions <span class="faint" style="font-weight:400">· from the wiki</span></h3><ul>${dec.map(x => `<li><b>${esc(x.what)}</b> <span class="faint">${x.on}</span>${x.status !== 'decided' ? ` <span class="pill warn"><i></i>${esc(x.status)}</span>` : ''}</li>`).join('')}</ul></div>` : ''}
+    ${(() => { const ws = [...new Set(m.projects.map(p => projOf(p)?.program || p))].map(g => wiki[g]).filter(Boolean); const dec = ws.flatMap(w => w.decisions.slice(0, 2)); const rk = ws.flatMap(w => w.risks.filter(r => !r.owner || m.who.includes(r.owner))); const ms = ws.flatMap(w => w.milestones.map(x => ({ m:x, on:msDate(x), prog:w })).filter(x => x.on && until(x.on) >= -1 && until(x.on) <= 14 && x.m[2] !== 'done')).sort((a, b) => a.on - b.on); return `${dec.length ? `<div class="sec"><h3>Recent decisions <span class="faint" style="font-weight:400">· from the wiki</span></h3><ul>${dec.map(x => `<li><b>${esc(x.what)}</b> <span class="faint">${x.on}</span>${x.status !== 'decided' ? ` <span class="pill warn"><i></i>${esc(x.status)}</span>` : ''}</li>`).join('')}</ul></div>` : ''}
+    ${ms.length ? `<div class="sec"><h3>Milestones ahead <span class="faint" style="font-weight:400">· next 14 days, from the wiki</span></h3><ul>${ms.map(x => `<li><span class="mono num">${esc(x.m[0])}</span> ${esc(x.m[1])} <span class="pill ${x.m[2] === 'blocked' ? 'crit' : x.m[2] === 'at risk' ? 'warn' : 'neutral'}"><i></i>${esc(x.m[2])}</span></li>`).join('')}</ul></div>` : ''}
     ${rk.length ? `<div class="sec"><h3>Watch for <span class="faint" style="font-weight:400">· open risks with attendees</span></h3><ul>${rk.map(r => `<li><span class="pill ${r.level === 'high' ? 'crit' : r.level === 'medium' ? 'warn' : 'neutral'}"><i></i>${r.level}</span> ${esc(r.what)} <span class="faint">· ${r.owner ? esc(pname(r.owner)) : 'no owner'}</span></li>`).join('')}</ul></div>` : ''}`; })()}
     <div class="note">Commitments from the ledger; decisions and risks from the wiki. Notes you take after the meeting are captured back into the inbox.</div>`,
     `<button class="btn" data-close>Done</button>`);
