@@ -307,3 +307,19 @@ svg text{font-family:var(--sans);font-size:11px;fill:var(--ink-3)}
   .nav .group,.rail .foot,.nav a .key{display:none}
   .health{display:none}
 }
+
+/* inbox batch */
+.datewrap{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px;align-items:center}
+.datewrap input[type=date]{width:auto}
+.datewrap .fuzzy{font-size:12.5px}
+.datewrap .fuzzy.bad{border-color:var(--crit)}
+.fzhint{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);font-family:var(--mono)}
+.fzhint:empty{display:none}
+.fzhint.bad{color:var(--crit)}
+.ilist .row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.kg button:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+.ac{position:absolute;z-index:30;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;box-shadow:var(--shadow);max-height:280px;overflow:auto;padding:4px}
+.ac .aci{display:flex;justify-content:space-between;gap:12px;align-items:baseline;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:13px}
+.ac .aci b{font-weight:500} .ac .aci .faint{font-size:11.5px;white-space:nowrap}
+.ac .aci.on,.ac .aci:hover{background:var(--accent-soft)} .ac .aci.on b{color:var(--accent-text)}
+.chip.rep{color:var(--accent-text);background:var(--accent-soft)}
