@@ -1,0 +1,55 @@
+// Paste a screenshot into capture. An image on the clipboard — pasted into #captureInput, or anywhere while the
+// capture box is focused — is downsized on a canvas (≤ MAX px on the long edge, JPEG q.7) and becomes an inbox
+// item like any other capture: source 'screenshot', the typed text (if any) as the raw ask, the data URL on
+// `image`. It persists through state.captured with the rest; at this size a data URL is fine in localStorage.
+// In the live system the assistant reads the image (vision) and proposes the ask; here the human describes it.
+
+import { items } from '../data/example.js';
+import { TODAY, iso } from '../lib/dates.js';
+import { $, toast } from '../lib/dom.js';
+import { save, state } from '../state.js';
+import { ui } from '../ui/session.js';
+
+export const MAX = 480;
+
+/* Pull the first image file off a clipboard event, or null. */
+export function imageFrom(cb) {
+  for (const it of cb?.items || []) if (it.kind === 'file' && it.type.startsWith('image/')) return it.getAsFile();
+  return null;
+}
+
+/* Downsize a File/Blob to a JPEG data URL, long edge ≤ max. */
+export function shrink(file, max = MAX) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', .7));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('unreadable image')); };
+    img.src = url;
+  });
+}
+
+/* Build the inbox item. Pure apart from the id; exported so tests can check the shape. */
+export function screenshotItem(text, image, id = 'C' + Date.now()) {
+  const t = String(text || '').trim();
+  return { id, kind:'inbox', source:'screenshot', from:null, captured:TODAY, raw: t || 'Screenshot', image, p:{ kind:'action', next: t || 'Screenshot — clarify what it asks for', project:null, ctx:'@quick', min:15, conf:.5, why:'A screenshot: in the live system the assistant reads it (vision) and proposes the ask; here you describe it.' } };
+}
+
+export function initPaste({ render }) {
+  const inp = $('#captureInput'); if (!inp) return;
+  if (!/paste a screenshot/.test(inp.placeholder)) inp.placeholder = inp.placeholder.replace(/\s*$/, ' — or paste a screenshot');
+  document.addEventListener('paste', async (e) => {
+    if (e.target !== inp && document.activeElement !== inp) return;
+    const file = imageFrom(e.clipboardData); if (!file) return;
+    e.preventDefault();
+    const before = JSON.stringify(state);
+    let image; try { image = await shrink(file); } catch (x) { toast('Could not read that image'); return; }
+    const n = screenshotItem(inp.value, image);
+    items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save();
+    inp.value = ''; ui.sel = n.id; location.hash = '#inbox'; render(); toast('Screenshot captured · describe the ask in the inbox', before);
+  });
+}

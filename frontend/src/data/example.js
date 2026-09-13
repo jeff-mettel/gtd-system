@@ -66,6 +66,10 @@ export const items = [
   { id:'A10', kind:'action', next:'Sign off support macros with Leo before training', project:'J5', ctx:'@1:1/leo', min:20, hard:d(1), createdAt:d(-2) },
   { id:'A11', kind:'action', next:'Walk Ingrid through the go/no-go strawman after readiness', project:'P2', ctx:'@meeting/readiness', min:10, hard:d(0), createdAt:d(-1) },
   { id:'A12', kind:'action', next:'Send Q4 vendor exit notices (contract window opens)', project:'J8', ctx:'@deep', min:40, hard:d(8), createdAt:d(-5), energy:'high' },
+  // repeating: ticking it done schedules the next one a period later (features/repeat.js)
+  { id:'A13', kind:'action', next:'Send Friday status to Ingrid', project:'P2', ctx:'@deep', min:30, hard:d(4), repeat:'weekly', createdAt:d(-10), energy:'high' },
+  // deferred: a start date parks the action until that day (features/defer.js); the project still counts as covered
+  { id:'A14', kind:'action', next:'Draft the Q1 legacy-retirement comms', project:'J2', ctx:'@deep', min:45, start:d(5), createdAt:d(-1) },
   // someday / maybe — incubating; revisit dates are ticklers that resurface into the inbox
   { id:'S1', kind:'someday', next:'Launch retro template across programs', since:d(-30), revisit:d(30) },
   { id:'S2', kind:'someday', next:'Generate weekly status straight from the ledger', since:d(-52) },

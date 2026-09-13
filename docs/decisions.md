@@ -4,6 +4,34 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-12
 
+- **Replay: one wiki bar per program**, at the end of its lane, growing with the
+  program's total wiki words; the per-page wall is gone. **Delegated items stay in
+  their lane** with a charged/electrical look (emissive, halo, sparks while moving;
+  hovering when ready for review) — the separate AI machine is removed.
+- **Milestones are added in the wiki drawer** (what, date, state) and appended to the
+  program hub's Milestones table; prep briefs list milestones due in the next 14 days.
+- **Trash is never deleted.** The ledger is append-only; trashing is an event, not a
+  removal. The UI shows all trashed items with Restore; the earlier "kept 30 days" copy
+  was wrong and is gone.
+- **Fuzzy dates** are parsed in-house (`lib/fuzzydate.js`): weekday names mean the coming
+  occurrence (never today), `next <day>` = that + 7, month/day without a year rolls
+  forward, `eom`/`eow`/`t+N`/`+N`/`in N days` supported. Companion `.fuzzy` text fields
+  sit next to every date input and clear themselves on a successful parse.
+- **Inbox keyboard:** ↑/↓ move, Tab cycles list → kinds → next action, ⌘⏎ accepts from
+  any field; `@` in capture autocompletes programs, projects and people and files the
+  mentions on the item.
+- **Undo everywhere, via state snapshot.** Every mutating action offers a ~4s Undo in
+  the toast; in the prototype Undo restores the pre-action state snapshot and reloads
+  (state is applied over example data at load). With a real back-end, undo becomes a
+  compensating event.
+- **Repeating actions** carry `repeat: daily|weekly|monthly`; completing one spawns the
+  next instance with dates advanced. No recurrence engine beyond that — GTD treats a
+  Friday status as a calendar item that regenerates, not a standing task.
+- **Program colors are configurable** per program (8 slots from the categorical
+  palette), overriding the default slot-by-order assignment; the choice follows the
+  program everywhere.
+- **`docs/backlog.md`** holds recorded asks not yet built (Google Calendar, Replay
+  tweaks, chrono-node upgrade, reference pages).
 - **Desktop shell deferred; Tauri when it comes.** A shell would live in `desktop/`
   beside `frontend/` (which stays a plain web app), with CI and release workflows in
   `.github/workflows/`. Open question for then: webview → ledger over Tauri IPC or the
