@@ -2,6 +2,27 @@
 
 Newest first. One line per decision, with the reason. Add to this as we go.
 
+## 2026-09-13
+
+- **Renamed to "Delivery System"** (was Commitment Ledger); same subtitle; new route-and-check
+  mark. Artifact URL unchanged.
+- **Settings view** (rail, key `,`): autonomy moved here from Delegated; per-job model
+  selection (Claude or local, model, effort) in `state.models` — the intended keys for the
+  back-end job registry; editable prompt stubs in `state.prompts`; options (default
+  grouping, sidebar, tips, reset demo). The AI log left Delegated for the review's audit step.
+- **Defer** (`start` date on actions): off the lists until the day, counts as project
+  coverage, returns to the top of its list with a "back today" chip; visible on the strip.
+- **Paste a screenshot** into capture: stored as a small data URL, flagged at 50% so the
+  human describes the ask; the live system runs vision on it.
+- **Confidence line** sits under the source, not as a callout below the form.
+- Programs: sections collapse, cards tinted with their color, color picked from the dot
+  by the name (vertical popover), next-action cell clickable, "+N more" expands inline.
+- Engage strip: actions above calendar in each day column. Rail: fixed slots for badge and
+  key hint; `[` toggles outside fields, ⌘[ anywhere. Render keeps scroll position within a view.
+- Replay: done chute removed (floor ring instead), scene theme tokens restored, stats as
+  label-over-value tiles, legend in labelled groups.
+- Waiting-for aging bars scale to the total, not the largest bucket.
+
 ## 2026-09-12
 
 - **Replay: one wiki bar per program**, at the end of its lane, growing with the
