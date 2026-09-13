@@ -8,7 +8,7 @@ import { addProgramDrawer, addProjectDrawer, createProgram, projectDrawer, retir
 import { statusDraft } from './drawers/status.js';
 import { Replay } from './replay/index.js';
 import { TODAY, d, fmtDate, iso, until } from './lib/dates.js';
-import { $, esc, toast } from './lib/dom.js';
+import { $, esc, offerUndo, toast } from './lib/dom.js';
 import { by, mine, person, pname, projName, projOf } from './model.js';
 import { STORE, save, state } from './state.js';
 import { closeDrawer, openDrawer } from './ui/drawer.js';
@@ -73,8 +73,23 @@ export function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIn
 /* chart tooltips */
 export const tip = $('#tip');
 
+/* Move an item into a project (or to program level). Persisted as an override; `movedAt` is the ledger event. */
+function moveItem(id, pid) {
+  const it = items.find(i => i.id === id), j = projOf(pid); if (!it || !j || it.project === pid) return false;
+  it.project = pid; it.movedAt = TODAY;
+  state.overrides[id] = Object.assign(state.overrides[id] || {}, { project:pid, movedAt:TODAY });
+  save(); toast(`Moved to ${j.name}`); return true;
+}
+
+/* Every click that changes persisted state gets an Undo on its toast: snapshot before, compare after. */
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-goflow],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const before = JSON.stringify(state);
+  onClick(e);
+  if (JSON.stringify(state) !== before) offerUndo(before);
+});
+
+function onClick(e) {
+  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.goflow) { Replay.preset(ds.goflow); location.hash = '#flow'; }
@@ -116,7 +131,18 @@ document.addEventListener('click', (e) => {
   else if (ds.retire) retireDrawer(ds.retire);
   else if (ds.dropproj) { const j = projOf(ds.dropproj); j.dropped = true; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { dropped:true }); save(); toast(`Dropped "${j.name}" — history kept`); retireDrawer(j.program); render(); }
   else if (ds.doretire) { const g = programs.find(x => x.id === ds.doretire); g.retired = TODAY; state.retired[g.id] = iso(TODAY); save(); closeDrawer(); toast(`${g.name} retired · wiki pages kept as history`); render(); }
-  else if (ds.guideDismiss) { state.guides[ds.guideDismiss] = true; save(); t.closest('.guide').remove(); }
+  else if (ds.guideDismiss) { state.guides[ds.guideDismiss] = true; save(); render(); }
+  else if (ds.guideShow) { state.guides[ds.guideShow] = false; save(); render(); }
+  else if (ds.pcolor) { const [gid, slot] = ds.pcolor.split('|'); state.progColor[gid] = +slot; save(); toast(`${projName(gid)} · color ${slot}`); render(); }
+  else if ('quickadd' in ds) {
+    const wrap = t.parentElement, sel = wrap.querySelector('select'), inp = wrap.querySelector('input:not([type=number])'), minEl = wrap.querySelector('input[type=number]');
+    const next = inp.value.trim(); if (!next) { inp.focus(); return; }
+    const pid = sel.value, min = +minEl?.value || 20, id = 'N' + Date.now();
+    const a = { id, kind:'action', next, project:pid, ctx: min <= 15 ? '@quick' : '@deep', min, createdAt:TODAY };
+    items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) }));
+    if (!mine().some(x => x.project === pid && x.id !== id)) state.primary[pid] = id;
+    save(); toast(`Added to ${projName(pid)} · ${a.ctx}`); render();
+  }
   else if ('guideReset' in ds) { state.guides = {}; save(); closeDrawer(); render(); toast('View tips are back'); }
   else if (ds.ingest) { const g = programs.find(x => x.id === ds.ingest); const id = 'N' + Date.now(); const a = { id, kind:'action', next:`Ingest this week's notes into ${g.name} wiki pages`, project:g.id, ctx:'@ai', min:30, createdAt:TODAY, ai:{ level:'do', cap:'wiki', what:'Read the notes, update hub sections and decisions, append to timeline and log' } }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); handOff(a, 'wiki', a.ai.what); a.del.effect = `Updates ${wiki[g.id].page}.md and -decisions.md; appends to log.md`; state.delegated[id].effect = a.del.effect; save(); closeDrawer(); toast('Handed to AI · wiki ingest queued for your review'); location.hash = '#delegated'; render(); }
   else if (ds.hand) { const a = items.find(i => i.id === ds.hand); handOff(a, a.ai?.cap, a.ai?.what); toast(`Handed to AI · "${a.next}" — you'll be asked before anything is sent`); render(); }
@@ -142,12 +168,30 @@ document.addEventListener('click', (e) => {
   else if ('complete' in ds) { state.lastReview = iso(TODAY); state.review = {}; save(); toast('Weekly review completed · every project stamped'); render(); }
   else if ('copy' in ds) { const ta = $('#drawer textarea'); ta?.select(); try { navigator.clipboard?.writeText(ta.value); } catch (x) {} toast('Copied'); }
   else if ('reset' in ds) { try { localStorage.removeItem(STORE); } catch (x) {} location.reload(); }
-});
+}
 
 document.addEventListener('input', (e) => { if (e.target.closest('.form')) { const er = $('#npErr'); if (er) er.textContent = ''; } });
 
+/* Drag a program-level item onto a project row. Native HTML5 drag, delegated once. */
+document.addEventListener('dragstart', (e) => { const s = e.target.closest?.('[data-drag]'); if (!s) return; e.dataTransfer.setData('text/plain', s.dataset.drag); e.dataTransfer.effectAllowed = 'move'; s.classList.add('dragging'); });
+document.addEventListener('dragend', (e) => { e.target.closest?.('[data-drag]')?.classList.remove('dragging'); });
+document.addEventListener('dragover', (e) => { const z = e.target.closest?.('[data-drop]'); if (!z) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; z.classList.add('dropping'); });
+document.addEventListener('dragleave', (e) => { const z = e.target.closest?.('[data-drop]'); if (z && !z.contains(e.relatedTarget)) z.classList.remove('dropping'); });
+document.addEventListener('drop', (e) => {
+  const z = e.target.closest?.('[data-drop]'); if (!z) return; e.preventDefault(); z.classList.remove('dropping');
+  const before = JSON.stringify(state);
+  if (moveItem(e.dataTransfer.getData('text/plain'), z.dataset.drop)) { render(); offerUndo(before); }
+});
+
 document.addEventListener('change', (e) => {
+  const before = JSON.stringify(state);
+  onChange(e);
+  if (JSON.stringify(state) !== before) offerUndo(before);
+});
+
+function onChange(e) {
   const t = e.target;
+  if (t.dataset.moveitem && t.value) { const it = items.find(i => i.id === t.dataset.moveitem); if (moveItem(it.id, t.value)) { itemDrawer(it.id); render(); } }
   if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { it._prev = it.kind; it.kind = 'done'; it.doneAt = TODAY; state.done[it.id] = true; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { doneAt:TODAY }); toast('Done · logged for the weekly review'); } else { it.kind = it._prev || 'action'; delete state.done[it.id]; } save(); renderNav(); }
   if (t.dataset.step) { state.review[t.dataset.step] = t.checked; save(); render(); }
   if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
@@ -155,7 +199,7 @@ document.addEventListener('change', (e) => {
   if ('fscope' in t.dataset) { ui.nowScope = t.value; render(); }
   if (t.dataset.setdate) { const x = items.find(i => i.id === t.dataset.id); const v = t.value ? new Date(t.value + 'T08:00:00') : null; x[t.dataset.setdate] = v; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { [t.dataset.setdate]: v }); save(); toast(v ? `${t.dataset.setdate === 'followUp' ? 'Follow-up' : t.dataset.setdate === 'hard' ? 'Pinned to' : 'Due'} ${fmtDate(v)}` : 'Date cleared'); render(); }
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
-});
+}
 $('#drawerBg').addEventListener('click', closeDrawer);
 
 document.addEventListener('submit', (e) => {
