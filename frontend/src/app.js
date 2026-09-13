@@ -31,6 +31,9 @@ import { initFuzzyInputs } from './features/fuzzyinput.js';
 import { inboxTab, kgKeys } from './features/inboxkeys.js';
 import { completeItem, doneToast, uncompleteItem } from './features/repeat.js';
 import { resurfaceDue } from './state.js';
+/* engage batch */
+import { isDeferred } from './features/defer.js';
+import { initPaste } from './features/paste.js';
 
 /* ---------- render & events ---------- */
 export function render() {
@@ -70,14 +73,14 @@ export function acceptCurrent(overrideKind) {
     if (kind === 'waiting') { it.owner = $('#pOwner')?.value || it.p.owner || it.from; it.since = TODAY; const fv = $('#pFollow')?.value; it.followUp = fv ? new Date(fv + 'T08:00:00') : d(3); it.nudges = 0; }
     if (kind === 'someday') { it.since = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; }
     if (kind === 'reference') { it.refPage = $('#pRef')?.value || null; it.filedAt = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; if (wiki[it.refPage] && !wiki[it.refPage].links.some(l => l[0] === next)) wiki[it.refPage].links.push([next, '']); }
-    if (kind === 'action' || kind === 'project') { it.createdAt = TODAY; const hv = $('#pHard')?.value; it.hard = hv ? new Date(hv + 'T08:00:00') : null; }
+    if (kind === 'action' || kind === 'project') { it.createdAt = TODAY; const hv = $('#pHard')?.value; it.hard = hv ? new Date(hv + 'T08:00:00') : null; const sv = $('#pStart')?.value; it.start = sv ? new Date(sv + 'T08:00:00') : (it.p.start || null); delete it.resurfacedAt; }
     if (it.wasKind) { state.resurfaced[it.id + ':' + (it.tickledFor || new Date(TODAY).toDateString())] = true; delete it.wasKind; delete it.tickledFor; }
     if (ui.delegateOnAccept && it.p.ai && (kind === 'action' || kind === 'project')) handOff(it, it.p.ai.cap, it.p.ai.what);
     it.kind = kind === 'project' ? 'action' : kind;
-    state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, hard:it.hard, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt, revisit:it.revisit, refPage:it.refPage, filedAt:it.filedAt, energy:it.energy, repeat:it.repeat };
+    state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, hard:it.hard, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt, revisit:it.revisit, refPage:it.refPage, filedAt:it.filedAt, energy:it.energy, repeat:it.repeat, start:it.start, resurfacedAt:null };
   }
   save();
-  const labels = { action:'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', done:'Done — two-minute rule; movement logged', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
+  const labels = { action: isDeferred(it) ? `Filed as next action · deferred until ${fmtDate(it.start)}` : 'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', done:'Done — two-minute rule; movement logged', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
   toast((it.owner === 'ai' ? 'Filed and handed to AI' : labels[kind]) + ' · tagged ai-filed, confirmed by you');
   ui.delegateOnAccept = false;
   const rest = by('inbox'); ui.sel = rest[0]?.id ?? null; render();
@@ -266,3 +269,6 @@ document.addEventListener('mousemove', (e) => {
 
 /* inbox batch: capture-box @autocomplete and fuzzy-date companions (delegated; safe across re-renders) */
 initAutocomplete(); initFuzzyInputs();
+
+/* engage batch: paste a screenshot into capture (the toast carries its own Undo) */
+initPaste({ render });

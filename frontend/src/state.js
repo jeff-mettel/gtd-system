@@ -3,6 +3,7 @@
 import { items, programs, projects, wiki } from './data/example.js';
 import { TODAY, d, iso } from './lib/dates.js';
 import { wikiStub } from './model.js';
+import { resurfaceDeferred } from './features/defer.js';
 
 /* ---------- state (persisted lightly) ---------- */
 export const STORE = 'commitment-ledger-demo-v1';
@@ -31,8 +32,12 @@ export function applyState() {
 
 /* Tickler: a someday or reference item whose revisit date has arrived re-enters the inbox as a decision.
    Idempotent — safe to call on every render. `tickledFor` remembers which revisit date brought it back; accepting
-   records `resurfaced[id:tickledFor]` so the same date never fires twice, while a new revisit date can. */
+   records `resurfaced[id:tickledFor]` so the same date never fires twice, while a new revisit date can.
+   Deferred actions (a `start` date) are the second tickler: they never leave the ledger, they re-enter the lists on
+   their day — `resurfacedAt` is stamped here and persisted so the "back today" chip shows for that day only. */
 export function resurfaceDue() {
+  const back = resurfaceDeferred(items);
+  if (back.length) { for (const id of back) state.overrides[id] = Object.assign(state.overrides[id] || {}, { resurfacedAt: items.find(i => i.id === id).resurfacedAt }); save(); }
   for (const it of items) {
     if (!(it.kind === 'someday' || it.kind === 'reference') || !it.revisit || new Date(it.revisit) > TODAY) continue;
     const key = new Date(it.revisit).toDateString();
