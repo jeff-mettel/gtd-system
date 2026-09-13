@@ -7,6 +7,13 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 - **Trash is never deleted.** The ledger is append-only; trashing is an event, not a
   removal. The UI shows all trashed items with Restore; the earlier "kept 30 days" copy
   was wrong and is gone.
+- **Fuzzy dates** are parsed in-house (`lib/fuzzydate.js`): weekday names mean the coming
+  occurrence (never today), `next <day>` = that + 7, month/day without a year rolls
+  forward, `eom`/`eow`/`t+N`/`+N`/`in N days` supported. Companion `.fuzzy` text fields
+  sit next to every date input and clear themselves on a successful parse.
+- **Inbox keyboard:** ↑/↓ move, Tab cycles list → kinds → next action, ⌘⏎ accepts from
+  any field; `@` in capture autocompletes programs, projects and people and files the
+  mentions on the item.
 - **Undo everywhere, via state snapshot.** Every mutating action offers a ~4s Undo in
   the toast; in the prototype Undo restores the pre-action state snapshot and reloads
   (state is applied over example data at load). With a real back-end, undo becomes a
