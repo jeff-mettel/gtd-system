@@ -3,6 +3,7 @@
 import { items, people, programs, projects, wiki } from './data/example.js';
 import { days } from './lib/dates.js';
 import { state } from './state.js';
+import { isDeferred } from './features/defer.js';
 
 export const slug = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -31,13 +32,17 @@ export const progIdx = (gid) => { const c = +state.progColor?.[gid]; if (c >= 1 
 
 export const progOfAny = (pid) => programs.find(g => g.id === pid) ? pid : projOf(pid)?.program;
 
-export const srcLabel = { email:'Email', chat:'Chat', meeting:'Meeting note', voice:'Voice', calendar:'Calendar', capture:'Captured', tickler:'Tickler', sweep:'Mind sweep' };
+export const srcLabel = { email:'Email', chat:'Chat', meeting:'Meeting note', voice:'Voice', calendar:'Calendar', capture:'Captured', tickler:'Tickler', sweep:'Mind sweep', screenshot:'Screenshot' };
 
 export const energyOf = (a) => a.energy || (a.ctx === '@deep' ? 'high' : 'low');
 
 export const by = (k) => items.filter(i => i.kind === k);
 
-export const mine = () => items.filter(i => i.kind === 'action' && i.owner !== 'ai');
+/* My open actions. A deferred action (features/defer.js) is not open yet: it is off the lists and out of the counts until its start date. */
+export const mine = () => items.filter(i => i.kind === 'action' && i.owner !== 'ai' && !isDeferred(i));
+
+/* Parked actions, soonest start first. */
+export const deferredActions = (pid) => items.filter(i => i.kind === 'action' && i.owner !== 'ai' && isDeferred(i) && (!pid || i.project === pid)).sort((a, b) => new Date(a.start) - new Date(b.start));
 
 export const mine_ = mine;
 
@@ -71,4 +76,5 @@ export function activity(pid) {
 
 export function lastMovement(pid) { return activity(pid)[0] || null; }
 
-export function projHealth(p) { const na = nextActionFor(p.id), w = waitingFor(p.id), dl = delegatedFor(p.id), lm = lastMovement(p.id); return { na, w, dl, lm, age: lm ? days(lm.when) : null, stalled: !lm || days(lm.when) > 7, noNext: !na && !w && !dl }; }
+/* `deferred` is the soonest parked action: it counts as coverage (the project has a decided next step, just not yet), so `noNext` stays false. */
+export function projHealth(p) { const na = nextActionFor(p.id), w = waitingFor(p.id), dl = delegatedFor(p.id), df = deferredActions(p.id)[0] || null, lm = lastMovement(p.id); return { na, w, dl, deferred:df, lm, age: lm ? days(lm.when) : null, stalled: !lm || days(lm.when) > 7, noNext: !na && !w && !dl && !df }; }
