@@ -14,6 +14,9 @@ item to `decisions.md` when it's decided and built.
   (clarify, enrich) are the natural local candidates; synthesis jobs (review prep,
   prep brief) stay on Claude. Show the choice in the Delegated view next to
   autonomy so trust and cost are tuned in one place. — Jeff, in conversation.
+- **Screenshot enrichment.** Pasted screenshots are captured (thumbnail, flagged at 50%); the
+  clarify job should receive the image so Claude reads it and proposes the ask — same path
+  as URL enrichment below.
 - **Paste-a-URL enrichment.** A Slack permalink (or Google Doc / Linear URL) pasted
   into capture is resolved by the back-end (`resolve(url) → {raw, context}`: message +
   thread, author, channel) before clarify runs, so triage sees the thread, not one
