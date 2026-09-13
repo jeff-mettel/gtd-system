@@ -24,8 +24,8 @@ export const projOf = (id) => projects.find(p => p.id === id) || programs.find(p
 
 export const projName = (id) => projOf(id)?.name ?? '—';
 
-/* Program identity color: slot by program order, fixed for life; beyond 8 programs folds to gray. */
-export const progIdx = (gid) => { const i = programs.findIndex(g => g.id === gid); return i < 0 || i > 7 ? 0 : i + 1; };
+/* Program identity color: a chosen slot (state.progColor, 1–8) wins; otherwise slot by program order, fixed for life; beyond 8 programs folds to gray. */
+export const progIdx = (gid) => { const c = +state.progColor?.[gid]; if (c >= 1 && c <= 8) return c; const i = programs.findIndex(g => g.id === gid); return i < 0 || i > 7 ? 0 : i + 1; };
 
 export const progOfAny = (pid) => programs.find(g => g.id === pid) ? pid : projOf(pid)?.program;
 
@@ -57,6 +57,7 @@ export function activity(pid) {
   for (const i of items) {
     if (i.project !== pid) continue;
     if (i.createdAt) ev.push({ when:new Date(i.createdAt), what:'Next action added', item:i });
+    if (i.movedAt) ev.push({ when:new Date(i.movedAt), what:'Moved into project', item:i });
     if (i.kind === 'waiting' && i.since) ev.push({ when:new Date(i.since), what:`Waiting on ${pname(i.owner)}`, item:i });
     if (i.lastNudged) ev.push({ when:new Date(i.lastNudged), what:`Nudged ${pname(i.owner)}`, item:i });
     if (i.kind === 'done' && i.doneAt) ev.push({ when:new Date(i.doneAt), what: i.del ? 'Approved AI work' : 'Done', item:i });

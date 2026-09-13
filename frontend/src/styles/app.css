@@ -307,3 +307,41 @@ svg text{font-family:var(--sans);font-size:11px;fill:var(--ink-3)}
   .nav .group,.rail .foot,.nav a .key{display:none}
   .health{display:none}
 }
+
+/* chrome batch */
+/* Undo toast: the button is the only interactive part, so pointer events come back only in that state. */
+.toast.undo{pointer-events:auto;display:flex;align-items:center;gap:12px}
+.undo-btn{background:transparent;border:1px solid color-mix(in srgb,var(--ground) 45%,transparent);color:inherit;border-radius:6px;padding:2px 9px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.undo-btn:hover{background:color-mix(in srgb,var(--ground) 15%,transparent)}
+/* Health strip figures are links; they only look like it on hover. */
+.health a{color:inherit;text-decoration:none} .health a:hover{text-decoration:underline;text-underline-offset:3px}
+/* Minimized guide: one line, "Show" brings the card back. */
+.guide.mini{padding:6px 12px;align-items:center;font-size:12px} .guide.mini .gi{width:22px;height:22px} .guide.mini .gi .ico{width:14px;height:14px}
+/* Rail: key hint and count badge both show; collapsed keeps the badge only. Toggle is pinned so it never moves between states. */
+.nav a .key + .cnt{margin-left:6px}
+.rail,.rail.collapsed{padding-bottom:64px}
+.railtoggle{position:absolute;left:14px;right:14px;bottom:16px;height:32px;margin-top:0;box-sizing:border-box}
+.rail.collapsed .railtoggle{left:10px;right:10px}
+/* Program color picker. */
+.swatches{display:inline-flex;gap:5px;align-items:center;padding:0 4px}
+.sw{width:13px;height:13px;border-radius:50%;background:var(--sw);border:0;padding:0;cursor:pointer;box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 15%,transparent);transition:transform .1s}
+.sw:hover{transform:scale(1.2)} .sw.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--sw)}
+/* Two-week preview: 14 days wrap into two rows of 7. */
+.cal.two-weeks{grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal.two-weeks .cal-col{min-height:96px} .cal.two-weeks button.cal-item{cursor:pointer}
+/* Quick intake row in the weekly review. */
+.quickadd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.quickadd select.in{width:auto;max-width:220px;padding:6px 8px;font-size:12px} .quickadd input.in:not([type=number]){flex:1;min-width:200px;padding:6px 10px;font-size:13px} .quickadd input[type=number].in{width:64px;padding:6px 8px;font-size:12px}
+/* Drawer folds: summary reads like an h3, content indented under a chevron. */
+details.fold{border-top:1px solid var(--line);padding-top:10px}
+details.fold summary{cursor:pointer;list-style:none;font-family:var(--display);font-weight:600;font-size:14px;line-height:1.3;letter-spacing:-.01em;display:flex;align-items:center;gap:6px;color:var(--ink-2)}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary::before{content:'▸';color:var(--ink-3);font-size:12px;width:10px;transition:transform .15s}
+details.fold[open] summary{margin-bottom:8px;color:var(--ink)} details.fold[open] summary::before{transform:rotate(90deg)}
+details.fold > :not(summary){margin-left:16px}
+details.fold .wrow:first-of-type{border-top:0}
+/* Drag a program-level item onto a project row. */
+.row.draggable{cursor:grab} .row.draggable .grip{color:var(--ink-3);font-size:14px;line-height:1.3;user-select:none;flex:none}
+.row.dragging{opacity:.45}
+tr[data-drop].dropping td{background:var(--accent-soft)} tr[data-drop].dropping td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+@media (max-width:820px){ .rail{padding-bottom:12px} .railtoggle{position:static} }

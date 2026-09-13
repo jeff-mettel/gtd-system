@@ -7,7 +7,7 @@ import { wikiStub } from './model.js';
 /* ---------- state (persisted lightly) ---------- */
 export const STORE = 'commitment-ledger-demo-v1';
 
-export const state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, nowGroup:'context', programs:[], retired:{}, projOverrides:{}, resurfaced:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
+export const state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, nowGroup:'context', programs:[], retired:{}, projOverrides:{}, resurfaced:{}, progColor:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
 try { const s = localStorage.getItem(STORE); if (s) Object.assign(state, JSON.parse(s)); } catch (e) {}
 
 export function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }

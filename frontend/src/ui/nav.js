@@ -39,7 +39,9 @@ export const guides = {
 };
 
 export function guideBox(view) {
-  const g = guides[view]; if (!g || state.guides[view]) return '';
+  const g = guides[view]; if (!g) return '';
+  /* Dismissed guides fold to one line rather than vanishing, so the habit text stays one click away. */
+  if (state.guides[view]) return `<div class="guide mini"><span class="gi">${icons.guide}</span><div class="gh"><b>${g.stage}</b><span class="faint">· how this view works</span></div><button class="btn sm ghost" data-guide-show="${view}">Show</button></div>`;
   return `<div class="guide"><span class="gi">${icons.guide}</span><div><div class="gh"><b>${g.stage}</b><span class="faint">· how this view works</span></div><p>${g.text}</p></div><button class="btn sm" data-guide-dismiss="${view}">Got it</button></div>`;
 }
 
@@ -72,10 +74,10 @@ export function renderNav() {
     `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
     `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');
   const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lr = days(state.lastReview);
-  $('#healthbar').innerHTML = `<span class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></span><span class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></span><span class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></span><span class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr}d</b></span><span class="ai">AI for review <b>${delegated('ready').length}</b></span>`;
+  $('#healthbar').innerHTML = `<a href="#inbox" class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></a><a href="#waiting" class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></a><a href="#programs" class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></a><a href="#review" class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr}d</b></a><a href="#delegated" class="ai">AI for review <b>${delegated('ready').length}</b></a>`;
 }
 
 export function navLink(v, cur) {
   const n = v.count ? v.count() : 0;
-  return `<a href="#${v.id}" class="${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id] || ''}<span>${v.label}</span>${n ? `<span class="cnt ${v.hot ? 'hot' : ''}${v.ai ? ' ai' : ''}">${n}</span>` : `<span class="key">${v.key}</span>`}</a>`;
+  return `<a href="#${v.id}" class="${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id] || ''}<span>${v.label}</span><span class="key">${v.key}</span>${n ? `<span class="cnt ${v.hot ? 'hot' : ''}${v.ai ? ' ai' : ''}">${n}</span>` : ''}</a>`;
 }
