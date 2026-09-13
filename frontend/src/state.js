@@ -7,7 +7,7 @@ import { wikiStub } from './model.js';
 /* ---------- state (persisted lightly) ---------- */
 export const STORE = 'commitment-ledger-demo-v1';
 
-export const state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, nowGroup:'context', programs:[], retired:{}, projOverrides:{}, resurfaced:{}, progColor:{}, milestones:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' } };
+export const state = { kinds:{}, done:{}, nudged:{}, review:{}, lastReview: iso(d(-9)), captured:[] , overrides:{}, primary:{}, projects:[], delegated:{}, guides:{}, collapsed:{}, nowGroup:'context', programs:[], retired:{}, projOverrides:{}, resurfaced:{}, progColor:{}, milestones:{}, autonomy:{ file:'auto', draft:'draft', data:'draft', send:'ask', calendar:'ask', delete:'never' }, models:{ clarify:{ provider:'claude', model:'claude-opus-5', effort:'low' }, suggest:{ provider:'claude', model:'claude-opus-5', effort:'medium' }, nudge:{ provider:'claude', model:'claude-sonnet-5', effort:'medium' }, prep:{ provider:'claude', model:'claude-opus-5', effort:'high' }, review:{ provider:'claude', model:'claude-opus-5', effort:'high' }, compile:{ provider:'claude', model:'claude-opus-5', effort:'high' }, ingest:{ provider:'claude', model:'claude-opus-5', effort:'high' }, enrich:{ provider:'claude', model:'claude-opus-5', effort:'low' } }, prompts:{} };
 try { const s = localStorage.getItem(STORE); if (s) Object.assign(state, JSON.parse(s)); } catch (e) {}
 
 export function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }

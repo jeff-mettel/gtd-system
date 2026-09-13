@@ -4,6 +4,10 @@ import { esc } from '../lib/dom.js';
 import { active, activeProjects, by, mine, pname, projHealth, projName } from '../model.js';
 import { state } from '../state.js';
 import { projChip, waitingRow } from '../ui/fragments.js';
+import { icons } from '../ui/nav.js';
+
+/* Step → icon key in `icons`; one clean stroke icon per step, aligned with the step number. */
+const stepIcon = { inbox:'stepInbox', sweep:'stepSweep', pastcal:'stepPastcal', upcoming:'stepUpcoming', next:'stepNext', waiting:'stepWaiting', someday:'stepSomeday', wins:'stepWins', ai:'stepAi', lint:'stepLint', horizons:'stepHorizons' };
 
 export function viewReview() {
   const inbox = by('inbox').length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext), aged = by('waiting').filter(w => days(w.since) > 14), some = by('someday'), done = by('done');
@@ -39,6 +43,6 @@ export function viewReview() {
   };
   const doneCount = steps.filter(s => s.auto || state.review[s.id]).length;
   return `<div class="vhead"><div><h1>Weekly review</h1><p>AI prepared the evidence; the decisions are yours. Last completed ${days(state.lastReview)} days ago.</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px"><button class="btn" data-goflow="week" title="Replay the week in Flow">Watch the week</button><div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
-  <div class="steps">${steps.map((s, i) => { const ok = s.auto || !!state.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div>${why[s.id] ? `<div class="swhy">${why[s.id]}</div>` : ''}<div class="sb">${s.body}</div></div>`; }).join('')}</div>
+  <div class="steps">${steps.map((s, i) => { const ok = s.auto || !!state.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><span class="sico">${icons[stepIcon[s.id]] || ''}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div>${why[s.id] ? `<div class="swhy">${why[s.id]}</div>` : ''}<div class="sb">${s.body}</div></div>`; }).join('')}</div>
   <div class="acts" style="border:0;padding:0"><span class="note">Completing the review stamps <code class="mono">last_reviewed</code> on every project and resets the health strip.</span><span class="sp"></span><button class="btn primary" data-complete ${doneCount < steps.length ? 'disabled' : ''}>Complete review</button></div>`;
 }

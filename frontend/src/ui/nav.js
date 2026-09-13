@@ -22,6 +22,19 @@ export const icons = {
   review: I('<path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/>'),
   flow: I('<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>'),
   guide: I('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5"/><path d="M12 17h.01"/>'),
+  settings: I('<path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h4"/><path d="M12 17h8"/><circle cx="10" cy="17" r="2"/>'),
+  /* Weekly review step icons: one per step, muted, aligned with the step number. */
+  stepInbox: I('<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'),
+  stepSweep: I('<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M12 5v13"/>'),
+  stepPastcal: I('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="m13 14-3 3 3 3"/>'),
+  stepUpcoming: I('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="m11 14 3 3-3 3"/>'),
+  stepNext: I('<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>'),
+  stepWaiting: I('<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>'),
+  stepSomeday: I('<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A7 7 0 0 0 4.7 12.2 3.5 3.5 0 0 0 6 19z"/>'),
+  stepWins: I('<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>'),
+  stepAi: I('<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>'),
+  stepLint: I('<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="m9 10 2 2 4-4"/>'),
+  stepHorizons: I('<path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"/><path d="m13.56 11.747 4.332-.924"/><path d="m16 21-3.105-6.21"/><path d="M16.485 5.94a2 2 0 0 1 1.455-2.174l1.09-.325a1 1 0 0 1 1.264.789l1.113 4.573a1 1 0 0 1-.68 1.183l-1.09.325a2 2 0 0 1-2.5-1.328z"/><path d="m6.158 8.633 1.114 4.456"/><path d="m8 21 3.105-6.21"/><circle cx="12" cy="13" r="2"/>'),
 };
 
 /* Instruction cards: one per view, dismissable, teach the GTD habit the view serves. */
@@ -36,6 +49,7 @@ export const guides = {
   people: { stage:'Organize · stakeholders', text:'Both directions for every person: what they owe you and what you owe them. Before a 1:1, open the agenda — it is what you queued with <span class="chip ctx">@1:1/name</span> plus everything open between you. The assistant is listed as a person on purpose: delegation is delegation.' },
   review: { stage:'Reflect', text:'GTD\'s keystone habit: weekly, uninterrupted, top to bottom. The AI has gathered the evidence; you make the calls. Steps tick themselves when the data says so. Do not skip the AI audit — automatic actions are the ones to eyeball — or the wiki lint.' },
   flow: { stage:'Reflect · the system itself', text:'Is the system healthy, independent of the work in it? If <b>done</b> falls away from <b>captured</b>, lists are filling faster than you clear them. Cycle time shows where work waits. Watch this before you feel it.' },
+  settings: { stage:'Configure', text:'Configure — what the assistant may do unasked, which model runs each job, and the prompts behind them. Changes here are remembered and take effect on the next run of that job.' },
 };
 
 export function guideBox(view) {
@@ -50,7 +64,7 @@ export function guideDrawer() {
     <div class="sec"><h3>The loop</h3><ol class="steps-l"><li><b>Capture</b> — anything, from anywhere, into the inbox. The capture box at the top, <span class="kbd">/</span>.</li><li><b>Clarify</b> — daily, to zero. Is it actionable? What is the next physical action? Who owns it? AI proposes, you confirm.</li><li><b>Organize</b> — nothing to file; Programs, Waiting for, People and Delegated are views over the same ledger.</li><li><b>Reflect</b> — the weekly review, Fridays. Steps tick themselves when the data says so.</li><li><b>Engage</b> — Now: what fits this hour, by context and energy.</li></ol></div>
     <div class="sec"><h3>Two stores</h3><p class="muted" style="margin:0">The <b>ledger</b> holds commitments — dates and owners. The <b>wiki</b> holds context — purpose, links, decisions with rationale, history. Status paragraphs are compiled from the ledger into the wiki; decisions and notes go in through a reviewed ingest.</p></div>
     <div class="sec"><h3>Trust rules</h3><ul><li>The AI never sends, books or deletes without your approval.</li><li>Every AI write is tagged and appears in the weekly audit.</li><li>"What approving does" is declared by the job, never written by the model.</li></ul></div>
-    <div class="sec"><h3>Keys</h3><ul><li><span class="kbd">1</span>–<span class="kbd">9</span>, <span class="kbd">0</span> switch view · <span class="kbd">/</span> capture · <span class="kbd">?</span> this guide</li><li>Inbox: <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">a</span> accept · <span class="kbd">w</span> waiting · <span class="kbd">s</span> someday · <span class="kbd">t</span> trash · <span class="kbd">e</span> edit · <span class="kbd">d</span> accept and hand to AI · <span class="kbd">x</span> do it now (two-minute rule) · <span class="kbd">↑</span>/<span class="kbd">↓</span> move · <span class="kbd">⌘⏎</span> accept from any field · <span class="kbd">Tab</span> list → kinds → next action</li><li>Dates accept fuzzy text: tomorrow, fri, next week, +3, eom, 20 sep</li><li><span class="kbd">Esc</span> close</li></ul></div>`,
+    <div class="sec"><h3>Keys</h3><ul><li><span class="kbd">1</span>–<span class="kbd">9</span>, <span class="kbd">0</span> switch view · <span class="kbd">,</span> settings · <span class="kbd">/</span> capture · <span class="kbd">?</span> this guide</li><li>Inbox: <span class="kbd">j</span>/<span class="kbd">k</span> move · <span class="kbd">a</span> accept · <span class="kbd">w</span> waiting · <span class="kbd">s</span> someday · <span class="kbd">t</span> trash · <span class="kbd">e</span> edit · <span class="kbd">d</span> accept and hand to AI · <span class="kbd">x</span> do it now (two-minute rule) · <span class="kbd">↑</span>/<span class="kbd">↓</span> move · <span class="kbd">⌘⏎</span> accept from any field · <span class="kbd">Tab</span> list → kinds → next action</li><li>Dates accept fuzzy text: tomorrow, fri, next week, +3, eom, 20 sep</li><li><span class="kbd">Esc</span> close</li></ul></div>`,
     `<button class="btn" data-guide-reset>Show view tips again</button><button class="btn primary" data-close>Close</button>`);
 }
 
@@ -65,6 +79,7 @@ export const views = [
   { id:'people', label:'People', key:'8' },
   { id:'review', label:'Weekly review', key:'9' },
   { id:'flow', label:'Flow', key:'0' },
+  { id:'settings', label:'Settings', key:',' },
 ];
 
 export function renderNav() {
@@ -79,5 +94,6 @@ export function renderNav() {
 
 export function navLink(v, cur) {
   const n = v.count ? v.count() : 0;
-  return `<a href="#${v.id}" class="${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id] || ''}<span>${v.label}</span><span class="key">${v.key}</span>${n ? `<span class="cnt ${v.hot ? 'hot' : ''}${v.ai ? ' ai' : ''}">${n}</span>` : ''}</a>`;
+  /* Two fixed-width slots after the label — badge, then key — so badge and key sit at the same x on every row; rows without a count get an empty badge slot. */
+  return `<a href="#${v.id}" class="${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id] || ''}<span>${v.label}</span>${n ? `<span class="cnt ${v.hot ? 'hot' : ''}${v.ai ? ' ai' : ''}">${n}</span>` : '<span class="cnt none"></span>'}<span class="key">${v.key}</span></a>`;
 }

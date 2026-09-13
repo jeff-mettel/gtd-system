@@ -23,8 +23,10 @@ import { viewPeople } from './views/people.js';
 import { viewPrograms } from './views/programs.js';
 import { viewReference } from './views/reference.js';
 import { viewReview } from './views/review.js';
+import { DEFAULT_PROMPTS, PROVIDERS, viewSettings } from './views/settings.js';
 import { viewSomeday } from './views/someday.js';
 import { viewWaiting } from './views/waiting.js';
+import { colorPopover } from './views/programs.js';
 /* inbox batch */
 import { initAutocomplete, parseMentions } from './features/autocomplete.js';
 import { initFuzzyInputs } from './features/fuzzyinput.js';
@@ -33,15 +35,19 @@ import { completeItem, doneToast, uncompleteItem } from './features/repeat.js';
 import { resurfaceDue } from './state.js';
 
 /* ---------- render & events ---------- */
+let lastView = null;
 export function render() {
   resurfaceDue();
   const cur = location.hash.slice(1) || 'now';
-  const v = { now:viewNow, inbox:viewInbox, programs:viewPrograms, waiting:viewWaiting, delegated:viewDelegated, someday:viewSomeday, reference:viewReference, people:viewPeople, review:viewReview, flow:viewFlow }[cur] || viewNow;
+  const v = { now:viewNow, inbox:viewInbox, programs:viewPrograms, waiting:viewWaiting, delegated:viewDelegated, someday:viewSomeday, reference:viewReference, people:viewPeople, review:viewReview, flow:viewFlow, settings:viewSettings }[cur] || viewNow;
+  /* Scroll to the top only when the view changed; a filter click or a value change re-renders in place. */
+  const y = window.scrollY;
   $('#view').innerHTML = v();
   const vh = $('#view .vhead'); if (vh) { const h1 = vh.querySelector('h1'); if (h1 && icons[cur]) h1.insertAdjacentHTML('afterbegin', `<span class="h1ico">${icons[cur]}</span>`); vh.insertAdjacentHTML('afterend', guideBox(cur)); }
   renderNav();
   const host = $('#replayHost'); if (host) Replay.mount(host); else Replay.unmount();
-  window.scrollTo({ top:0 });
+  window.scrollTo({ top: cur === lastView ? y : 0 });
+  lastView = cur;
 }
 
 export function acceptCurrent(overrideKind) {
@@ -104,8 +110,10 @@ document.addEventListener('click', (e) => {
 });
 
 function onClick(e) {
-  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-colorpick],[data-promptreset],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
   if (!t) return;
+  /* Project rows carry data-drop as a drag target, not as the "Drop" action: a click that bubbles up to one is not a command. */
+  if (t.tagName === 'TR' && 'drop' in t.dataset) return;
   const ds = t.dataset;
   if (ds.goflow) { Replay.preset(ds.goflow); location.hash = '#flow'; }
   else if (ds.sel) { ui.sel = ds.sel; render(); }
@@ -150,6 +158,8 @@ function onClick(e) {
   else if (ds.guideDismiss) { state.guides[ds.guideDismiss] = true; save(); render(); }
   else if (ds.guideShow) { state.guides[ds.guideShow] = false; save(); render(); }
   else if (ds.pcolor) { const [gid, slot] = ds.pcolor.split('|'); state.progColor[gid] = +slot; save(); toast(`${projName(gid)} · color ${slot}`); render(); }
+  else if (ds.colorpick) colorPopover(ds.colorpick, t);
+  else if (ds.promptreset) { delete state.prompts[ds.promptreset]; save(); toast('Prompt reset to default'); render(); }
   else if ('quickadd' in ds) {
     const wrap = t.parentElement, sel = wrap.querySelector('select'), inp = wrap.querySelector('input:not([type=number])'), minEl = wrap.querySelector('input[type=number]');
     const next = inp.value.trim(); if (!next) { inp.focus(); return; }
@@ -215,6 +225,11 @@ function onChange(e) {
   if ('fscope' in t.dataset) { ui.nowScope = t.value; render(); }
   if (t.dataset.setdate) { const x = items.find(i => i.id === t.dataset.id); const v = t.value ? new Date(t.value + 'T08:00:00') : null; x[t.dataset.setdate] = v; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { [t.dataset.setdate]: v }); save(); toast(v ? `${t.dataset.setdate === 'followUp' ? 'Follow-up' : t.dataset.setdate === 'hard' ? 'Pinned to' : 'Due'} ${fmtDate(v)}` : 'Date cleared'); render(); }
   if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
+  /* Settings. Model rows re-render because the model list depends on the provider; effort only applies to Claude. */
+  if (t.dataset.model) { const [job, field] = t.dataset.model.split('|'); const m = state.models[job] = Object.assign({}, state.models[job], { [field]: t.value }); if (field === 'provider') { m.model = PROVIDERS[t.value].models[0]; if (t.value === 'local') delete m.effort; else m.effort = m.effort || 'medium'; } save(); toast(`${job}: ${PROVIDERS[m.provider].label} · ${m.model}${m.effort ? ' · ' + m.effort : ''}`); render(); }
+  if (t.dataset.prompt) { const job = t.dataset.prompt, v = t.value.trim(); if (v === DEFAULT_PROMPTS[job] || !v) delete state.prompts[job]; else state.prompts[job] = v; save(); toast('Prompt saved · used on the next run'); render(); }
+  if (t.dataset.opt === 'nowGroup') { state.nowGroup = t.value; save(); toast(`Engage groups by ${t.value}`); }
+  if (t.dataset.opt === 'rail') { state.collapsed.rail = t.checked; save(); render(); }
 }
 $('#drawerBg').addEventListener('click', closeDrawer);
 
