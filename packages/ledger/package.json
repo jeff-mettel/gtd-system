@@ -1,0 +1,24 @@
+{
+  "name": "@gtd/ledger",
+  "version": "0.1.0",
+  "description": "Delivery System ledger: event schema v1, validation, fold, upcasters, demo fixture. Plain ESM, zero runtime dependencies.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./schema.js": "./schema.js",
+    "./fold.js": "./fold.js",
+    "./upcast.js": "./upcast.js",
+    "./ids.js": "./ids.js",
+    "./demo.js": "./demo.js"
+  },
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "devserver": "node scripts/devserver.js"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}
