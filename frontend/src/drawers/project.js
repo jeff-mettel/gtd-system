@@ -9,7 +9,7 @@ import { openDrawer } from '../ui/drawer.js';
 import { healthPill, waitingRow } from '../ui/fragments.js';
 
 export function projectDrawer(pid) {
-  const j = projOf(pid), isProg = !!programs.find(g => g.id === pid), s = projHealth(j), open = openActions(pid), waits = items.filter(i => i.kind === 'waiting' && i.project === pid), done = items.filter(i => i.kind === 'done' && i.project === pid), ev = activity(pid);
+  const j = projOf(pid), isProg = !!programs.find(g => g.id === pid), s = projHealth(j), open = openActions(pid), waits = items.filter(i => i.kind === 'waiting' && i.project === pid), ev = activity(pid);
   const ctxs = ['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@1:1/marcus', '@agenda/steering'];
   openDrawer(esc(j.name), `
     <div class="sec"><div class="eyebrow">${isProg ? 'Program' : esc(projName(j.program))} · ${healthPill(j.health)}</div>${j.outcome ? `<p class="muted" style="margin:8px 0 0"><b class="eyebrow" style="display:block;margin-bottom:2px">Outcome</b>${esc(j.outcome)}</p>` : ''}</div>

@@ -2,6 +2,7 @@ import { items, levelLabel, programs } from '../data/example.js';
 import { days, fmtDate, iso } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, activeProjects, activity, energyOf, person, projOf, srcLabel } from '../model.js';
+import { deferField } from '../features/defer.js';
 import { openDrawer } from '../ui/drawer.js';
 
 export function itemDrawer(id) {
@@ -16,7 +17,7 @@ export function itemDrawer(id) {
       <div class="wrow"><span class="eyebrow">Waiting</span><div><span class="age ${days(x.since) > 14 ? 'over' : ''}">${days(x.since)} days</span> since ${fmtDate(x.since)} · ${x.nudges || 0} nudge${x.nudges === 1 ? '' : 's'}${x.lastNudged ? `, last ${fmtDate(x.lastNudged)}` : ''}</div></div>
       ${date('Follow up on', 'followUp', x.followUp)}` : `
       <div class="wrow"><span class="eyebrow">Context</span><div><span class="chip ctx">${esc(x.ctx || '—')}</span> ${x.min ? `<span class="num">${x.min} min</span>` : ''} <span class="faint">· ${energyOf(x)} energy</span></div></div>
-      ${date('Due (soft)', 'due', x.due)}${date('Pinned to a day', 'hard', x.hard)}
+      ${date('Due (soft)', 'due', x.due)}${date('Pinned to a day', 'hard', x.hard)}${deferField(x)}
       `}
       <div class="wrow"><span class="eyebrow">Project</span><div>${j ? `<button class="linkish" data-proj="${j.id}">${esc(j.name)}</button>${g && g.id !== j.id ? ` <span class="faint">· ${esc(g.name)}</span>` : ''}${j.outcome ? `<div class="muted" style="font-size:12px">${esc(j.outcome)}</div>` : ''}` : '<span class="faint">None</span>'}
         ${x.kind !== 'done' ? `<div style="margin-top:6px"><select class="in" style="width:auto;padding:4px 8px;font-size:12px" data-moveitem="${id}" aria-label="Move to project"><option value="">Move to project…</option>${active().map(p => `<optgroup label="${esc(p.name)}"><option value="${p.id}" ${x.project === p.id ? 'disabled' : ''}>${esc(p.name)} — program level</option>${activeProjects(p.id).map(pj => `<option value="${pj.id}" ${x.project === pj.id ? 'disabled' : ''}>${esc(pj.name)}</option>`).join('')}</optgroup>`).join('')}</select></div>` : ''}</div></div>

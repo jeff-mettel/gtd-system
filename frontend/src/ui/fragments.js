@@ -5,6 +5,7 @@ import { days, dueLabel, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { isPrimary, pname, progIdx, progOfAny, projName } from '../model.js';
 import { repeatChip } from '../features/repeat.js';
+import { backChip, deferChip } from '../features/defer.js';
 
 export const healthPill = (h) => ({ good:'<span class="pill good"><i></i>On track</span>', warn:'<span class="pill warn"><i></i>At risk</span>', crit:'<span class="pill crit"><i></i>Blocked</span>' })[h];
 
@@ -15,7 +16,7 @@ export const projChip = (pid, label) => pid ? `<span class="chip proj" ${pcStyle
 /* ---------- shared fragments ---------- */
 export function actionRow(a) {
   return `<div class="row ${a.kind === 'done' ? 'done' : ''}"><label class="lab" style="flex:none"><input class="chk" type="checkbox" data-done="${a.id}" ${a.kind === 'done' ? 'checked' : ''}></label>
-    <div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}</div><div class="m">${a.project ? `${projChip(a.project)}` : ''}${repeatChip(a)}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(a.hard)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
+    <div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}</div><div class="m">${a.project ? `${projChip(a.project)}` : ''}${repeatChip(a)}${backChip(a)}${deferChip(a)}${isPrimary(a) ? `<span class="chip" title="The action that unblocks this project">project next</span>` : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${a.hard ? `<span class="chip" style="color:var(--warn);background:var(--warn-soft)">on calendar · ${dueLabel(a.hard)}</span>` : ''}${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div>${a.ai && a.kind !== 'done' ? `<button class="btn sm ghost" data-hand="${a.id}" title="${esc(a.ai.what)}">${a.ai.level === 'assist' ? 'AI prep' : 'Hand to AI'}</button>` : ''}</div>`;
 }
 
 export function readyRow(x) {
