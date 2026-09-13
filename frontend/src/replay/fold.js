@@ -34,3 +34,12 @@ export function fold(EV, t) {
   }
   return S;
 }
+/** Wiki words per program at the folded state: sums S.wiki over the pages that belong to each program
+ *  (PAGES is events.js's [page, owner] list — owners starting with 'P' are programs; person pages count nowhere). */
+export function wikiByProgram(S, PAGES) {
+  const out = new Map();
+  for (const [page, owner] of PAGES) { if (!S.programs.has(owner)) continue; out.set(owner, (out.get(owner) || 0) + (S.wiki.get(page) || 0)); }
+  return out;
+}
+/** True while an item is in the AI's hands — handed off and not yet approved or taken back. */
+export const isCharged = (it) => it.stage === 'delegated' || it.stage === 'ready';

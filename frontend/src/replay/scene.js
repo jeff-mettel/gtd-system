@@ -1,13 +1,12 @@
 // The three.js scene: balls are items, stations are the GTD lists. Every position is a fold of
 // events ≤ t (fold.js); only motion is tweened. createScene() mounts into `root` (see index.js for
 // the markup it expects) and returns the controls the Flow view uses.
-import { programs, projects, people, wiki } from '../data/example.js';
+import { programs, projects, people } from '../data/example.js';
 import { state } from '../state.js';
 import { esc } from '../lib/dom.js';
 import { pname, srcLabel, progIdx } from '../model.js';
-import { fold } from './fold.js';
-import { hubPage } from './events.js';
-import { LAY, CAMS, laneOf, trackZ, postX, pageX } from './layout.js';
+import { fold, wikiByProgram, isCharged } from './fold.js';
+import { LAY, CAMS, laneOf, trackZ, postX, wikiPos } from './layout.js';
 
 const DAY = 864e5, H = 36e5;
 const fmtD = (ms) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }), fmtT = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -22,8 +21,10 @@ export function createScene(THREE, root, data) {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(42, 1, 0.1, 500);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 0.9)); const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(20, 40, 10); scene.add(sun);
   let P = {}; const themed = [];   // [material, palette key] — recoloured on theme change
-  const palette = () => { P = { s1: col('--s1'), s2: col('--s2'), s3: col('--s3'), o1: col('--o1'), o2: col('--o2'), accent: col('--accent'), ink3: col('--ink-3'), line2: col('--line-2'), good: col('--good'), warn: col('--warn'), crit: col('--crit'), floor: col('--scene-floor'), grid: col('--scene-grid'), bg: col('--scene-bg'), surface2: col('--surface-2'), ink: col('--ink') }; scene.background = P.bg; scene.fog = new THREE.Fog(P.bg, 120, 230); for (const [m, key] of themed) { m.color.copy(P[key]); if (key === 'crit' && m.emissive) m.emissive.copy(P.crit); } if (grid) grid.material.color.copy(P.grid); };
-  let grid = null; palette();
+  const palette = () => { P = { s1: col('--s1'), s2: col('--s2'), s3: col('--s3'), o1: col('--o1'), o2: col('--o2'), accent: col('--accent'), ink3: col('--ink-3'), line2: col('--line-2'), good: col('--good'), warn: col('--warn'), crit: col('--crit'), floor: col('--scene-floor'), grid: col('--scene-grid'), bg: col('--scene-bg'), surface2: col('--surface-2'), ink: col('--ink') }; scene.background = P.bg; scene.fog = new THREE.Fog(P.bg, 120, 230); for (const [m, key] of themed) { m.color.copy(P[key]); if (key === 'crit' && m.emissive) m.emissive.copy(P.crit); } for (const [m, gid] of progThemed) { m.color.copy(progColor(gid)); if (m.emissive) m.emissive.copy(progColor(gid)); } if (grid) grid.material.color.copy(P.grid); if (charged) { charged.material.emissive.copy(P.accent); halo.material.color.copy(P.accent); aura.material.color.copy(P.accent); sparks.material.color.copy(P.accent); } };
+  const progThemed = [];   // [material, program id] — identity-coloured, recoloured on theme change
+  const progColor = (gid) => col('--c' + progIdx(gid));
+  let grid = null, charged = null, halo = null, aura = null, sparks = null; palette();
   const mat = (key, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: P[key], roughness: .85, metalness: 0 }, o)); themed.push([m, key]); return m; };
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 90), mat('floor')); floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.02, -6); scene.add(floor);
   grid = new THREE.GridHelper(100, 50, P.grid, P.grid); grid.position.set(0, 0, -6); grid.material.opacity = .5; grid.material.transparent = true; scene.add(grid);
@@ -35,31 +36,38 @@ export function createScene(THREE, root, data) {
   box(LAY.shelf.x1 - LAY.shelf.x0 + 2, 0.4, 5, 'surface2', [0, LAY.shelf.y - 0.2, LAY.shelf.z]);
   for (const p of people) box(0.35, 2.4, 0.35, 'line2', [postX(p.id), LAY.shelf.y + 1.2, LAY.shelf.z - 1.6]);
   box(5, 1.2, 4, 'surface2', [LAY.someday[0], 0.6, LAY.someday[2]], { transparent: true, opacity: .7 });
-  const aiRing = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.14, 10, 48), mat('accent', { roughness: .4 })); aiRing.position.set(...LAY.ai.ring); aiRing.rotation.x = Math.PI / 2; scene.add(aiRing);
-  box(7, 0.3, 3, 'surface2', [LAY.ai.tray[0], 0.15, LAY.ai.tray[2]]);
   const chute = box(6, 0.2, 3, 'surface2', [LAY.chute[0] + 1.5, 1.2, 0]); chute.rotation.z = -0.35;
-  box(LAY.wiki.x1 - LAY.wiki.x0 + 3, 0.5, 3, 'surface2', [0, 0.25, LAY.wiki.z]);
-  const trackGeo = new THREE.BoxGeometry(LAY.floorX[1] - LAY.floorX[0], 0.16, 1.4), colGeo = new THREE.BoxGeometry(1.5, 1, 1.5); colGeo.translate(0, 0.5, 0);
-  const colMeshes = new Map(PAGES.map(([page, owner]) => { const m = new THREE.Mesh(colGeo, mat(String(owner).startsWith('P') ? 'o2' : 'o1')); m.position.set(pageX(PAGES, page), 0.5, LAY.wiki.z); m.scale.y = 0.001; scene.add(m); return [page, m]; }));
+  const trackGeo = new THREE.BoxGeometry(LAY.floorX[1] - LAY.floorX[0], 0.16, 1.4);
+  // one wiki bar per program at the end of its lane: height = words on that program's pages (fold.wikiByProgram)
+  const barGeo = new THREE.BoxGeometry(LAY.wiki.w, 1, LAY.wiki.w); barGeo.translate(0, 0.5, 0);
+  const plinthGeo = new THREE.BoxGeometry(LAY.wiki.w + 2, 0.3, LAY.wiki.w + 2);
+  const wikiBars = new Map();
+  const ensureBar = (g) => { if (wikiBars.has(g.id)) return wikiBars.get(g.id); const m = new THREE.MeshStandardMaterial({ color: progColor(g.id), emissive: progColor(g.id), emissiveIntensity: .12, roughness: .7 }); progThemed.push([m, g.id]); const bar = new THREE.Mesh(barGeo, m); bar.scale.y = 0.001; const plinth = new THREE.Mesh(plinthGeo, mat('surface2')); scene.add(bar); scene.add(plinth); const B = { bar, plinth, label: label(esc(g.name) + ' wiki', [0, 0, 0], 'small'), words: label('', [0, 0, 0], 'small') }; B.label.el.style.color = css('--c' + progIdx(g.id)); wikiBars.set(g.id, B); return B; };
   const trackMeshes = new Map(), stallRings = new Map(), trackLabels = new Map();
   // one plate per program, enclosing its tracks — the grouping that says which projects belong together
   const plates = new Map(), plateGeo = new THREE.BoxGeometry(LAY.floorX[1] - LAY.floorX[0] + 4, 0.06, 1), edgeGeo = new THREE.EdgesGeometry(plateGeo);
-  const progColor = (gid) => col('--c' + progIdx(gid));
-  const ensurePlate = (g) => { if (plates.has(g.id)) return plates.get(g.id); const fill = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({ color: progColor(g.id), transparent: true, opacity: .10, roughness: 1 })); const edge = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: progColor(g.id), transparent: true, opacity: .8 })); fill.add(edge); scene.add(fill); const P_ = { fill, edge }; plates.set(g.id, P_); return P_; };
+  const ensurePlate = (g) => { if (plates.has(g.id)) return plates.get(g.id); const fill = new THREE.Mesh(plateGeo, new THREE.MeshStandardMaterial({ color: progColor(g.id), transparent: true, opacity: .10, roughness: 1 })); const edge = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: progColor(g.id), transparent: true, opacity: .8 })); fill.add(edge); scene.add(fill); progThemed.push([fill.material, g.id], [edge.material, g.id]); const P_ = { fill, edge }; plates.set(g.id, P_); return P_; };
   const ensureTrack = (j) => { if (trackMeshes.has(j.id)) return; const m = new THREE.Mesh(trackGeo, mat('good', { transparent: true, opacity: .55 })); m.visible = false; scene.add(m); trackMeshes.set(j.id, m); const r = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.08, 8, 32), mat('crit', { emissive: P.crit, emissiveIntensity: .4 })); r.rotation.x = Math.PI / 2; r.visible = false; scene.add(r); stallRings.set(j.id, r); trackLabels.set(j.id, label(j.name, [0, 0.5, 0], 'small')); };
   const N = ITEMS.length, sphere = new THREE.SphereGeometry(0.5, 18, 14);
   const solid = new THREE.InstancedMesh(sphere, new THREE.MeshStandardMaterial({ roughness: .45, metalness: .05 }), N), wire = new THREE.InstancedMesh(new THREE.SphereGeometry(0.5, 10, 8), new THREE.MeshBasicMaterial({ wireframe: true }), N), ghost = new THREE.InstancedMesh(sphere, new THREE.MeshStandardMaterial({ roughness: .6, transparent: true, opacity: .42 }), N);
-  for (const m of [solid, wire, ghost]) { m.frustumCulled = false; scene.add(m); for (let i = 0; i < N; i++) m.setColorAt(i, P.ink3); }
-  const cur = ITEMS.map(() => ({ x: -40, y: 0, z: 0, s: 0, init: false })), dummy = new THREE.Object3D(), tmpC = new THREE.Color();
+  // charged: the item is in the AI's hands — emissive accent, a halo ring, a soft aura, sparks while it moves
+  charged = new THREE.InstancedMesh(sphere, new THREE.MeshStandardMaterial({ roughness: .3, metalness: .15, emissive: P.accent, emissiveIntensity: .7 }), N);
+  halo = new THREE.InstancedMesh(new THREE.TorusGeometry(0.82, 0.045, 8, 40), new THREE.MeshBasicMaterial({ color: P.accent, transparent: true, opacity: .85 }), N);
+  aura = new THREE.InstancedMesh(new THREE.SphereGeometry(0.5, 14, 10), new THREE.MeshBasicMaterial({ color: P.accent, transparent: true, opacity: .16, depthWrite: false, blending: THREE.AdditiveBlending }), N);
+  const NS = 480, sparkPos = new Float32Array(NS * 3), sparkLife = new Float32Array(NS), sparkVel = new Float32Array(NS * 3); let sparkNext = 0;
+  { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3)); sparks = new THREE.Points(g, new THREE.PointsMaterial({ color: P.accent, size: 0.22, transparent: true, opacity: .9, depthWrite: false, blending: THREE.AdditiveBlending })); sparks.frustumCulled = false; sparks.visible = !reduced; scene.add(sparks); for (let i = 0; i < NS; i++) sparkPos[i * 3 + 1] = -100; }
+  const spawnSpark = (x, y, z) => { const i = sparkNext++ % NS; sparkPos[i * 3] = x + (Math.random() - .5) * .3; sparkPos[i * 3 + 1] = y + (Math.random() - .5) * .3; sparkPos[i * 3 + 2] = z + (Math.random() - .5) * .3; sparkVel[i * 3] = (Math.random() - .5) * 2; sparkVel[i * 3 + 1] = Math.random() * 1.5; sparkVel[i * 3 + 2] = (Math.random() - .5) * 2; sparkLife[i] = 0.45; };
+  for (const m of [solid, wire, ghost, charged, halo, aura]) { m.frustumCulled = false; scene.add(m); for (let i = 0; i < N; i++) m.setColorAt(i, P.ink3); }
+  const cur = ITEMS.map(() => ({ x: -40, y: 0, z: 0, s: 0, init: false, ch: 0 })), dummy = new THREE.Object3D(), tmpC = new THREE.Color();   // ch: 0→1 as the charged look fades in
   // labels
   const labels = [];
   function label(text, pos, cls = '') { const el = document.createElement('div'); el.className = 'rp-lbl ' + cls; el.innerHTML = text; stage.appendChild(el); const L = { el, pos: new THREE.Vector3(...pos) }; labels.push(L); return L; }
   label('Email', [-36, 1.2, -8], 'small'); label('Calendar', [-36, 1.2, -4], 'small'); label('Chat', [-36, 1.2, 0], 'small'); label('Meetings', [-36, 1.2, 4], 'small'); label('Voice', [-36, 1.2, 8], 'small');
   label('Inbox', [LAY.inbox[0], 1.6, LAY.inbox[2] - 4], 'big'); label('Clarify gate', [LAY.gate[0], 0.4, 5.5], 'big'); label('Trash', [LAY.trash[0], 2.4, LAY.trash[2]], 'small');
   label('Waiting for', [LAY.shelf.x0 - 2.5, LAY.shelf.y + 1.2, LAY.shelf.z], 'big'); for (const p of people) label(p.name.split(' ')[0], [postX(p.id), LAY.shelf.y + 2.9, LAY.shelf.z - 1.6], 'small');
-  label('Someday / maybe', [LAY.someday[0], 2.2, LAY.someday[2]], 'small'); label('Delegated to AI', [LAY.ai.ring[0], 3.4, LAY.ai.ring[2]], 'big'); label('Ready for review', [LAY.ai.tray[0], 1.6, LAY.ai.tray[2]], 'small');
-  label('Done', [LAY.heap[0], 7, 0], 'big'); label('Wiki', [LAY.wiki.x0 - 3, 1.5, LAY.wiki.z], 'big');
-  const laneLabels = new Map(), hubLabels = new Map(programs.filter(g => wiki[g.id]).map(g => [wiki[g.id].page, label(g.name, [pageX(PAGES, wiki[g.id].page), 1, LAY.wiki.z], 'small')]));
+  label('Someday / maybe', [LAY.someday[0], 2.2, LAY.someday[2]], 'small');
+  label('Done', [LAY.heap[0], 7, 0], 'big'); label('Wiki', [LAY.wiki.x, 0.2, -18], 'big');
+  const laneLabels = new Map();
   // camera
   const cam = { target: new THREE.Vector3(0, 0, -4), theta: 0, phi: 0.98, r: 86 }; let camGoal = null;
   const applyCam = () => { const y = Math.cos(cam.phi) * cam.r, h = Math.sin(cam.phi) * cam.r; camera.position.set(cam.target.x + Math.sin(cam.theta) * h, cam.target.y + y, cam.target.z + Math.cos(cam.theta) * h); camera.lookAt(cam.target); };
@@ -105,6 +113,10 @@ export function createScene(THREE, root, data) {
   const ageBucket = (days) => days > 30 ? P.crit : days > 14 ? P.s2 : days > 7 ? P.warn : P.s3;
   const kindColor = (it) => it.stage === 'waiting' ? ageBucket((t - it.since) / DAY) : ({ action: P.s1, waiting: P.s3, someday: P.ink3, reference: P.o1, trash: P.line2, project: P.s1 })[it.kind || it.pkind] || P.ink3;
   const progOf = (proj) => { const j = projects.find(x => x.id === proj); return j ? j.program : proj; };
+  const pageOwner = new Map(PAGES);
+  // which program's wiki bar a filed item flies to: its own program, else the page's owner program, else the first lane
+  const wikiProgOf = (S, it) => { const g = progOf(it.project); if (S.programs.has(g)) return g; const o = pageOwner.get(it.page); return S.programs.has(o) ? o : (programs.find(x => S.programs.has(x.id))?.id || 'P1'); };
+  const pulse = (now, phase = 0) => reduced ? 0.5 : 0.5 + 0.5 * Math.sin(now / 260 + phase);
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
@@ -119,12 +131,11 @@ export function createScene(THREE, root, data) {
       switch (it.stage) {
         case 'inbox': { if (sinceD * 24 < 1.5) { const port = LAY.ports[it.source] || LAY.ports.chat, k = sinceD * 24 / 1.5; p = [port[0] + (LAY.inbox[0] - 3 - port[0]) * k, 0.6, port[2] + (LAY.inbox[2] - port[2]) * k]; } else { const n = slot('inbox'); p = [LAY.inbox[0] - 2 + (n % 5) * 1.1, 0.6 + Math.floor(n / 25) * 1.1, LAY.inbox[2] - 3 + Math.floor(n / 5) % 5 * 1.3]; } break; }
         case 'gate': { const n = slot('gate'); p = [LAY.gate[0] - 3 + (n % 3) * 1.1, 0.6 + Math.floor(n / 3) * 1.1, -1 + Math.floor(n / 9) * 1.2]; break; }
-        case 'action': { const z = trackZ(S, it.project), n = slot('track:' + it.project); p = n > 15 ? [LAY.floorX[0] + 0.8 + (n - 16) * 1.5, 1.7, z] : [LAY.floorX[0] + 0.8 + n * 1.5, 0.6, z]; break; }
+        // delegated / ready items stay on their track (the charged look says they're with the AI); ready ones hover, waiting for approval
+        case 'action': case 'delegated': case 'ready': { const z = trackZ(S, it.project), n = slot('track:' + it.project); p = n > 15 ? [LAY.floorX[0] + 0.8 + (n - 16) * 1.5, 1.7, z] : [LAY.floorX[0] + 0.8 + n * 1.5, 0.6, z]; if (it.stage === 'ready') p[1] += 1.1 + (reduced ? 0 : 0.12 * Math.sin(now / 500 + n)); break; }
         case 'waiting': { const x = postX(it.owner), n = slot('post:' + it.owner); p = [x + 0.8 + (n % 3) * 1.05 - 1.05, LAY.shelf.y + 0.55 + Math.floor(n / 3) * 1.05, LAY.shelf.z + 0.6]; break; }
-        case 'delegated': { const n = slot('ai'), a = now / 1400 + n * 1.3; p = [LAY.ai.ring[0] + Math.cos(a) * 3.4, LAY.ai.ring[1] + (it.working ? 0.3 * Math.sin(now / 300 + n) : 0), LAY.ai.ring[2] + Math.sin(a) * 3.4]; break; }
-        case 'ready': { const n = slot('tray'); p = [LAY.ai.tray[0] - 2.6 + (n % 5) * 1.3, 0.85 + Math.floor(n / 5) * 1.05, LAY.ai.tray[2]]; break; }
         case 'someday': { const n = slot('someday'); p = [LAY.someday[0] - 1.6 + (n % 4) * 1.1, 1.6 + Math.floor(n / 12) * 1.05, LAY.someday[2] - 1.2 + Math.floor(n / 4) % 3 * 1.1]; break; }
-        case 'reference': case 'wiki': { const x = pageX(PAGES, it.page || hubPage(it.project) || PAGES[0][0]), k = Math.min(1, sinceD * 24 / 2); p = [x, 0.9, LAY.wiki.z + 4 - 3 * k]; break; }
+        case 'reference': case 'wiki': { const [bx, , bz] = wikiPos(S, wikiProgOf(S, it)), k = Math.min(1, sinceD * 24 / 2); p = [bx - 4.5 + 3.2 * k, 0.9 + 0.6 * k, bz]; break; }
         case 'trash': { const n = slot('trash'); p = [LAY.trash[0] - 0.5 + (n % 2), 0.5 + Math.floor(n / 4) * 0.8, LAY.trash[2] - 0.5 + Math.floor(n / 2) % 2]; break; }
         default: { const n = slot('done'); if (sinceD * 24 < 2) { const k = sinceD * 24 / 2; p = [LAY.chute[0] - 3 + 8 * k, 2.2 - 1.6 * k, (trackZ(S, it.project) || 0) * (1 - k)]; } else { const r = 0.62 * Math.sqrt(n), a = n * 2.39996; p = [LAY.heap[0] + Math.cos(a) * r, 0.5 + Math.max(0, 4.6 - r * 0.75), Math.sin(a) * r]; } }
       }
@@ -145,11 +156,21 @@ export function createScene(THREE, root, data) {
         c.s += ((dim ? s * 0.35 : s) - c.s) * k;
         tmpC.copy(kindColor(it)); if (dim) tmpC.lerp(P.bg, 0.75); if (hoverId === id) tmpC.lerp(P.ink, 0.35);
         solid.setColorAt(i, tmpC); wire.setColorAt(i, tmpC); ghost.setColorAt(i, tmpC);
+        // charged: accent body (dimmed with the filter), halo and aura carry the pulse
+        tmpC.copy(P.accent).lerp(P.ink, 0.15); if (dim) tmpC.lerp(P.bg, 0.75); if (hoverId === id) tmpC.lerp(P.ink, 0.35); charged.setColorAt(i, tmpC);
+        tmpC.copy(P.accent); if (dim) tmpC.lerp(P.bg, 0.75); halo.setColorAt(i, tmpC); aura.setColorAt(i, tmpC);
+        if (!reduced && c.ch > 0.5 && vis && (Math.abs(p[0] - c.x) + Math.abs(p[1] - c.y) + Math.abs(p[2] - c.z)) > 0.35 && Math.random() < 0.6) spawnSpark(c.x, c.y, c.z);
       }
-      const which = !it ? null : it.stage === 'done' ? ghost : (it.stage === 'gate' || (it.stage === 'inbox' && it.proposed)) ? wire : solid;
-      for (const m of [solid, wire, ghost]) { dummy.position.set(c.x, c.y, c.z); dummy.scale.setScalar(m === which ? c.s : 0.0001); dummy.updateMatrix(); m.setMatrixAt(i, dummy.matrix); }
+      const isCh = !!it && isCharged(it); c.ch += ((isCh ? 1 : 0) - c.ch) * (reduced ? 1 : Math.min(1, dt * 4));
+      const which = !it ? null : isCh ? charged : it.stage === 'done' ? ghost : (it.stage === 'gate' || (it.stage === 'inbox' && it.proposed)) ? wire : solid;
+      for (const m of [solid, wire, ghost, charged]) { dummy.position.set(c.x, c.y, c.z); dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(m === which ? c.s : 0.0001); dummy.updateMatrix(); m.setMatrixAt(i, dummy.matrix); }
+      const hs = c.ch > 0.02 && vis ? c.s * c.ch : 0.0001, ph = i * 0.7, pu = pulse(now, ph);
+      dummy.position.set(c.x, c.y, c.z); dummy.rotation.set(Math.PI / 2 + (reduced ? 0 : 0.35 * Math.sin(now / 900 + ph)), 0, reduced ? 0 : now / 1200 + ph); dummy.scale.setScalar(hs * (1.05 + 0.1 * pu)); dummy.updateMatrix(); halo.setMatrixAt(i, dummy.matrix);
+      dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(hs * (1.35 + 0.3 * pu)); dummy.updateMatrix(); aura.setMatrixAt(i, dummy.matrix);
     }
-    for (const m of [solid, wire, ghost]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
+    for (const m of [solid, wire, ghost, charged, halo, aura]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
+    charged.material.emissiveIntensity = reduced ? 0.75 : 0.55 + 0.45 * pulse(now);
+    if (!reduced) { for (let i = 0; i < NS; i++) { if (sparkLife[i] <= 0) continue; sparkLife[i] -= dt; if (sparkLife[i] <= 0) { sparkPos[i * 3 + 1] = -100; continue; } sparkVel[i * 3 + 1] -= 4 * dt; sparkPos[i * 3] += sparkVel[i * 3] * dt; sparkPos[i * 3 + 1] += sparkVel[i * 3 + 1] * dt; sparkPos[i * 3 + 2] += sparkVel[i * 3 + 2] * dt; } sparks.geometry.attributes.position.needsUpdate = true; }
     for (const j of projects) {
       ensureTrack(j); const m = trackMeshes.get(j.id), L = trackLabels.get(j.id), pj = S.projects.get(j.id), g = S.programs.get(j.program);
       const on = !!pj && !pj.dropped && g && !g.retired; m.visible = on; L.el.style.display = on ? '' : 'none'; stallRings.get(j.id).visible = false;
@@ -171,7 +192,16 @@ export function createScene(THREE, root, data) {
         const dimP = progFilter && g.id !== progFilter; pl.fill.material.opacity = dimP ? .03 : .10; pl.edge.material.opacity = dimP ? .2 : .8;
         L.pos.set(LAY.floorX[0] - 2.6, 0.3, z + depth / 2 + 0.9); L.el.style.opacity = dimP ? .35 : 1;   // just in front of the plate's near edge
       }
-    for (const [page, m] of colMeshes) { const w = S.wiki.get(page) || 0, target = Math.max(0.001, w / 160); m.scale.y += (target - m.scale.y) * k; const L = hubLabels.get(page); if (L) { L.pos.set(pageX(PAGES, page), m.scale.y + 0.6, LAY.wiki.z); L.el.style.display = w ? '' : 'none'; } }
+    const wikiWords = wikiByProgram(S, PAGES);
+    for (const g of programs) {
+      const B = ensureBar(g), pg = S.programs.get(g.id), on = pg && !pg.retired, w = wikiWords.get(g.id) || 0;
+      B.bar.visible = B.plinth.visible = !!on; B.label.el.style.display = B.words.el.style.display = on ? '' : 'none';
+      if (!on) continue;
+      const [x, , z] = wikiPos(S, g.id), target = Math.max(0.001, w / 220), dimP = progFilter && g.id !== progFilter;
+      B.bar.position.set(x, 0.3, z); B.plinth.position.set(x, 0.15, z); B.bar.scale.y += (target - B.bar.scale.y) * k;
+      B.bar.material.opacity = dimP ? .25 : 1; B.bar.material.transparent = !!dimP; B.label.el.style.opacity = B.words.el.style.opacity = dimP ? .35 : 1;
+      B.label.pos.set(x, 0.3 + B.bar.scale.y + 1.4, z); B.words.pos.set(x, 0.3 + B.bar.scale.y + 0.5, z); B.words.el.textContent = w ? w.toLocaleString() + ' words' : '';
+    }
     gateRing.rotation.z += dt * 0.15;
     if (camGoal) { const g = camGoal; cam.target.lerp(new THREE.Vector3(...g.t), 0.08); cam.theta += (g.th - cam.theta) * 0.08; cam.phi += (g.ph - cam.phi) * 0.08; cam.r += (g.r - cam.r) * 0.08; if (Math.abs(cam.r - g.r) < 0.05) camGoal = null; }
     applyCam(); renderer.render(scene, camera);

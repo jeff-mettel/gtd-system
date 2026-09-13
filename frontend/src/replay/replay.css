@@ -28,6 +28,7 @@
 .rp-legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
 .rp-legend i.wire{border:1.5px dashed var(--ink-3)}
 .rp-legend i.ghost{opacity:.45}
+.rp-legend i.charged{background:var(--accent);box-shadow:0 0 0 1.5px var(--surface),0 0 0 2.5px var(--accent),0 0 6px var(--accent)}
 .rp-legend .gap{margin-left:8px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;font-size:10px}
 .rp-transport{display:grid;grid-template-columns:auto auto 1fr auto;gap:12px;align-items:center}
 .rp-date{font-family:var(--display);font-weight:600;font-size:15px;min-width:150px;text-align:right}
