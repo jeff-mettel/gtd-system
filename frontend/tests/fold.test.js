@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildEvents } from '../src/replay/events.js';
-import { fold } from '../src/replay/fold.js';
+import { fold, wikiByProgram, isCharged } from '../src/replay/fold.js';
 import { items } from '../src/data/example.js';
 
 const { EV, T0, T1 } = buildEvents();
@@ -40,5 +40,32 @@ describe('fold', () => {
     expect(fold(EV, T0 + 10 * DAY).programs.has('P3')).toBe(true);
     expect(fold(EV, T0 + 10 * DAY).projects.has('J8')).toBe(false);
     expect(fold(EV, T1).projects.has('J8')).toBe(true);
+  });
+});
+
+describe('wikiByProgram', () => {
+  const { PAGES } = buildEvents();
+  it('sums each program\'s pages and ignores people pages', () => {
+    const end = fold(EV, T1), byProg = wikiByProgram(end, PAGES);
+    let progSum = 0; for (const v of byProg.values()) progSum += v;
+    let pageSum = 0, personSum = 0; for (const [page, w] of end.wiki) { pageSum += w; if (page.startsWith('person-')) personSum += w; }
+    expect(byProg.size).toBe(end.programs.size);
+    expect(progSum).toBe(pageSum - personSum);
+    for (const g of end.programs.keys()) expect(byProg.get(g)).toBeGreaterThan(0);
+  });
+  it('is zero for a program before it exists and never shrinks', () => {
+    expect(wikiByProgram(fold(EV, T0 + 3 * DAY), PAGES).has('P3')).toBe(false);
+    let prev = 0;
+    for (let t = T0; t <= T1; t += 2 * DAY) { const w = wikiByProgram(fold(EV, t), PAGES).get('P1') || 0; expect(w).toBeGreaterThanOrEqual(prev); prev = w; }
+  });
+});
+describe('isCharged', () => {
+  it('is on from hand-off until approval or take-back', () => {
+    const end = fold(EV, T1);
+    for (const it of end.items.values()) {
+      const types = it.hist.map(h => h.type), lastHand = types.lastIndexOf('delegated'), lastBack = Math.max(types.lastIndexOf('approved'), types.lastIndexOf('taken_back'), types.lastIndexOf('done'));
+      expect(isCharged(it)).toBe(lastHand >= 0 && lastHand > lastBack);
+    }
+    expect([...end.items.values()].filter(isCharged).length).toBeGreaterThan(0);
   });
 });
