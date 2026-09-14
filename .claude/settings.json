@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "deny": [
+      "mcp__*__send_message",
+      "mcp__*__send",
+      "mcp__*__reply",
+      "mcp__*__forward",
+      "mcp__*__create_event",
+      "mcp__*__update_event",
+      "mcp__*__delete_event",
+      "mcp__*__respond_to_event",
+      "mcp__*__trash_*",
+      "mcp__*__delete_*",
+      "mcp__*__create_draft",
+      "mcp__*__update_draft"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/bin/gtd-hook\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

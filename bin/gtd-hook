@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+// PreToolUse hook for the app repo (.claude/settings.json). Reads the hook JSON on stdin.
+// Read-only tools pass. Anything else must be covered by `gtd guard --tool <name> --item <id>`,
+// i.e. an `approved` event for the item the tool call is about — otherwise exit 2 (blocked, the
+// reason goes back to the model). This is the harness-side half of "the AI never sends, books or
+// deletes without approval"; the deny list in settings.json is the other half.
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const READ_ONLY = [
+  /^(Read|Glob|Grep|LS|WebFetch|WebSearch|TodoWrite|Task|Agent|Skill|ToolSearch)$/,
+  /^mcp__.*__(list|get|search|read|find|fetch|suggest)[_-]/,   // list_events, get_event, search_events, read_page…
+  /^mcp__.*__(list_calendars|list_events|get_event|search_events|suggest_time)$/,
+];
+// Tools that are dangerous by name regardless of item: these are also in permissions.deny; the hook is belt and braces.
+const NEVER = /^mcp__.*__(send_message|send|reply|forward|create_event|update_event|delete_event|respond_to_event|trash_[a-z_]+|delete_[a-z_]+|create_draft|update_draft)$/;
+
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', d => { input += d; });
+process.stdin.on('end', () => {
+  let h = {}; try { h = JSON.parse(input || '{}'); } catch {}
+  const tool = h.tool_name || '', ti = h.tool_input || {};
+  // Only GTD job runs are guarded (the server sets GTD_ACTOR=ai:<job>). Ordinary development sessions in
+  // this repo are untouched by the hook; the permissions.deny list in settings.json applies to both.
+  if (!process.env.GTD_ACTOR) return process.exit(0);
+  if (READ_ONLY.some(re => re.test(tool))) return process.exit(0);
+  if (tool === 'Bash') {
+    const c = String(ti.command || '').trim();
+    if (/^gtd(\s|$)/.test(c) || /^(\S*\/)?bin\/gtd(\s|$)/.test(c)) return process.exit(0);   // the CLI validates every write itself
+    return block(`Bash is limited to the gtd CLI in GTD jobs (got: ${c.slice(0, 80)})`);
+  }
+  if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) {
+    const p = String(ti.file_path || ti.path || '');
+    if (/(^|\/)wiki\//.test(p)) return process.exit(0);   // wiki pages are the compile/ingest jobs' territory; every change is logged via wiki_changed
+    return block(`${tool} outside wiki/ is not allowed in GTD jobs (${p})`);
+  }
+  if (NEVER.test(tool)) return block(`${tool} is a side effect the assistant may never perform; it drafts, the user approves and sends`);
+  // Anything else (unknown MCP tool etc.) needs an approved item.
+  const item = ti.item || ti.item_id || ti.gtd_item || process.env.GTD_ITEM || '';
+  const gtd = path.join(path.dirname(fileURLToPath(import.meta.url)), 'gtd');
+  const r = spawnSync(process.execPath, [gtd, 'guard', '--tool', tool, ...(item ? ['--item', item] : [])], { encoding: 'utf8', env: process.env });
+  if (r.status === 0) return process.exit(0);
+  return block(`gtd guard refused ${tool}${item ? ' for item ' + item : ' (no item given)'}: ${(r.stderr || r.stdout || '').trim().slice(0, 300)}`);
+});
+
+function block(reason) { process.stderr.write(`[gtd guard] ${reason}\n`); process.exit(2); }

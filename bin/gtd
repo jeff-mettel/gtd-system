@@ -1,0 +1,141 @@
+#!/usr/bin/env node
+// gtd — thin HTTP client of the local GTD server. The ONLY write path for Claude jobs.
+// No dependencies. Output is JSON on stdout; errors are JSON on stderr with a non-zero exit.
+//
+//   gtd snapshot                                   projects, programs, people, open items — for the prompt
+//   gtd inbox                                      captured items with no proposal yet
+//   gtd capture --source S --raw '…' [--ref R] [--from U] [--minutes N] [--mentions a,b]     idempotent on --ref
+//   gtd propose-clarify --item ID --json '{…}'     → clarified (proposal validated by the server)
+//   gtd propose-action  --project ID --json '{…}'  → captured + clarified (a proposed next action; AI cannot set primary)
+//   gtd draft --kind nudge|prep|status --for ID --json '{…}'   → delivered (deliverable to the Ready lane)
+//   gtd guard --tool T --item ID                   exit 0 only if an `approved` event covers the item
+//   gtd log --type T [--item ID] [--json '{…}'] [--actor A]    generic append (actor from GTD_ACTOR unless --actor)
+//   gtd export                                     the raw event array
+//   gtd init                                       create / validate the data folder (no server needed)
+//   gtd health                                     server health
+//   gtd jobs | gtd run <job> [--json '{args}']      list / start a job run
+//
+// Env: GTD_SERVER (default http://localhost:4310) · GTD_ACTOR (required for writes from a headless run;
+// must be ai:<job> or ingest:<source>; sent as X-GTD-Actor) · GTD_DATA (for `init`).
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SERVER = (process.env.GTD_SERVER || 'http://localhost:4310').replace(/\/$/, '');
+const argv = process.argv.slice(2);
+const cmd = argv[0];
+const flags = {};
+for (let i = 1; i < argv.length; i++) { const a = argv[i]; if (a.startsWith('--')) { const k = a.slice(2); const v = argv[i + 1] != null && !argv[i + 1].startsWith('--') ? argv[++i] : true; flags[k] = v; } else (flags._ ??= []).push(a); }
+
+const out = (o) => { process.stdout.write(JSON.stringify(o, null, 2) + '\n'); };
+const die = (msg, code = 1, extra = {}) => { process.stderr.write(JSON.stringify({ error: msg, ...extra }) + '\n'); process.exit(code); };
+const need = (k) => { if (flags[k] == null || flags[k] === true) die(`--${k} is required`); return flags[k]; };
+const json = (k = 'json', required = true) => { if (flags[k] == null) { if (required) die(`--${k} '{…}' is required`); return {}; } try { return JSON.parse(flags[k]); } catch (e) { die(`--${k} is not valid JSON: ${e.message}`); } };
+const headless = !process.stdin.isTTY || !!process.env.GTD_RUN || !!process.env.GTD_ACTOR;
+
+async function api(method, p, body, actorHeader) {
+  let res;
+  try { res = await fetch(SERVER + p, { method, headers: { 'content-type': 'application/json', ...(actorHeader ? { 'x-gtd-actor': actorHeader } : {}) }, body: body ? JSON.stringify(body) : undefined }); }
+  catch (e) { die(`cannot reach the GTD server at ${SERVER} (${e.cause?.code || e.message}); start it with \`npm run serve\``, 3); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) die(data.error || `HTTP ${res.status}`, 2, data.errors ? { errors: data.errors } : {});
+  return data;
+}
+
+/** Actor for a write. Headless runs must carry GTD_ACTOR=ai:*|ingest:*; interactive use defaults to jeff. */
+function actor(override) {
+  const a = override || process.env.GTD_ACTOR;
+  if (a) { if (!/^(ai:[\w-]+|ingest:[\w-]+|system)$/.test(a)) die(`GTD_ACTOR must look like ai:<job> or ingest:<source>; got "${a}"`); return a; }
+  if (headless) die('GTD_ACTOR is not set. Headless runs must identify themselves (ai:<job> or ingest:<source>) — every AI write is tagged.', 4);
+  return null;   // jeff, interactively
+}
+const write = (type, payload, item, act) => { const a = actor(act); return api('POST', '/api/events', { type, payload, item, actor: a || 'jeff' }, a); };
+
+const items = (S) => Object.values(S.items || {});
+const open = (it) => !['done', 'trash'].includes(it.kind);
+
+const commands = {
+  async health() { out(await api('GET', '/api/health')); },
+  async snapshot() {
+    const S = await api('GET', '/api/state');
+    const brief = (it) => ({ id: it.id, kind: it.kind, raw: it.raw, next: it.next ?? null, project: it.project ?? null, owner: it.owner ?? null, ctx: it.ctx ?? null, due: it.due ?? null, since: it.since ?? it.captured ?? null, nudges: it.nudges ?? 0, proposed: !!it.p, del: it.del?.status ?? null });
+    out({ today: new Date().toISOString().slice(0, 10), programs: S.programs, projects: S.projects, people: S.people, items: items(S).filter(open).map(brief), meetings: S.meetings || [], calendarAhead: S.calendarAhead || [], pastMeetings: S.pastMeetings || [], milestones: S.milestones || [], decisions: S.decisions || [], config: { autonomy: S.config?.autonomy || {}, prompts: S.config?.prompts || {} } });
+  },
+  async inbox() {
+    const S = await api('GET', '/api/state');
+    out(items(S).filter(it => it.kind === 'inbox' && !it.p).map(it => ({ id: it.id, source: it.source, ref: it.ref, from: it.from, raw: it.raw, captured: it.captured, mentions: it.mentions || [], minutes: it.min ?? null })));
+  },
+  async capture() {
+    const payload = { source: need('source'), raw: need('raw') };
+    if (flags.ref) payload.ref = flags.ref; if (flags.from) payload.from = flags.from; if (flags.minutes) payload.minutes = Number(flags.minutes);
+    if (flags.mentions) payload.mentions = String(flags.mentions).split(',').map(s => s.trim()).filter(Boolean);
+    const r = await write('captured', payload, undefined, flags.actor);
+    out(r.existing ? { ok: true, existing: true, item: r.item.id } : { ok: true, item: r.event.item, seq: r.seq });
+  },
+  async 'propose-clarify'() {
+    const proposal = json();
+    const r = await write('clarified', { proposal }, need('item'), flags.actor);
+    out({ ok: true, item: r.event.item, seq: r.seq });
+  },
+  async 'propose-action'() {
+    // The contract lets AI actors write captured + clarified only, so a proposed next action is a
+    // captured item (source `suggest`) with a clarified proposal that names the project. The human
+    // accepts it in the inbox; `next_action_set` stays human-written.
+    const project = need('project'); const j = json();
+    if (!j.next) die('--json needs at least { next }');
+    const ref = `suggest:${project}/${process.env.GTD_RUN || Date.now()}`;
+    const c = await write('captured', { source: 'suggest', ref, raw: j.next, minutes: j.min }, undefined, flags.actor);
+    if (c.existing) return out({ ok: true, existing: true, item: c.item.id });
+    const proposal = { kind: 'action', next: j.next, project, owner: j.owner ?? null, ctx: j.ctx ?? null, min: j.min ?? null, due: j.due ?? null, conf: j.conf ?? 0.7, why: j.why || 'Proposed next action for the project', ai: j.ai ?? null };
+    const r = await write('clarified', { proposal }, c.event.item, flags.actor);
+    out({ ok: true, item: r.event.item, seq: r.seq });
+  },
+  async draft() {
+    const kind = need('kind'); if (!['nudge', 'prep', 'status'].includes(kind)) die('--kind must be nudge, prep or status');
+    const forId = need('for'); const body = json();
+    const deliverable = { kind, for: forId, ...body, draftedAt: new Date().toISOString() };
+    // nudge: `for` is the waiting-for item. prep/status: `for` is a meeting or program id; the deliverable
+    // still needs an item to hang on, so we capture a carrier item (idempotent per target + run).
+    let item = forId;
+    if (kind !== 'nudge') {
+      const ref = `${kind}:${forId}/${process.env.GTD_RUN || new Date().toISOString().slice(0, 10)}`;
+      const c = await write('captured', { source: kind, ref, raw: body.title || `${kind} for ${forId}` }, undefined, flags.actor);
+      item = c.existing ? c.item.id : c.event.item;
+    }
+    const r = await write('delivered', { deliverable }, item, flags.actor);
+    out({ ok: true, item: r.event.item, seq: r.seq, kind });
+  },
+  async guard() {
+    const tool = need('tool'), item = flags.item;
+    if (!item || item === true) die(`guard: refused — ${tool} needs --item ID and an approved event for it`, 2, { tool, allowed: false });
+    const evs = await api('GET', '/api/events?since=0');
+    const approved = evs.filter(e => e.type === 'approved' && e.item === item).at(-1);
+    const takenBack = evs.filter(e => e.type === 'taken_back' && e.item === item).at(-1);
+    const ok = approved && (!takenBack || takenBack.seq < approved.seq);
+    if (!ok) die(`guard: refused — no approved event covers item ${item} for ${tool}`, 2, { tool, item, allowed: false });
+    out({ allowed: true, tool, item, approved: { seq: approved.seq, at: approved.at, effect: approved.payload?.effect ?? null } });
+  },
+  async log() {
+    const type = need('type'); const r = await write(type, json('json', false), flags.item && flags.item !== true ? flags.item : undefined, flags.actor);
+    out(r.existing ? { ok: true, existing: true, item: r.item.id } : { ok: true, seq: r.seq, event: r.event.id, item: r.event.item ?? null });
+  },
+  async export() { out(await api('GET', '/api/export')); },
+  async jobs() { out(await api('GET', '/api/jobs')); },
+  async run() { const job = flags._?.[0]; if (!job) die('usage: gtd run <job> [--json \'{args}\']'); out(await api('POST', `/api/jobs/${job}`, { args: json('json', false) })); },
+  async init() {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const { dataDir, ensureDataDir, inspectDataDir, readConfig, assertLedgerVersion } = await import(path.join(here, '..', 'server', 'datadir.js'));
+    const { LEDGER_VERSION } = await import(path.join(here, '..', 'server', 'ledger.js'));
+    const dir = dataDir(); const { created } = ensureDataDir(dir); const info = inspectDataDir(dir);
+    try { assertLedgerVersion(readConfig(dir), LEDGER_VERSION); } catch (e) { die(e.message, 5, { dir }); }
+    out({ ok: info.missing.length === 0, dir, created, ...info, ledgerVersion: LEDGER_VERSION });
+  },
+  help() { process.stdout.write(HELP); },
+};
+const HELP = `gtd — thin client of the local GTD server (${SERVER})
+  snapshot | inbox | capture | propose-clarify | propose-action | draft | guard | log | export | init | health | jobs | run
+  See the header of bin/gtd for flags. GTD_ACTOR (ai:<job> | ingest:<source>) is required for headless writes.
+`;
+
+if (!cmd || cmd === '--help' || cmd === '-h') { process.stdout.write(HELP); process.exit(cmd ? 0 : 1); }
+if (!commands[cmd]) die(`unknown command: ${cmd}\n${HELP}`);
+commands[cmd]().catch(err => die(err.message));
