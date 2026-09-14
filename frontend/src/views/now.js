@@ -1,6 +1,6 @@
-import { calendarAhead, items, ledger, meetings, programs, projects } from '../store.js';
+import { calendarAhead, calendarLive, items, ledger, meetings, programs, projects } from '../store.js';
 import { backFirst, untilStart } from '../features/defer.js';
-import { d, fmtDate, until } from '../lib/dates.js';
+import { TODAY, d, fmtDate, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, activeProjects, by, deferredActions, delegated, energyOf, mine, projHealth, projName, projOf } from '../model.js';
 import { prefs } from '../prefs.js';
@@ -26,8 +26,8 @@ export function viewNow() {
   for (const a of actions) (groups[gkey(a)] ||= []).push(a);
   const order = ['@quick', '@deep', '@1:1/priya', '@1:1/leo', '@agenda/steering'];
   const keys = byProg ? [...programs.map(g => g.id), '—'].filter(k => groups[k]) : Object.keys(groups).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
-  const free = 'Free 11:00–13:00 (2 h) · 14:00–15:30 (1.5 h)';
-  return `<div class="vhead"><div><h1>Monday, 14 September</h1><p>${free}. Deep-work items fit the morning block; the two quick reviews fit before the 1:1.</p></div><div class="shortcuts"><span>Calendar items are the <b>hard landscape</b> — they must happen on the day, so they live in Today and the week strip, not in the context lists.</span></div></div>
+  const free = ledger.demo ? 'Free 11:00–13:00 (2 h) · 14:00–15:30 (1.5 h). Deep-work items fit the morning block; the two quick reviews fit before the 1:1.' : (meetings.length ? `${meetings.length} meeting${meetings.length > 1 ? 's' : ''} today.` : 'No meetings on the calendar today.') + ' Pick from the lists by the time and energy you have.';
+  return `<div class="vhead"><div><h1>${TODAY.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' })}</h1><p>${free}</p></div><div class="shortcuts"><span>Calendar items are the <b>hard landscape</b> — they must happen on the day, so they live in Today and the week strip, not in the context lists.</span></div></div>
   <div class="attn">
     <a href="#inbox" class="tile link ${by('inbox').length ? 'warn' : ''}"><div class="v">${by('inbox').length}</div><div class="l">in the inbox to clarify</div><div class="go">Clarify →</div></a>
     <a href="#waiting" class="tile link ${over.length ? 'crit' : ''}"><div class="v">${over.length}</div><div class="l">waiting-fors past follow-up</div><div class="go">Chase →</div></a>
@@ -35,7 +35,7 @@ export function viewNow() {
     <a href="#programs" class="tile link ${noNext.length ? 'crit' : ''}"><div class="v">${noNext.length}</div><div class="l">projects with no next action</div><div class="go">Decide →</div></a>
   </div>
   ${ready.length ? `<div class="panel ready"><div class="ph"><h2>Ready for your review from AI</h2><a href="#delegated" class="note">Delegated ledger →</a></div><div class="pb">${ready.map(readyRow).join('')}</div></div>` : ''}
-  ${(() => { const days7 = [...Array(7)].map((_, i) => d(i)); return `<div class="panel"><div class="ph"><h2>Hard landscape · next 7 days</h2><div style="display:flex;gap:10px;align-items:center"><span class="note">${prefs.collapsed.strip ? '' : 'Meetings and day-specific actions — click a meeting today for its prep brief. Ticklers resurface into the inbox on their day.'}</span><button class="btn sm ghost" data-collapse="strip">${prefs.collapsed.strip ? 'Expand' : 'Collapse'}</button></div></div>
+  ${(() => { const days7 = [...Array(7)].map((_, i) => d(i)); return `<div class="panel"><div class="ph"><h2>Hard landscape · next 7 days</h2><div style="display:flex;gap:10px;align-items:center"><span class="note">${prefs.collapsed.strip ? '' : (ledger.mode === 'server' && !calendarLive ? 'No calendar synced yet — meetings appear here once the calendar job has run.' : 'Meetings and day-specific actions — click a meeting today for its prep brief. Ticklers resurface into the inbox on their day.')}</span>${ledger.mode === 'server' ? `<button class="btn sm" data-runjob="ingest-calendar" title="Read the calendar window (−7 / +14 days) into the ledger">Sync calendar</button>` : ''}<button class="btn sm ghost" data-collapse="strip">${prefs.collapsed.strip ? 'Expand' : 'Collapse'}</button></div></div>
     ${prefs.collapsed.strip ? '' : `<div class="cal week">${days7.map((day, i) => {
       /* Two groups per column: what I do (pinned actions, then deferred starts and ticklers), then the calendar (meetings). */
       const ms = i === 0 ? meetings.map(m => ({ time:m.time, title:m.title })) : calendarAhead.filter(c => until(c.on) === i);
@@ -58,7 +58,7 @@ export function viewNow() {
 
 /* Empty ledger (a fresh server): the first thing to do is name an area of responsibility. */
 function welcome() {
-  return `<div class="vhead"><div><h1>Monday, 14 September</h1><p>Your ledger is empty. Add your first program to start.</p></div></div>
+  return `<div class="vhead"><div><h1>${TODAY.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' })}</h1><p>Your ledger is empty. Add your first program to start.</p></div></div>
   <div class="panel"><div class="empty" style="text-align:left;display:grid;gap:10px;max-width:640px">
     <b>Start with a program</b>
     <span>A program is an area of responsibility — one of the handful of things you are accountable for over a long period. Projects live under it; every next action lives in a project. Name one, write its purpose, and give it a first project and a first action.</span>

@@ -24,8 +24,8 @@ export function prepBrief(i) {
 }
 
 export function nudgeDraft(id) {
-  const w = items.find(x => x.id === id), p = person(w.owner), j = projOf(w.project);
-  const text = `Hi ${pname(w.owner)},\n\nQuick check-in on ${w.next.toLowerCase()} for ${j.name}. It's been ${days(w.since)} days${w.nudges ? ` and I've pinged once or twice already` : ''}, and it's now on the critical path${j.health === 'crit' ? ' — the project is blocked on it' : ''}.\n\nIs there anything I can do to make it easier — a 20-minute working session, or someone else I should loop in? A date, even a rough one, would help me plan around it.\n\nThanks,\nJeff`;
+  const w = items.find(x => x.id === id), p = person(w.owner) || { name: 'the owner' }, j = projOf(w.project) || { name: 'this', health: 'good' };
+  const text = `Hi ${person(w.owner) ? pname(w.owner) : 'there'},\n\nQuick check-in on ${w.next.toLowerCase()} for ${j.name}. It's been ${days(w.since)} days${w.nudges ? ` and I've pinged once or twice already` : ''}, and it's now on the critical path${j.health === 'crit' ? ' — the project is blocked on it' : ''}.\n\nIs there anything I can do to make it easier — a 20-minute working session, or someone else I should loop in? A date, even a rough one, would help me plan around it.\n\nThanks,\nJeff`;
   openDrawer(`Nudge · ${esc(p.name)}`, `<div class="sec"><div class="eyebrow">Waiting ${days(w.since)} days · ${w.nudges || 0} previous nudge${w.nudges === 1 ? '' : 's'} · ${esc(j.name)}</div></div>
     <textarea class="draft" id="nudgeText">${esc(text)}</textarea>
     <div class="note">Drafted by AI from the ledger. Nothing is sent until you approve; approving logs the nudge and moves follow-up out 5 days.</div>`,

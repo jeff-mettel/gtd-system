@@ -11,7 +11,7 @@
 // renders once), and when it ends the toast grows an Undo that commits the compensating events in reverse.
 
 import { fold, validate, newId, demoEvents, LEDGER_VERSION, LedgerTooNew, defaultProposal } from '@gtd/ledger';
-import { TODAY, clock } from './lib/dates.js';
+import { TODAY, clock, setToday } from './lib/dates.js';
 import { isDeferred } from './features/defer.js';
 import * as fixtures from './data/constants.js';
 
@@ -36,7 +36,8 @@ export function refold() {
   try { S = fold(ledger.events, { today: TODAY }); ledger.tooNew = null; }
   catch (err) { if (err instanceof LedgerTooNew) { ledger.tooNew = err.message; S = fold([]); } else throw err; }
   items = S.items.filter(i => !isBackground(i)); projects = S.projects; programs = S.programs; people = S.people; wiki = S.wiki; config = S.config; runs = S.runs; deliverables = S.deliverables;
-  calendarLive = !!S.calendar; meetings = S.meetings ?? fixtures.meetings; calendarAhead = S.calendarAhead ?? fixtures.calendarAhead; pastMeetings = S.pastMeetings ?? fixtures.pastMeetings;
+  calendarLive = !!S.calendar; const fx = ledger.demo ? fixtures : { meetings: [], calendarAhead: [], pastMeetings: [] };
+  meetings = S.calendar ? (S.meetings ?? []) : fx.meetings; calendarAhead = S.calendar ? (S.calendarAhead ?? []) : fx.calendarAhead; pastMeetings = S.calendar ? (S.pastMeetings ?? []) : fx.pastMeetings;
   ledger.seq = S.seq;
   for (const it of items) if (it.kind === 'inbox' && !it.p) it.p = defaultProposal(it);
 }
@@ -218,6 +219,7 @@ export async function load({ seed } = {}) {
   let events = await backend.load();
   if (backend.mode === 'local' && (demo || !backend.exists)) { events = demoEvents(); backend.replace(events); ledger.demo = true; }
   else if (backend.mode === 'local' && events.some(e => e.id?.startsWith('e_demo'))) ledger.demo = true;
+  setToday(ledger.demo);                                                 // demo anchor vs. the real date, before the first fold
   ledger.events = events; refold(); tick();
   if (pollTimer) clearInterval(pollTimer);
   if (backend.poll) pollTimer = setInterval(backend.poll, 8000);
@@ -227,7 +229,7 @@ export async function load({ seed } = {}) {
 /** Local mode: throw the browser ledger away and reseed the demo (or start empty). */
 export function resetLocal({ demo = true } = {}) {
   if (backend?.mode !== 'local') return false;
-  ledger.events = demo ? demoEvents() : []; ledger.demo = demo; backend.replace(ledger.events); refold(); tick(); render(); return true;
+  ledger.events = demo ? demoEvents() : []; ledger.demo = demo; setToday(demo); backend.replace(ledger.events); refold(); tick(); render(); return true;
 }
 
 /** Validate a candidate event array (an import) against a running fold. Returns { ok, errors:[[index, msgs]], count, v }. */

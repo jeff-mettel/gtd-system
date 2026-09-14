@@ -1,6 +1,6 @@
 // Rail navigation, health strip, instruction cards and the guide.
 
-import { days, until } from '../lib/dates.js';
+import { TODAY, days, until } from '../lib/dates.js';
 import { $ } from '../lib/dom.js';
 import { by, delegated, projHealth } from '../model.js';
 import { prefs } from '../prefs.js';
@@ -85,7 +85,7 @@ export const views = [
 export function renderNav() {
   const cur = location.hash.slice(1) || 'now';
   const rail = $('.rail'); if (rail) { rail.classList.toggle('collapsed', !!prefs.collapsed.rail); const tb = rail.querySelector('.railtoggle'); if (tb) { tb.title = (prefs.collapsed.rail ? 'Expand' : 'Collapse') + ' sidebar ([)'; tb.setAttribute('aria-label', tb.title); tb.querySelector('span').textContent = prefs.collapsed.rail ? 'Expand' : 'Collapse'; }
-  const foot = rail?.querySelector('.foot'); if (foot) foot.innerHTML = `${ledger.mode === 'server' ? 'Live ledger' + (ledger.stub ? ' (stub server)' : '') : ledger.demo ? 'Example data' : 'Local ledger'} · Mon 14 Sep 2026.<br>Every AI write is tagged and reversible.<br><span class="kbd">?</span> guide`; }
+  const foot = rail?.querySelector('.foot'); if (foot) foot.innerHTML = `${ledger.mode === 'server' ? 'Live ledger' + (ledger.stub ? ' (stub server)' : '') : ledger.demo ? 'Example data' : 'Local ledger'} · ${TODAY.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })}.<br>Every AI write is tagged and reversible.<br><span class="kbd">?</span> guide`; const dt = $('.topbar .date'); if (dt) dt.textContent = TODAY.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' }); }
   $('#nav').innerHTML = views.slice(0, 1).map(v => `<a href="#${v.id}" class="primary ${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id]}<span><b>${v.label}</b><small>${v.sub}</small></span><span class="key">${v.key}</span></a>`).join('') +
     `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
     `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');

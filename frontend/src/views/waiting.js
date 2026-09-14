@@ -26,7 +26,7 @@ export function viewWaiting() {
     </div>
     <div class="panel"><div class="ph"><h2>By person</h2><span class="note">Sorted by oldest item</span></div>
       <div class="note" style="padding:8px 18px 0">Sorted by the oldest thing each person owes you. Draft nudge writes from the history; nothing sends until you approve.</div>
-      <div class="pb">${ppl.map(pid => `<div class="person-h"><span class="av">${initials(pid)}</span><b>${esc(person(pid).name)}</b><span class="note">${esc(person(pid).role)}</span></div>${byPerson[pid].map(w => waitingRow(w)).join('')}`).join('')}</div>
+      <div class="pb">${ppl.map(pid => `<div class="person-h"><span class="av">${initials(pid)}</span><b>${esc(person(pid)?.name || 'No owner yet')}</b><span class="note">${esc(person(pid)?.role || 'open the item to say who owes it')}</span></div>${byPerson[pid].map(w => waitingRow(w)).join('')}`).join('')}</div>
     </div>
   </div>`;
 }
