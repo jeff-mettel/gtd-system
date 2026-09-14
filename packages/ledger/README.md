@@ -15,7 +15,7 @@ import { fold, validate, upcast, newId, now, demoEvents, LEDGER_VERSION } from '
 |---|---|
 | `LEDGER_VERSION` | `1`. Every event carries `v`; a ledger with events newer than this throws `LedgerTooNew` from `upcast`/`fold`. |
 | `validate(event, foldState?) → { ok, errors }` | Envelope (`type`, `v`, `at` ISO, `actor` pattern, `payload` object, `item` for item events), required payload paths per type, `accepted.kind` enum, `config_set.key` shape, actor rules. With a fold state: the item exists (and is not captured twice), `project` / `owner` / `program` / `sponsor` name known ids (or are null), entities are not created twice. Writers call this at the door; a failed event is never appended. |
-| `fold(events) → S` | The whole system from the log. Runs `upcast` first. Skips unknown types (never throws on data). Pure and deterministic; ~2 ms for the demo's ~1,300 events. |
+| `fold(events, { today? }) → S` | The whole system from the log. Runs `upcast` first. Skips unknown types (never throws on data). Pure and deterministic; ~2 ms for the demo's ~1,300 events. `today` (a Date) anchors the calendar projections; default: now. Output is plain objects and arrays only — no Maps — so `GET /api/state` can serialize it as is. |
 | `upcast(events, { migrations?, version? })` | Brings every event to `LEDGER_VERSION` by running `migrations/` in order (`v1.js` = v0 → v1 identity stamp). Returns the same array when nothing changed. |
 | `newId(prefix)` | Time-sortable unique id: `i_01J…` style (10 chars ms time, 2 chars counter, 6 random; Crockford base32). Prefixes: `i_` items, `p_` programs, `j_` projects, `u_` people, `r_` runs, `e_` events. |
 | `now()` | ISO timestamp for `at`. |
@@ -41,7 +41,18 @@ import { fold, validate, upcast, newId, now, demoEvents, LEDGER_VERSION } from '
   wiki:     { [programId]: { page, compiled:Date|null, health, status, links:[[label,url]], milestones:[[label,what,state,iso]], decisions:[{on,what,who,why,status,projects}], pending:[], risks:[{what,level,owner,projects}], words, pages:{page:words} } },
   config:   { autonomy:{cap:level}, models:{job:{provider,model,effort?}}, prompts:{job:text}, progColor:{program:slot} }   // starts from DEFAULT_CONFIG
   runs:     [{ run, job, item, actor, startedAt, status:'running'|'finished'|'failed', finishedAt?, summary?, error?, args? }],
+  deliverables: [{ key:'meeting:<id>', for:{kind,id}, status:'ready'|'approved'|'taken', deliverable, actor, cap, readyAt, effect, approvedAt?, takenAt? }],   // `delivered` events with `for` instead of `item`
+  calendar: null | { window:{from,to}, source, syncedAt, events:[{ id, title, start:Date, end:Date, attendees, who:[personId], calendar, location?, allDay? }] },
+  calendarWindow: {from,to}|null,
+  meetings:      null | [{ id, time:'HH:MM', dur, title, who:[personId], projects:[], decisions:[], location?, allDay }],   // today's, from the latest calendar_synced
+  calendarAhead: null | [{ id, on:Date, time, title, who }],
+  pastMeetings:  null | [{ id, on:Date, title, who, captured }],   // captured = items whose `ref` is cal:event/<id>
   lastReview: Date|null, reviews: n, migrations: [] }
+```
+
+When `meetings` / `calendarAhead` / `pastMeetings` are `null` no calendar has been synced; the front-end store falls back to its fixture constants. Projects also carry `proposed` (the latest `next_action_proposed`: `{ next, ctx?, min?, why, at, actor }`) and people carry `channels.email: string[]`.
+
+```
 ```
 
 Item shape (what the views consume; every date is a `Date`):
@@ -55,7 +66,9 @@ Fold rules of note:
 - `done`/`undone`, `trashed`/`restored`, `parked`/`promoted`, `dropped` move `kind`; `prevKind` remembers the kind before. `restored` puts the item back in the inbox with a default proposal if it has none.
 - `nudged` → `nudges + 1`, `lastNudged = at`, `followUp = payload.followUp ?? at + 5 d`.
 - `handed_off` → `owner:'ai'`, `del.status:'queued'`; a `job_started` event that names the item on its envelope → `del.status:'working'` (`args.progress` optional); `delivered` → `ready`; `approved` → `approved` + kind `done`; `taken_back` clears `owner`/`del`.
-- `next_action_set { project }` → `project.primary = item` (works for program ids too).
+- `next_action_set { project }` → `project.primary = item` (works for program ids too). `next_action_proposed { project, proposal }` → `project.proposed` (latest wins; cleared by nothing — the UI prefers it over `suggest` until a human adds an action).
+- `delivered` / `approved` / `taken_back` without `item` but with `payload.for:{ kind:'meeting'|'status'|'review'|'wiki', id? }` maintain `S.deliverables` (keyed `kind:id`) instead of an item's `del`.
+- `calendar_synced` replaces `S.calendar` wholesale (a later sync wins) and derives `meetings` (today), `calendarAhead`, `pastMeetings`, `calendarWindow`.
 - `resurfaced { for }`: someday/reference with a `revisit` comes back to the inbox as a tickler (`source:'tickler'`, `wasKind`, `tickledFor`, generated `p`); an action with a `start` gets `resurfacedAt = at`. `resurfacedFor` lists every date that has fired, so the caller can avoid firing twice.
 - `program_created` stubs `wiki[id]` (`payload.program.page` sets the hub slug, else `program-<slug(name)>`); `wiki_changed` adds `words` to the page and its program (`payload.program`, else matched by page prefix) and merges optional `payload.fields` into the wiki entry (`compiled:true` → `at`). `milestone_added` / `decision_recorded` append. Reference items filed under a program are added to its `links` (derived).
 - `config_set { key:'autonomy.file', value }` writes `config.autonomy.file`; `value:null` deletes.
@@ -64,7 +77,7 @@ Fold rules of note:
 
 ### Actor rules (`ACTOR_RULES`)
 
-`jeff` and `system` may write anything. `ai:*` may write only `captured, clarified, delivered, wiki_changed, job_started, job_finished, job_failed, milestone_added, decision_recorded`. `ingest:*` may write `captured` and `job_*`.
+`jeff` and `system` may write anything. `ai:*` may write only `captured, clarified, delivered, next_action_proposed, wiki_changed, job_started, job_finished, job_failed, milestone_added, decision_recorded`. `ingest:*` may write `captured`, `calendar_synced` and `job_*`.
 
 ## Layout
 

@@ -5,6 +5,10 @@
 import { upcast } from './upcast.js';
 import { DEFAULT_CONFIG, LEDGER_VERSION } from './schema.js';
 
+const forKey = (f) => f ? `${f.kind}:${f.id ?? ''}` : null;
+const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
 const DAY = 864e5;
 const DATE_FIELDS = ['captured', 'due', 'hard', 'start', 'revisit', 'since', 'followUp', 'lastNudged', 'createdAt', 'doneAt', 'trashedAt', 'movedAt', 'resurfacedAt', 'filedAt', 'lastTouched', 'created', 'retired', 'compiled', 'at', 'readyAt'];
 const isDateField = new Set(DATE_FIELDS);
@@ -32,12 +36,14 @@ export const defaultProposal = (it) => ({ kind: 'action', next: it.raw, project:
 
 /**
  * @param {object[]} input  events (any version; upcast runs first), in writer order
+ * @param {object} [opts]   { today } — the day the calendar fold treats as "today" (default: now)
  * @returns {{ v:number, seq:number, programs:object[], projects:object[], people:object[], items:object[], wiki:object, config:object, runs:object[], lastReview:Date|null, reviews:number, migrations:object[], count:number }}
  */
-export function fold(input) {
+export function fold(input, { today } = {}) {
   const events = upcast(input);
   const P = new Map(), J = new Map(), U = new Map(), I = new Map(), R = new Map();
-  const S = { v: LEDGER_VERSION, seq: 0, programs: [], projects: [], people: [], items: [], wiki: {}, config: clone(DEFAULT_CONFIG), runs: [], lastReview: null, reviews: 0, migrations: [], count: events.length };
+  const S = { v: LEDGER_VERSION, seq: 0, programs: [], projects: [], people: [], items: [], wiki: {}, config: clone(DEFAULT_CONFIG), runs: [], deliverables: [], calendar: null, calendarWindow: null, meetings: null, calendarAhead: null, pastMeetings: null, lastReview: null, reviews: 0, migrations: [], count: events.length };
+  const D = new Map();                                                          // deliverables keyed by `for`
   const touch = (pid, at) => { const j = J.get(pid) || P.get(pid); if (j && (!j.lastMove || j.lastMove < at)) j.lastMove = at; };
   const wikiOfPage = (page) => { for (const g of P.values()) { const w = S.wiki[g.id]; if (w && (page === w.page || page.startsWith(w.page + '-'))) return w; } return null; };
 
@@ -51,7 +57,7 @@ export function fold(input) {
       case 'program_retired': { const g = P.get(p.id); if (g) g.retired = at; break; }
       case 'project_created': { if (J.has(p.project.id)) break; const j = Object.assign({ suggest: '' }, dated(p.project), { created: at, dropped: false, primary: null, lastMove: null }); J.set(j.id, j); break; }
       case 'project_updated': { const j = J.get(p.id); if (j) Object.assign(j, dated(p.fields || {})); break; }
-      case 'person_created': { if (U.has(p.person.id)) break; const u = Object.assign({ role: '', agenda: [] }, dated(p.person)); U.set(u.id, u); break; }
+      case 'person_created': { if (U.has(p.person.id)) break; const u = Object.assign({ role: '', agenda: [], channels: {} }, dated(p.person)); if (!u.channels.email) u.channels.email = []; U.set(u.id, u); break; }
       case 'person_updated': { const u = U.get(p.id); if (u) Object.assign(u, dated(p.fields || {})); break; }
 
       case 'captured': {
@@ -85,10 +91,24 @@ export function fold(input) {
       case 'dropped': { if (!it) break; it.prevKind = it.kind; it.kind = 'trash'; it.trashedAt = at; break; }
       case 'nudged': { if (!it) break; it.nudges = (it.nudges || 0) + 1; it.lastNudged = at; it.followUp = toDate(p.followUp) || plus(at, 5); if (p.text) it.lastNudge = p.text; if (it.project) touch(it.project, at); break; }
       case 'handed_off': { if (!it) break; it.owner = 'ai'; it.cap = p.cap; it.del = { status: 'queued', at, minutes: p.minutes ?? it.min ?? 20, progress: 0, effect: p.effect, what: p.what }; if (it.project) touch(it.project, at); break; }
-      case 'delivered': { if (!it || !it.del) break; it.del.status = 'ready'; it.del.readyAt = at; it.del.progress = 1; it.del.deliverable = p.deliverable; if (it.project) touch(it.project, at); break; }
-      case 'approved': { if (!it) break; if (it.del) { it.del.status = 'approved'; if (p.deliverable != null) it.del.deliverable = p.deliverable; if (p.effect) it.del.effect = p.effect; } it.prevKind = it.kind; it.kind = 'done'; it.doneAt = at; if (it.project) touch(it.project, at); break; }
-      case 'taken_back': { if (!it) break; delete it.owner; delete it.del; delete it.cap; if (!it.ctx) it.ctx = '@quick'; if (it.project) touch(it.project, at); break; }
+      case 'delivered': {
+        if (!e.item && p.for) { const k = forKey(p.for); D.set(k, { key: k, for: clone(p.for), status: 'ready', deliverable: p.deliverable, actor: e.actor, cap: e.actor.startsWith('ai:') ? e.actor.slice(3) : 'draft', readyAt: at, effect: p.effect || 'Nothing is sent — a draft for your review' }); break; }
+        if (!it || !it.del) break; it.del.status = 'ready'; it.del.readyAt = at; it.del.progress = 1; it.del.deliverable = p.deliverable; if (p.for) it.del.for = clone(p.for); if (it.project) touch(it.project, at); break;
+      }
+      case 'approved': {
+        if (!e.item && p.for) { const dl = D.get(forKey(p.for)); if (dl) { dl.status = 'approved'; dl.approvedAt = at; if (p.deliverable != null) dl.deliverable = p.deliverable; if (p.effect) dl.effect = p.effect; } break; }
+        if (!it) break; if (it.del) { it.del.status = 'approved'; if (p.deliverable != null) it.del.deliverable = p.deliverable; if (p.effect) it.del.effect = p.effect; } it.prevKind = it.kind; it.kind = 'done'; it.doneAt = at; if (it.project) touch(it.project, at); break;
+      }
+      case 'taken_back': {
+        if (!e.item && p.for) { const dl = D.get(forKey(p.for)); if (dl) { dl.status = 'taken'; dl.takenAt = at; } break; }
+        if (!it) break; delete it.owner; delete it.del; delete it.cap; if (!it.ctx) it.ctx = '@quick'; if (it.project) touch(it.project, at); break;
+      }
       case 'next_action_set': { const j = J.get(p.project) || P.get(p.project); if (j && e.item) j.primary = e.item; break; }
+      case 'next_action_proposed': { const j = J.get(p.project) || P.get(p.project); if (j) j.proposed = Object.assign({ at, actor: e.actor }, clone(p.proposal)); break; }
+      case 'calendar_synced': {
+        S.calendar = { window: { from: toDate(p.window.from), to: toDate(p.window.to) }, source: p.source, syncedAt: at, events: (p.events || []).map(x => Object.assign({}, clone(x), { start: toDate(x.start), end: toDate(x.end) })) };
+        break;
+      }
       case 'resurfaced': {
         if (!it) break;
         (it.resurfacedFor ||= []).push(p.for);
@@ -127,7 +147,16 @@ export function fold(input) {
     }
   }
 
-  S.programs = [...P.values()]; S.projects = [...J.values()]; S.people = [...U.values()]; S.items = [...I.values()]; S.runs = [...R.values()];
+  S.programs = [...P.values()]; S.projects = [...J.values()]; S.people = [...U.values()]; S.items = [...I.values()]; S.runs = [...R.values()]; S.deliverables = [...D.values()];
+  /* Calendar projections from the latest sync: today's meetings, the days ahead, last week's meetings with how many items were captured from each. */
+  if (S.calendar) {
+    const now = today ? new Date(today) : new Date(), start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const capturedFrom = (id) => S.items.filter(i => i.ref === 'cal:event/' + id).length;
+    S.calendarWindow = S.calendar.window;
+    S.meetings = S.calendar.events.filter(x => x.start && sameDay(x.start, start)).sort((a, b) => a.start - b.start).map(x => ({ id: x.id, time: hhmm(x.start), dur: x.end && x.start ? Math.round((x.end - x.start) / 6e4) : 30, title: x.title, who: x.who || [], projects: [], decisions: [], location: x.location, allDay: !!x.allDay }));
+    S.calendarAhead = S.calendar.events.filter(x => x.start && x.start >= start && !sameDay(x.start, start)).sort((a, b) => a.start - b.start).map(x => ({ id: x.id, on: x.start, time: hhmm(x.start), title: x.title, who: x.who || [] }));
+    S.pastMeetings = S.calendar.events.filter(x => x.start && x.start < start).sort((a, b) => a.start - b.start).map(x => ({ id: x.id, on: x.start, title: x.title, who: x.who || [], captured: capturedFrom(x.id) }));
+  }
   /* Reference items filed under a program appear in that program's key links (derived, like today's linkReferences). */
   for (const it of S.items) if (it.kind === 'reference' && S.wiki[it.refPage] && !S.wiki[it.refPage].links.some(l => l[0] === it.next)) S.wiki[it.refPage].links.push([it.next, '']);
   return S;

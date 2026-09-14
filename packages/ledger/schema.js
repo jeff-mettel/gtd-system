@@ -27,10 +27,11 @@ export const SPEC = {
   dropped:           { item: true, required: [] },
   nudged:            { item: true, required: ['text'] },
   handed_off:        { item: true, required: ['cap', 'what', 'effect'] },
-  delivered:         { item: true, required: ['deliverable'] },
-  approved:          { item: true, required: ['effect'] },
-  taken_back:        { item: true, required: [] },
+  delivered:         { item: 'or-for', required: ['deliverable'] },
+  approved:          { item: 'or-for', required: ['effect'] },
+  taken_back:        { item: 'or-for', required: [] },
   next_action_set:   { item: true, required: ['project'] },
+  next_action_proposed: { required: ['project', 'proposal.next', 'proposal.why'] },
   resurfaced:        { item: true, required: ['for'] },
   // knowledge and system
   milestone_added:   { required: ['program', 'milestone.label', 'milestone.what', 'milestone.state'] },
@@ -41,6 +42,7 @@ export const SPEC = {
   job_started:       { required: ['job', 'run'] },
   job_finished:      { required: ['job', 'run'] },
   job_failed:        { required: ['job', 'run', 'error'] },
+  calendar_synced:   { required: ['window.from', 'window.to', 'events', 'source'] },
   migrated:          { required: ['from', 'to'] },
 };
 
@@ -53,11 +55,14 @@ export const ACCEPT_KINDS = Object.freeze(['action', 'waiting', 'someday', 'refe
 export const ACTOR_RULES = Object.freeze({
   jeff: null,
   system: null,
-  ai: Object.freeze(['captured', 'clarified', 'delivered', 'wiki_changed', 'job_started', 'job_finished', 'job_failed', 'milestone_added', 'decision_recorded']),
-  ingest: Object.freeze(['captured', 'job_started', 'job_finished', 'job_failed']),
+  ai: Object.freeze(['captured', 'clarified', 'delivered', 'next_action_proposed', 'wiki_changed', 'job_started', 'job_finished', 'job_failed', 'milestone_added', 'decision_recorded']),
+  ingest: Object.freeze(['captured', 'calendar_synced', 'job_started', 'job_finished', 'job_failed']),
 });
 
 export const ACTOR_RE = /^(jeff|system|ai:[\w.-]+|ingest:[\w.-]+)$/;
+
+/** Targets a `delivered` (and `approved` / `taken_back`) may name instead of an item. */
+export const FOR_KINDS = Object.freeze(['meeting', 'status', 'review', 'wiki']);
 
 /** Config keys `config_set` accepts, by prefix. */
 export const CONFIG_KEY_RE = /^(autonomy|models|prompts|progColor)\.[\w.-]+$/;
@@ -100,7 +105,10 @@ export function validate(e, foldState = null) {
   if (!spec || errors.length) return { ok: false, errors };
 
   const p = e.payload;
-  if (spec.item && !e.item) errors.push(`${e.type} needs an item`);
+  if (spec.item === true && !e.item) errors.push(`${e.type} needs an item`);
+  if (spec.item === 'or-for' && !e.item && !(p.for && typeof p.for === 'object' && FOR_KINDS.includes(p.for.kind))) errors.push(`${e.type} needs an item, or payload.for:{ kind:${FOR_KINDS.join('|')}, id? }`);
+  if (e.type === 'calendar_synced' && !Array.isArray(p.events)) errors.push('calendar_synced.events must be an array');
+  if (e.type === 'calendar_synced' && Array.isArray(p.events) && p.events.some(x => !x || typeof x.id !== 'string' || typeof x.title !== 'string' || !x.start)) errors.push('calendar_synced.events entries need id, title, start');
   for (const f of spec.required) if (get(p, f) === undefined || get(p, f) === null) errors.push(`payload.${f} is required for ${e.type}`);
   if (e.type === 'accepted' && p.kind != null && !ACCEPT_KINDS.includes(p.kind)) errors.push(`accepted.kind must be one of ${ACCEPT_KINDS.join(', ')} (got ${p.kind})`);
   if (e.type === 'config_set' && typeof p.key === 'string' && !CONFIG_KEY_RE.test(p.key)) errors.push(`config_set.key must look like autonomy.<cap>, models.<job>, prompts.<job> or progColor.<program> (got ${p.key})`);
@@ -115,7 +123,7 @@ export function validate(e, foldState = null) {
     const projectRef = (v, where) => { if (v == null || v === '') return; if (!projects.has(v) && !programs.has(v)) errors.push(`${where} names an unknown project or program: ${v}`); };
     const programRef = (v, where) => { if (v == null) return; if (!programs.has(v)) errors.push(`${where} names an unknown program: ${v}`); };
     const ownerRef = (v, where) => { if (v == null || v === '' || v === 'ai') return; if (!people.has(v)) errors.push(`${where} names an unknown person: ${v}`); };
-    if (spec.item) {
+    if (spec.item && e.item) {
       if (e.type === 'captured') { if (items.has(e.item)) errors.push(`item ${e.item} already exists`); }
       else if (!items.has(e.item)) errors.push(`unknown item: ${e.item}`);
     }
@@ -129,7 +137,8 @@ export function validate(e, foldState = null) {
       case 'captured': ownerRef(p.from, 'from'); break;
       case 'clarified': projectRef(p.proposal.project, 'proposal.project'); ownerRef(p.proposal.owner, 'proposal.owner'); break;
       case 'accepted': case 'edited': if (p.fields) { projectRef(p.fields.project, 'fields.project'); ownerRef(p.fields.owner, 'fields.owner'); } break;
-      case 'next_action_set': projectRef(p.project, 'project'); break;
+      case 'next_action_set': case 'next_action_proposed': projectRef(p.project, 'project'); break;
+      case 'calendar_synced': for (const x of p.events || []) for (const w of x.who || []) ownerRef(w, `events[${x.id}].who`); break;
       case 'milestone_added': case 'decision_recorded': programRef(p.program, 'program'); break;
       case 'wiki_changed': programRef(p.program, 'program'); if (p.item && !items.has(p.item)) errors.push(`unknown item: ${p.item}`); break;
       case 'config_set': if (typeof p.key === 'string' && p.key.startsWith('progColor.')) programRef(p.key.slice('progColor.'.length), 'key'); break;
