@@ -55,6 +55,18 @@ export class LedgerError extends Error { constructor(errors) { super(errors.join
  * Append one event. Validates against the current fold; throws LedgerError when rejected. Returns the event.
  * `captured` with a `ref` already in the ledger is a no-op that returns the existing capture event.
  */
+/* Server mode only: ask the server to run a Claude job (clarify, nudge, prep, suggest, review, compile, ingest-calendar).
+   The job writes its own events through the gtd CLI; the poll picks them up. Local mode has no jobs — callers simulate. */
+export async function runJob(job, args = {}) {
+  if (ledger.mode !== 'server') return null;
+  const r = await fetch(ledger.serverUrl + '/api/jobs/' + job, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ args }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || j.errors?.join('; ') || `server said ${r.status}`);
+  return j.run;
+}
+export const activeRuns = () => (S.runs || []).filter(r => r.status === 'running' || r.status === 'queued');
+export const isServer = () => ledger.mode === 'server';
+
 export function commit(type, payload = {}, { item, actor = 'jeff', at } = {}) {
   if (type === 'captured' && payload.ref) { const dup = ledger.events.find(e => e.type === 'captured' && e.payload?.ref === payload.ref); if (dup) return dup; }
   const e = { seq: ledger.seq + 1, id: newId('e'), v: LEDGER_VERSION, at: at || clock(), actor, type, payload: plain(payload) };

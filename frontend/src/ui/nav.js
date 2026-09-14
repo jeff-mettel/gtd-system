@@ -4,7 +4,7 @@ import { days, until } from '../lib/dates.js';
 import { $ } from '../lib/dom.js';
 import { by, delegated, projHealth } from '../model.js';
 import { prefs } from '../prefs.js';
-import { lastReview, ledger, programs, projects } from '../store.js';
+import { activeRuns, lastReview, ledger, programs, projects } from '../store.js';
 import { openDrawer } from './drawer.js';
 
 /* ---------- nav & health ---------- */
@@ -90,7 +90,7 @@ export function renderNav() {
     `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
     `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');
   const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lrd = lastReview(), lr = lrd ? days(lrd) : null;
-  $('#healthbar').innerHTML = `<a href="#inbox" class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></a><a href="#waiting" class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></a><a href="#programs" class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></a><a href="#review" class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr == null ? '—' : lr + 'd'}</b></a><a href="#delegated" class="ai">AI for review <b>${delegated('ready').length}</b></a>`;
+  $('#healthbar').innerHTML = `<a href="#inbox" class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></a><a href="#waiting" class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></a><a href="#programs" class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></a><a href="#review" class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr == null ? '—' : lr + 'd'}</b></a><a href="#delegated" class="ai">AI for review <b>${delegated('ready').length}</b></a>${activeRuns().length ? `<span class="ai working" title="${activeRuns().map(r => r.job).join(', ')}">AI working <b>${activeRuns().length}</b></span>` : ''}`;
 }
 
 export function navLink(v, cur) {

@@ -11,7 +11,7 @@ import { TODAY, d, fmtDate, until } from './lib/dates.js';
 import { $, esc, toast } from './lib/dom.js';
 import { by, mine, person, pname, projName, projOf } from './model.js';
 import { prefs, savePrefs, resetPrefs } from './prefs.js';
-import { commit, deliverables, items, ledger, programs, resetLocal, tick, wiki, withTx } from './store.js';
+import { activeRuns, commit, deliverables, isServer, items, ledger, programs, resetLocal, runJob, tick, wiki, withTx } from './store.js';
 import { closeDrawer, openDrawer } from './ui/drawer.js';
 import { actionRow } from './ui/fragments.js';
 import { guideBox, guideDrawer, icons, renderNav, views } from './ui/nav.js';
@@ -124,15 +124,23 @@ function moveItem(id, pid) {
 export function capture({ source = 'capture', raw, from = null, image, mentions, proposal }) {
   const id = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   commit('captured', { source, raw, from, image, mentions }, { item: id });
-  if (proposal) commit('clarified', { proposal }, { item: id, actor:'ai:clarify' });
+  if (isServer()) requestClarify();                                            // the real clarify job, via the server
+  else if (proposal) commit('clarified', { proposal }, { item: id, actor:'ai:clarify' });   // local stand-in
   return id;
+}
+/* Ask the server to run clarify shortly after a burst of captures (one job for the whole inbox). */
+let clarifyTimer = null;
+export function requestClarify({ now = false } = {}) {
+  clearTimeout(clarifyTimer);
+  const go = () => runJob('clarify').then(r => { if (r) toast('Clarifying with AI…'); renderNav(); }).catch(e => toast('Clarify did not start: ' + e.message));
+  if (now) go(); else clarifyTimer = setTimeout(go, 2500);
 }
 
 /* Every click that changes the ledger gets an Undo on its toast: the transaction collects the events, Undo commits their compensations. */
 document.addEventListener('click', (e) => withTx(() => onClick(e)));
 
 function onClick(e) {
-  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-colorpick],[data-promptreset],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset],[data-data],[data-approvefor],[data-takebackfor]');
+  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-colorpick],[data-promptreset],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-runjob],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset],[data-data],[data-approvefor],[data-takebackfor]');
   if (!t) return;
   /* Project rows carry data-drop as a drag target, not as the "Drop" action: a click that bubbles up to one is not a command. */
   if (t.tagName === 'TR' && 'drop' in t.dataset) return;
@@ -153,6 +161,7 @@ function onClick(e) {
   else if (ds.wiki) wikiDrawer(ds.wiki);
   else if (ds.addmilestone) { const gid = ds.addmilestone, what = $('#msWhat').value.trim(), dv = $('#msDate').value, st = $('#msState').value, err = $('#npErr'); if (!what) { err.textContent = 'Say what the milestone is.'; $('#msWhat').focus(); return; } if (!dv) { err.textContent = 'Give it a date — a milestone without one is a hope.'; $('#msDate').focus(); return; } const label = new Date(dv + 'T08:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' }); commit('milestone_added', { program: gid, milestone:{ label, what, state: st, iso: dv } }); toast(`Milestone added to wiki/${wiki[gid].page}.md`); wikiDrawer(gid); }
   else if ('guide' in ds) guideDrawer();
+  else if (ds.runjob) { if (ds.runjob === 'clarify') requestClarify({ now: true }); else runJob(ds.runjob, ds.jobargs ? JSON.parse(ds.jobargs) : {}).then(() => { toast(`${ds.runjob} started`); renderNav(); }).catch(e => toast(`${ds.runjob} did not start: ${e.message}`)); }
   else if ('ftime' in ds) { ui.nowTime = +ds.ftime; render(); }
   else if (ds.item) itemDrawer(ds.item);
   else if ('duelist' in ds) { const list = mine().filter(a => a.due && until(a.due) <= 1).sort((a, b) => a.due - b.due); openDrawer('Due by tomorrow', list.length ? `<div class="panel"><div class="pb">${list.map(actionRow).join('')}</div></div><div class="note">Soft due dates — deadlines, not calendar pins. Click an item to open it, tick to mark done.</div>` : '<div class="empty">Nothing due by tomorrow.</div>', '<button class="btn" data-close>Close</button>'); }

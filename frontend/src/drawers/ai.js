@@ -5,7 +5,7 @@ import { autonomyLabel, capLabel } from '../data/constants.js';
 import { fmtDate } from '../lib/dates.js';
 import { esc, toast } from '../lib/dom.js';
 import { projName } from '../model.js';
-import { commit, config, items } from '../store.js';
+import { commit, config, isServer, items, runJob } from '../store.js';
 import { openDrawer } from '../ui/drawer.js';
 
 const EFFECT = { calendar:'Sends 1 calendar invite', data:'Updates the ledger; nothing is sent', wiki:'Updates the program wiki pages', draft:'Nothing is sent — a draft for your review' };
@@ -14,7 +14,14 @@ export function handOff(id, cap, what, effect) {
   const a = items.find(i => i.id === id); if (!a) return;
   cap = cap || 'draft';
   commit('handed_off', { cap, what: what || a.next, effect: effect || EFFECT[cap] || EFFECT.draft, minutes: a.min || 20 }, { item: id });
-  /* Simulated delivery. In the live system the server's job runner writes these two events. */
+  if (isServer()) {
+    /* Live: a waiting-for goes to the nudge job; other hand-offs have no live job yet — say so honestly. */
+    const job = a.kind === 'waiting' ? 'nudge' : null;
+    if (job) runJob(job, { item: id }).then(() => toast(`AI drafting (${job})…`)).catch(e => toast(`AI job did not start: ${e.message}`));
+    else toast('Handed off — no live job for this kind of work yet; it stays queued for you to take back.');
+    return;
+  }
+  /* Simulated delivery (local demo). In the live system the server's job runner writes these two events. */
   setTimeout(() => {
     const x = items.find(i => i.id === id); if (!x?.del || x.del.status !== 'queued') return;
     const run = 'r_' + Date.now().toString(36);
