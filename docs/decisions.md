@@ -2,6 +2,16 @@
 
 Newest first. One line per decision, with the reason. Add to this as we go.
 
+## 2026-09-14
+
+- **Speed pass adopted.** Goal: the system fades into the background. (1) Global capture
+  overlay on ⌘K / `/`, optimistic filing when the capture names a project, AI proposal as
+  a suggested correction rather than a gate. (2) One keyboard grammar on every list
+  (j/k/⏎/x/d/p/n/m/Esc) and a ⌘P command palette. (3) SSE from the server and a cached
+  fold for instant paint. (4) Engage trimmed to "needs me now" + next actions. (5) One
+  "when" per row with one fuzzy editor. (6) Prep and nudge jobs run ahead of need.
+  (7) Quiet footer status; instruction cards off by default in live mode.
+
 ## 2026-09-13
 
 - **Beta foundation built.** `packages/ledger` is the contract's implementation; the
