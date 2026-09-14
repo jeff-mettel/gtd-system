@@ -1,6 +1,6 @@
 // Prep brief, nudge draft, 1:1 agenda.
 
-import { items, meetings, wiki } from '../data/example.js';
+import { items, meetings, wiki } from '../store.js';
 import { days, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { by, msDate, person, pname, projHealth, projOf } from '../model.js';

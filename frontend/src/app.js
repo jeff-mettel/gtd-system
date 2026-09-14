@@ -1,20 +1,21 @@
-// Render loop, routing and event delegation.
+// Render loop, routing and event delegation. Every mutation is a ledger event: commit(type, payload, { item }).
 
-import { autonomyLabel, capLabel, items, programs, projects, wiki } from './data/example.js';
+import { autonomyLabel, capLabel } from './data/constants.js';
 import { handOff, reviewDrawer } from './drawers/ai.js';
 import { itemDrawer } from './drawers/item.js';
 import { agendaDrawer, nudgeDraft, prepBrief } from './drawers/people.js';
 import { addProgramDrawer, addProjectDrawer, createProgram, projectDrawer, retireDrawer, wikiDrawer } from './drawers/project.js';
 import { statusDraft } from './drawers/status.js';
 import { Replay } from './replay/index.js';
-import { TODAY, d, fmtDate, iso, until } from './lib/dates.js';
-import { $, esc, offerUndo, toast } from './lib/dom.js';
+import { TODAY, d, fmtDate, until } from './lib/dates.js';
+import { $, esc, toast } from './lib/dom.js';
 import { by, mine, person, pname, projName, projOf } from './model.js';
-import { STORE, save, state } from './state.js';
+import { prefs, savePrefs, resetPrefs } from './prefs.js';
+import { commit, deliverables, items, ledger, programs, resetLocal, tick, wiki, withTx } from './store.js';
 import { closeDrawer, openDrawer } from './ui/drawer.js';
 import { actionRow } from './ui/fragments.js';
 import { guideBox, guideDrawer, icons, renderNav, views } from './ui/nav.js';
-import { ui } from './ui/session.js';
+import { proposalOf, ui } from './ui/session.js';
 import { viewDelegated } from './views/delegated.js';
 import { viewFlow } from './views/flow.js';
 import { viewInbox } from './views/inbox.js';
@@ -23,7 +24,7 @@ import { viewPeople } from './views/people.js';
 import { viewPrograms } from './views/programs.js';
 import { viewReference } from './views/reference.js';
 import { viewReview } from './views/review.js';
-import { DEFAULT_PROMPTS, PROVIDERS, viewSettings } from './views/settings.js';
+import { DEFAULT_PROMPTS, PROVIDERS, dataActions, modelOf, viewSettings } from './views/settings.js';
 import { viewSomeday } from './views/someday.js';
 import { viewWaiting } from './views/waiting.js';
 import { colorPopover } from './views/programs.js';
@@ -32,7 +33,6 @@ import { initAutocomplete, parseMentions } from './features/autocomplete.js';
 import { initFuzzyInputs } from './features/fuzzyinput.js';
 import { inboxTab, kgKeys } from './features/inboxkeys.js';
 import { completeItem, doneToast, uncompleteItem } from './features/repeat.js';
-import { resurfaceDue } from './state.js';
 /* engage batch */
 import { isDeferred } from './features/defer.js';
 import { initPaste } from './features/paste.js';
@@ -40,7 +40,7 @@ import { initPaste } from './features/paste.js';
 /* ---------- render & events ---------- */
 let lastView = null;
 export function render() {
-  resurfaceDue();
+  tick();                                                      // ticklers and deferred starts whose day has come become events
   const cur = location.hash.slice(1) || 'now';
   const v = { now:viewNow, inbox:viewInbox, programs:viewPrograms, waiting:viewWaiting, delegated:viewDelegated, someday:viewSomeday, reference:viewReference, people:viewPeople, review:viewReview, flow:viewFlow, settings:viewSettings }[cur] || viewNow;
   /* Scroll to the top only when the view changed; a filter click or a value change re-renders in place. */
@@ -53,41 +53,57 @@ export function render() {
   lastView = cur;
 }
 
+const dateOf = (sel) => { const v = $(sel)?.value; return v ? new Date(v + 'T08:00:00') : null; };
+
+/** Add an action straight to a project (quick intake, first actions, review). Returns the new item id. */
+export function addAction(fields, { source = 'capture', primary = false } = {}) {
+  const id = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  commit('captured', { source, raw: fields.next }, { item: id });
+  commit('accepted', { kind: 'action', fields: Object.assign({ ctx: (fields.min || 30) <= 15 ? '@quick' : '@deep', min: 30 }, fields) }, { item: id });
+  if (primary && fields.project) commit('next_action_set', { project: fields.project }, { item: id });
+  return id;
+}
+
 export function acceptCurrent(overrideKind) {
   const it = items.find(i => i.id === ui.sel); if (!it) return;
-  const kind = overrideKind || it.p.kind;
-  const next = $('#pNext')?.value.trim() || it.p.next;
-  if (kind === 'trash') { it.kind = 'trash'; it.trashedAt = TODAY; state.kinds[it.id] = 'trash'; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { trashedAt:TODAY }); }
-  else if (kind === 'done') { it.next = next; it.project = $('#pProj')?.value || it.p.project || null; it.kind = 'done'; it.doneAt = TODAY; it.createdAt = TODAY; it.min = Math.min(it.p.min || 2, 2); state.kinds[it.id] = 'done'; state.done[it.id] = true; state.overrides[it.id] = { next:it.next, project:it.project, doneAt:TODAY, createdAt:TODAY, min:it.min }; }
+  const p = proposalOf(it), kind = overrideKind || p.kind;
+  const next = $('#pNext')?.value.trim() || p.next;
+  const labels = { action:'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', done:'Done — two-minute rule; movement logged', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
+  let handed = false, deferredUntil = null;
+  if (kind === 'trash') commit('accepted', { kind:'trash', fields:{ next } }, { item: it.id });
+  else if (kind === 'done') commit('accepted', { kind:'done', fields:{ next, project: $('#pProj')?.value || p.project || null, min: Math.min(p.min || 2, 2) } }, { item: it.id });
   else if (kind === 'program') {
     const name = $('#pProgName')?.value.trim(), purpose = $('#pPurpose')?.value.trim();
     if (!name || !purpose) { toast('A program needs a name and a purpose'); ($('#pProgName').value ? $('#pPurpose') : $('#pProgName')).focus(); return; }
-    const g = createProgram({ name, purpose, sponsor: it.from && person(it.from) ? it.from : 'ingrid', cadence:'Status Fri' }, $('#pFirstProj')?.value.trim(), next, $('#pCtx')?.value || '@deep');
-    it.kind = 'reference'; it.project = g.id; state.kinds[it.id] = 'reference'; state.overrides[it.id] = { project:g.id };
+    const g = createProgram({ name, purpose, sponsor: it.from && person(it.from) ? it.from : (person('ingrid') ? 'ingrid' : null), cadence:'Status Fri' }, $('#pFirstProj')?.value.trim(), next, $('#pCtx')?.value || '@deep');
+    commit('accepted', { kind:'reference', fields:{ next, project: g.id, refPage: g.id } }, { item: it.id });
   }
   else {
-    it.next = next; it.project = $('#pProj')?.value || it.p.project || null;
+    let project = $('#pProj')?.value || p.project || null;
+    const fields = { next, project };
     if (kind === 'project') {
       /* The inbox creates the project itself; this item becomes its first (primary) action. */
       const name = $('#pNewProj')?.value.trim(), program = $('#pProg')?.value;
       if (!name || !program) { toast('A project needs a name and a program'); $('#pNewProj')?.focus(); return; }
-      const jid = 'JN' + Date.now();
-      const j = { id:jid, program, name, outcome:$('#pOutcome')?.value.trim() || '', health:'good', suggest:'Decide the next action once this first one is done' };
-      projects.push(j); state.projects.push(j); it.project = jid; state.primary[jid] = it.id;
+      const jid = 'j_' + Date.now().toString(36);
+      commit('project_created', { project:{ id: jid, program, name, outcome: $('#pOutcome')?.value.trim() || '', health:'good', suggest:'Decide the next action once this first one is done' } });
+      project = fields.project = jid;
     }
-    if (kind === 'action' || kind === 'project') { it.min = +($('#pMin')?.value) || it.p.min; const cv = $('#pCtx'); it.ctx = (cv ? cv.value : it.p.ctx) || ((it.min || 0) <= 15 ? '@quick' : '@deep'); const dv = $('#pDue')?.value; it.due = dv ? new Date(dv + 'T08:00:00') : it.p.due; it.repeat = $('#pRepeat')?.value || it.p.repeat || null; }
-    if (kind === 'waiting') { it.owner = $('#pOwner')?.value || it.p.owner || it.from; it.since = TODAY; const fv = $('#pFollow')?.value; it.followUp = fv ? new Date(fv + 'T08:00:00') : d(3); it.nudges = 0; }
-    if (kind === 'someday') { it.since = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; }
-    if (kind === 'reference') { it.refPage = $('#pRef')?.value || null; it.filedAt = TODAY; const rv = $('#pRevisit')?.value; it.revisit = rv ? new Date(rv + 'T08:00:00') : null; if (wiki[it.refPage] && !wiki[it.refPage].links.some(l => l[0] === next)) wiki[it.refPage].links.push([next, '']); }
-    if (kind === 'action' || kind === 'project') { it.createdAt = TODAY; const hv = $('#pHard')?.value; it.hard = hv ? new Date(hv + 'T08:00:00') : null; const sv = $('#pStart')?.value; it.start = sv ? new Date(sv + 'T08:00:00') : (it.p.start || null); delete it.resurfacedAt; }
-    if (it.wasKind) { state.resurfaced[it.id + ':' + (it.tickledFor || new Date(TODAY).toDateString())] = true; delete it.wasKind; delete it.tickledFor; }
-    if (ui.delegateOnAccept && it.p.ai && (kind === 'action' || kind === 'project')) handOff(it, it.p.ai.cap, it.p.ai.what);
-    it.kind = kind === 'project' ? 'action' : kind;
-    state.kinds[it.id] = it.kind; state.overrides[it.id] = { next:it.next, project:it.project, ctx:it.ctx, min:it.min, due:it.due, hard:it.hard, owner:it.owner, since:it.since, followUp:it.followUp, nudges:it.nudges, createdAt:it.createdAt, revisit:it.revisit, refPage:it.refPage, filedAt:it.filedAt, energy:it.energy, repeat:it.repeat, start:it.start, resurfacedAt:null };
+    if (kind === 'action' || kind === 'project') {
+      fields.min = +($('#pMin')?.value) || p.min || null; const cv = $('#pCtx'); fields.ctx = (cv ? cv.value : p.ctx) || ((fields.min || 0) <= 15 ? '@quick' : '@deep');
+      fields.due = $('#pDue') ? dateOf('#pDue') : (p.due || null); fields.repeat = $('#pRepeat')?.value || p.repeat || null;
+      fields.hard = dateOf('#pHard'); fields.start = $('#pStart') ? dateOf('#pStart') : (p.start || null); if (p.ai) fields.ai = p.ai; if (it.energy) fields.energy = it.energy;
+      if (fields.start && isDeferred({ start: fields.start })) deferredUntil = fields.start;
+    }
+    if (kind === 'waiting') { fields.owner = $('#pOwner')?.value || p.owner || it.from; fields.since = TODAY; fields.followUp = dateOf('#pFollow') || d(3); fields.nudges = 0; }
+    if (kind === 'someday') { fields.since = TODAY; fields.revisit = dateOf('#pRevisit'); }
+    if (kind === 'reference') { fields.refPage = $('#pRef')?.value || null; fields.filedAt = TODAY; fields.revisit = dateOf('#pRevisit'); }
+    commit('accepted', { kind: kind === 'project' ? 'action' : kind, fields }, { item: it.id });
+    if (kind === 'project') commit('next_action_set', { project }, { item: it.id });
+    if (ui.delegateOnAccept && p.ai && (kind === 'action' || kind === 'project')) { handOff(it.id, p.ai.cap, p.ai.what); handed = true; }
   }
-  save();
-  const labels = { action: isDeferred(it) ? `Filed as next action · deferred until ${fmtDate(it.start)}` : 'Filed as next action', waiting:'Filed as waiting for', project:'New project created with first action', program:'New program created — wiki hub page added', done:'Done — two-minute rule; movement logged', someday:'Parked in someday / maybe', reference:'Filed as reference', trash:'Trashed' };
-  toast((it.owner === 'ai' ? 'Filed and handed to AI' : labels[kind]) + ' · tagged ai-filed, confirmed by you');
+  delete ui.pkind[it.id];
+  toast((handed ? 'Filed and handed to AI' : kind === 'action' && deferredUntil ? `Filed as next action · deferred until ${fmtDate(deferredUntil)}` : labels[kind]) + ' · tagged ai-filed, confirmed by you');
   ui.delegateOnAccept = false;
   const rest = by('inbox'); ui.sel = rest[0]?.id ?? null; render();
 }
@@ -97,106 +113,110 @@ export function moveSel(dir) { const inbox = by('inbox'); const i = inbox.findIn
 /* chart tooltips */
 export const tip = $('#tip');
 
-/* Move an item into a project (or to program level). Persisted as an override; `movedAt` is the ledger event. */
+/* Move an item into a project (or to program level): an `edited` with the new project; the fold stamps movedAt. */
 function moveItem(id, pid) {
   const it = items.find(i => i.id === id), j = projOf(pid); if (!it || !j || it.project === pid) return false;
-  it.project = pid; it.movedAt = TODAY;
-  state.overrides[id] = Object.assign(state.overrides[id] || {}, { project:pid, movedAt:TODAY });
-  save(); toast(`Moved to ${j.name}`); return true;
+  commit('edited', { fields:{ project: pid } }, { item: id });
+  toast(`Moved to ${j.name}`); return true;
 }
 
-/* Every click that changes persisted state gets an Undo on its toast: snapshot before, compare after. */
-document.addEventListener('click', (e) => {
-  const before = JSON.stringify(state);
-  onClick(e);
-  if (JSON.stringify(state) !== before) offerUndo(before);
-});
+/* A capture from anywhere in the UI: `captured` then the local first-guess `clarified` (the clarify job's stand-in). */
+export function capture({ source = 'capture', raw, from = null, image, mentions, proposal }) {
+  const id = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  commit('captured', { source, raw, from, image, mentions }, { item: id });
+  if (proposal) commit('clarified', { proposal }, { item: id, actor:'ai:clarify' });
+  return id;
+}
+
+/* Every click that changes the ledger gets an Undo on its toast: the transaction collects the events, Undo commits their compensations. */
+document.addEventListener('click', (e) => withTx(() => onClick(e)));
 
 function onClick(e) {
-  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-colorpick],[data-promptreset],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset]');
+  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-colorpick],[data-promptreset],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset],[data-data],[data-approvefor],[data-takebackfor]');
   if (!t) return;
   /* Project rows carry data-drop as a drag target, not as the "Drop" action: a click that bubbles up to one is not a command. */
   if (t.tagName === 'TR' && 'drop' in t.dataset) return;
   const ds = t.dataset;
   if (ds.goflow) { Replay.preset(ds.goflow); location.hash = '#flow'; }
   else if (ds.sel) { ui.sel = ds.sel; render(); }
-  else if (ds.kind) { const it = items.find(i => i.id === ui.sel); it.p.kind = ds.kind; if (ds.kind === 'waiting' && !it.p.owner) it.p.owner = it.from || 'priya'; render(); }
+  else if (ds.kind) { const it = items.find(i => i.id === ui.sel); const o = Object.assign({}, ui.pkind[it.id], { kind: ds.kind }); if (ds.kind === 'waiting' && !(o.owner || it.p.owner)) o.owner = it.from || it.p.owner || undefined; ui.pkind[it.id] = o; render(); }
   else if ('accept' in ds) acceptCurrent();
   else if ('acceptAi' in ds) { ui.delegateOnAccept = true; acceptCurrent(); }
   else if ('skip' in ds) moveSel(1);
-  else if ('draft' in ds) { const it = items.find(i => i.id === ui.sel); openDrawer('Reply draft', `<textarea class="draft">Hi ${esc(pname(it.from) || 'there')},\n\nThanks — got it. ${it.p.kind === 'action' ? `I'll have this to you ${it.p.due ? 'by ' + fmtDate(it.p.due) : 'shortly'}.` : 'I\'ll follow up once I have what I need.'}\n\nJeff</textarea><div class="note">Two-minute rule: if the AI can do it, it drafts it. You still press send.</div>`, `<button class="btn" data-close>Discard</button><button class="btn primary" data-close>Approve and send</button>`); }
+  else if ('draft' in ds) { const it = items.find(i => i.id === ui.sel); const p = proposalOf(it); openDrawer('Reply draft', `<textarea class="draft">Hi ${esc(pname(it.from) || 'there')},\n\nThanks — got it. ${p.kind === 'action' ? `I'll have this to you ${p.due ? 'by ' + fmtDate(p.due) : 'shortly'}.` : 'I\'ll follow up once I have what I need.'}\n\nJeff</textarea><div class="note">Two-minute rule: if the AI can do it, it drafts it. You still press send.</div>`, `<button class="btn" data-close>Discard</button><button class="btn primary" data-close>Approve and send</button>`); }
   else if (ds.prep) prepBrief(+ds.prep);
   else if (ds.nudge) nudgeDraft(ds.nudge);
   else if (ds.agenda) agendaDrawer(ds.agenda);
   else if ('close' in ds) closeDrawer();
-  else if (ds.send) { state.nudged[ds.send] = (state.nudged[ds.send] || 0) + 1; const w = items.find(i => i.id === ds.send); w.nudges = (w.nudges || 0) + 1; w.followUp = d(5); w.lastNudged = TODAY; save(); closeDrawer(); toast(`Nudge sent to ${pname(w.owner)} · follow-up moved to ${fmtDate(w.followUp)}`); render(); }
+  else if (ds.send) { const w = items.find(i => i.id === ds.send); commit('nudged', { text: $('#nudgeText')?.value || '', channel:'email', followUp: d(5) }, { item: w.id }); closeDrawer(); toast(`Nudge sent to ${pname(w.owner)} · follow-up moved to ${fmtDate(d(5))}`); render(); }
   else if (ds.proj) projectDrawer(ds.proj);
   else if (ds.wiki) wikiDrawer(ds.wiki);
-  else if (ds.addmilestone) { const gid = ds.addmilestone, what = $('#msWhat').value.trim(), dv = $('#msDate').value, st = $('#msState').value, err = $('#npErr'); if (!what) { err.textContent = 'Say what the milestone is.'; $('#msWhat').focus(); return; } if (!dv) { err.textContent = 'Give it a date — a milestone without one is a hope.'; $('#msDate').focus(); return; } const label = new Date(dv + 'T08:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' }); const row = [label, what, st, dv]; wiki[gid].milestones.push(row); (state.milestones[gid] ||= []).push(row); save(); toast(`Milestone added to wiki/${wiki[gid].page}.md`); wikiDrawer(gid); }
+  else if (ds.addmilestone) { const gid = ds.addmilestone, what = $('#msWhat').value.trim(), dv = $('#msDate').value, st = $('#msState').value, err = $('#npErr'); if (!what) { err.textContent = 'Say what the milestone is.'; $('#msWhat').focus(); return; } if (!dv) { err.textContent = 'Give it a date — a milestone without one is a hope.'; $('#msDate').focus(); return; } const label = new Date(dv + 'T08:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' }); commit('milestone_added', { program: gid, milestone:{ label, what, state: st, iso: dv } }); toast(`Milestone added to wiki/${wiki[gid].page}.md`); wikiDrawer(gid); }
   else if ('guide' in ds) guideDrawer();
   else if ('ftime' in ds) { ui.nowTime = +ds.ftime; render(); }
   else if (ds.item) itemDrawer(ds.item);
   else if ('duelist' in ds) { const list = mine().filter(a => a.due && until(a.due) <= 1).sort((a, b) => a.due - b.due); openDrawer('Due by tomorrow', list.length ? `<div class="panel"><div class="pb">${list.map(actionRow).join('')}</div></div><div class="note">Soft due dates — deadlines, not calendar pins. Click an item to open it, tick to mark done.</div>` : '<div class="empty">Nothing due by tomorrow.</div>', '<button class="btn" data-close>Close</button>'); }
-  else if (ds.received) { const x = items.find(i => i.id === ds.received); x.kind = 'done'; x.doneAt = TODAY; state.done[x.id] = true; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { doneAt:TODAY }); save(); closeDrawer(); toast(`Received from ${pname(x.owner)} · done`); render(); }
-  else if (ds.markdone) { const x = items.find(i => i.id === ds.markdone); const spawned = completeItem(x); save(); closeDrawer(); toast(doneToast(spawned)); render(); }
-  else if (ds.park) { const x = items.find(i => i.id === ds.park); x.kind = 'someday'; x.since = TODAY; state.kinds[x.id] = 'someday'; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { since:TODAY }); save(); closeDrawer(); toast('Parked in someday / maybe'); render(); }
-  else if (ds.restore) { const x = items.find(i => i.id === ds.restore); x.kind = 'inbox'; x.captured = TODAY; if (!x.p) x.p = { kind:'action', next:x.next, project:null, ctx:'@quick', min:15, conf:.5, why:'Restored from trash — clarify again.' }; delete state.kinds[x.id]; save(); ui.sel = x.id; toast('Restored to inbox'); render(); }
-  else if (ds.capprep) { const [title, on] = ds.capprep.split('|'); const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'calendar', from:null, captured:TODAY, raw:`Prep for ${title} on ${fmtDate(new Date(on + 'T08:00:00'))}`, p:{ kind:'action', next:`Prepare for ${title}`, project:null, ctx:'@deep', min:30, due:new Date(on + 'T08:00:00'), conf:.65, why:'From the two-week preview. Due the day of the meeting; set the project and what "prepared" means.' } }; items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); toast('Captured — clarify it in the inbox'); render(); }
-  else if (ds.capfrom) { const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:'meeting', from:null, captured:TODAY, raw:`Follow-ups from ${ds.capfrom} (last week)`, p:{ kind:'action', next:`Write up follow-ups from ${ds.capfrom}`, project:null, ctx:'@quick', min:10, conf:.6, why:'Captured from the past-calendar sweep; no notes to read yet.' } }; items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); toast('Captured — clarify it in the inbox'); render(); }
+  else if (ds.received) { const x = items.find(i => i.id === ds.received); commit('done', {}, { item: x.id }); closeDrawer(); toast(`Received from ${pname(x.owner)} · done`); render(); }
+  else if (ds.markdone) { const x = items.find(i => i.id === ds.markdone); const spawned = completeItem(x); closeDrawer(); toast(doneToast(spawned)); render(); }
+  else if (ds.park) { commit('parked', {}, { item: ds.park }); closeDrawer(); toast('Parked in someday / maybe'); render(); }
+  else if (ds.restore) { commit('restored', {}, { item: ds.restore }); ui.sel = ds.restore; toast('Restored to inbox'); render(); }
+  else if (ds.capprep) { const [title, on] = ds.capprep.split('|'); capture({ source:'calendar', raw:`Prep for ${title} on ${fmtDate(new Date(on + 'T08:00:00'))}`, proposal:{ kind:'action', next:`Prepare for ${title}`, project:null, ctx:'@deep', min:30, due:new Date(on + 'T08:00:00'), conf:.65, why:'From the two-week preview. Due the day of the meeting; set the project and what "prepared" means.' } }); toast('Captured — clarify it in the inbox'); render(); }
+  else if (ds.capfrom) { capture({ source:'meeting', raw:`Follow-ups from ${ds.capfrom} (last week)`, proposal:{ kind:'action', next:`Write up follow-ups from ${ds.capfrom}`, project:null, ctx:'@quick', min:10, conf:.6, why:'Captured from the past-calendar sweep; no notes to read yet.' } }); toast('Captured — clarify it in the inbox'); render(); }
   else if ('fenergy' in ds) { ui.nowEnergy = ds.fenergy; render(); }
-  else if (ds.group) { state.nowGroup = ds.group; save(); render(); }
-  else if (ds.collapse) { state.collapsed[ds.collapse] = !state.collapsed[ds.collapse]; save(); render(); }
+  else if (ds.group) { prefs.nowGroup = ds.group; savePrefs(); render(); }
+  else if (ds.collapse) { prefs.collapsed[ds.collapse] = !prefs.collapsed[ds.collapse]; savePrefs(); render(); }
   else if ('fclear' in ds) { ui.nowScope = ''; ui.nowTime = 0; ui.nowEnergy = ''; render(); }
   else if ('addprog' in ds) addProgramDrawer();
   else if ('saveprog' in ds) {
     const name = $('#ngName').value.trim(), purpose = $('#ngPurpose').value.trim(), err = $('#npErr');
     if (!name) { err.textContent = 'Give the program a name.'; $('#ngName').focus(); return; }
     if (!purpose) { err.textContent = 'Write the purpose — the sentence every project must answer to.'; $('#ngPurpose').focus(); return; }
-    const g = createProgram({ name, purpose, sponsor:$('#ngSponsor').value, cadence:$('#ngCadence').value.trim() || 'Status Fri' }, $('#ngProj').value.trim(), $('#ngNext').value.trim(), '@deep');
+    const g = createProgram({ name, purpose, sponsor:$('#ngSponsor')?.value || null, cadence:$('#ngCadence').value.trim() || 'Status Fri' }, $('#ngProj').value.trim(), $('#ngNext').value.trim(), '@deep');
     closeDrawer(); toast(`Program created · wiki/${wiki[g.id].page}.md added`); location.hash = '#programs'; render();
   }
   else if (ds.retire) retireDrawer(ds.retire);
-  else if (ds.dropproj) { const j = projOf(ds.dropproj); j.dropped = true; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { dropped:true }); save(); toast(`Dropped "${j.name}" — history kept`); retireDrawer(j.program); render(); }
-  else if (ds.doretire) { const g = programs.find(x => x.id === ds.doretire); g.retired = TODAY; state.retired[g.id] = iso(TODAY); save(); closeDrawer(); toast(`${g.name} retired · wiki pages kept as history`); render(); }
-  else if (ds.guideDismiss) { state.guides[ds.guideDismiss] = true; save(); render(); }
-  else if (ds.guideShow) { state.guides[ds.guideShow] = false; save(); render(); }
-  else if (ds.pcolor) { const [gid, slot] = ds.pcolor.split('|'); state.progColor[gid] = +slot; save(); toast(`${projName(gid)} · color ${slot}`); render(); }
+  else if (ds.dropproj) { const j = projOf(ds.dropproj); commit('project_updated', { id: j.id, fields:{ dropped:true } }); toast(`Dropped "${j.name}" — history kept`); retireDrawer(j.program); render(); }
+  else if (ds.doretire) { const g = programs.find(x => x.id === ds.doretire); commit('program_retired', { id: g.id }); closeDrawer(); toast(`${g.name} retired · wiki pages kept as history`); render(); }
+  else if (ds.guideDismiss) { prefs.guides[ds.guideDismiss] = true; savePrefs(); render(); }
+  else if (ds.guideShow) { prefs.guides[ds.guideShow] = false; savePrefs(); render(); }
+  else if (ds.pcolor) { const [gid, slot] = ds.pcolor.split('|'); commit('config_set', { key:'progColor.' + gid, value:+slot }); toast(`${projName(gid)} · color ${slot}`); render(); }
   else if (ds.colorpick) colorPopover(ds.colorpick, t);
-  else if (ds.promptreset) { delete state.prompts[ds.promptreset]; save(); toast('Prompt reset to default'); render(); }
+  else if (ds.promptreset) { commit('config_set', { key:'prompts.' + ds.promptreset, value:null }); toast('Prompt reset to default'); render(); }
   else if ('quickadd' in ds) {
     const wrap = t.parentElement, sel = wrap.querySelector('select'), inp = wrap.querySelector('input:not([type=number])'), minEl = wrap.querySelector('input[type=number]');
     const next = inp.value.trim(); if (!next) { inp.focus(); return; }
-    const pid = sel.value, min = +minEl?.value || 20, id = 'N' + Date.now();
-    const a = { id, kind:'action', next, project:pid, ctx: min <= 15 ? '@quick' : '@deep', min, createdAt:TODAY };
-    items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) }));
-    if (!mine().some(x => x.project === pid && x.id !== id)) state.primary[pid] = id;
-    save(); toast(`Added to ${projName(pid)} · ${a.ctx}`); render();
+    const pid = sel.value, min = +minEl?.value || 20;
+    const ctx = min <= 15 ? '@quick' : '@deep';
+    addAction({ next, project: pid, ctx, min }, { primary: !mine().some(x => x.project === pid) });
+    toast(`Added to ${projName(pid)} · ${ctx}`); render();
   }
-  else if ('guideReset' in ds) { state.guides = {}; save(); closeDrawer(); render(); toast('View tips are back'); }
-  else if (ds.ingest) { const g = programs.find(x => x.id === ds.ingest); const id = 'N' + Date.now(); const a = { id, kind:'action', next:`Ingest this week's notes into ${g.name} wiki pages`, project:g.id, ctx:'@ai', min:30, createdAt:TODAY, ai:{ level:'do', cap:'wiki', what:'Read the notes, update hub sections and decisions, append to timeline and log' } }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); handOff(a, 'wiki', a.ai.what); a.del.effect = `Updates ${wiki[g.id].page}.md and -decisions.md; appends to log.md`; state.delegated[id].effect = a.del.effect; save(); closeDrawer(); toast('Handed to AI · wiki ingest queued for your review'); location.hash = '#delegated'; render(); }
-  else if (ds.hand) { const a = items.find(i => i.id === ds.hand); handOff(a, a.ai?.cap, a.ai?.what); toast(`Handed to AI · "${a.next}" — you'll be asked before anything is sent`); render(); }
+  else if ('guideReset' in ds) { prefs.guides = {}; savePrefs(); closeDrawer(); render(); toast('View tips are back'); }
+  else if (ds.ingest) { const g = programs.find(x => x.id === ds.ingest); const id = addAction({ next:`Ingest this week's notes into ${g.name} wiki pages`, project: g.id, ctx:'@ai', min:30, ai:{ level:'do', cap:'wiki', what:'Read the notes, update hub sections and decisions, append to timeline and log' } }); handOff(id, 'wiki', 'Read the notes, update hub sections and decisions, append to timeline and log', `Updates ${wiki[g.id].page}.md and -decisions.md; appends to log.md`); closeDrawer(); toast('Handed to AI · wiki ingest queued for your review'); location.hash = '#delegated'; render(); }
+  else if (ds.hand) { const a = items.find(i => i.id === ds.hand); handOff(a.id, a.ai?.cap, a.ai?.what); toast(`Handed to AI · "${a.next}" — you'll be asked before anything is sent`); render(); }
   else if (ds.review) reviewDrawer(ds.review);
-  else if (ds.approve) { const x = items.find(i => i.id === ds.approve); const txt = $('#rvText')?.value; if (txt) x.del.deliverable = txt; x.del.status = 'approved'; x.kind = 'done'; x.doneAt = TODAY; state.delegated[x.id] = Object.assign(state.delegated[x.id] || {}, { status:'approved', deliverable:x.del.deliverable, at:iso(x.del.at), readyAt:iso(x.del.readyAt || TODAY) }); state.done[x.id] = true; save(); closeDrawer(); toast(`Approved · ${x.del.effect}`); render(); }
-  else if (ds.takeback) { const x = items.find(i => i.id === ds.takeback); delete x.owner; delete x.del; if (!x.ctx) x.ctx = '@quick'; state.delegated[x.id] = { status:'taken' }; save(); closeDrawer(); toast(`Taken back · "${x.next}" is on your list again`); render(); }
+  else if (ds.approve) { const x = items.find(i => i.id === ds.approve); const txt = $('#rvText')?.value; commit('approved', { effect: x.del.effect, deliverable: txt && txt !== x.del.deliverable ? txt : undefined }, { item: x.id }); closeDrawer(); toast(`Approved · ${x.del.effect}`); render(); }
+  else if (ds.takeback) { const x = items.find(i => i.id === ds.takeback); commit('taken_back', {}, { item: x.id }); closeDrawer(); toast(`Taken back · "${x.next}" is on your list again`); render(); }
   else if (ds.addproj) addProjectDrawer(ds.addproj);
   else if (ds.saveproj) {
     const name = $('#npName').value.trim(), outcome = $('#npOutcome').value.trim(), next = $('#npNext').value.trim(), err = $('#npErr');
     if (!name) { err.textContent = 'Give the project a name.'; $('#npName').focus(); return; }
     if (!outcome) { err.textContent = 'Write the outcome — one sentence you could check against.'; $('#npOutcome').focus(); return; }
-    const id = 'JN' + Date.now();
-    const j = { id, program:ds.saveproj, name, outcome, health:$('#npHealth').value, suggest:'Book 20 minutes with the owner to agree the next step' };
-    projects.push(j); state.projects.push(j);
-    if (next) { const aid = 'N' + Date.now(); const a = { id:aid, kind:'action', next, project:id, ctx:$('#npCtx').value, min:30, createdAt:TODAY }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); state.primary[id] = aid; }
-    save(); closeDrawer(); toast(next ? `Project created with its first action` : `Project created — decide its next action`); render();
+    const id = 'j_' + Date.now().toString(36);
+    commit('project_created', { project:{ id, program: ds.saveproj, name, outcome, health:$('#npHealth').value, suggest:'Book 20 minutes with the owner to agree the next step' } });
+    if (next) addAction({ next, project: id, ctx:$('#npCtx').value, min:30 }, { primary:true });
+    closeDrawer(); toast(next ? `Project created with its first action` : `Project created — decide its next action`); render();
   }
-  else if (ds.primary) { const a = items.find(i => i.id === ds.primary); state.primary[a.project] = a.id; save(); toast('Marked as the next action for ' + projName(a.project)); projectDrawer(a.project); render(); }
-  else if (ds.addnext) { const j = projOf(ds.addnext); const next = $('#suggestText')?.value.trim(); if (!next) { $('#suggestErr').textContent = 'Write the next physical action first.'; return; } const id = 'N' + Date.now(); const n = { id, kind:'action', next, project:j.id, ctx:$('#suggestCtx')?.value || '@deep', min:30, createdAt:TODAY }; items.push(n); state.captured.push(Object.assign({}, n, { createdAt:iso(TODAY) })); state.primary[j.id] = id; save(); toast('Next action added · tagged ai-suggested, confirmed by you'); projectDrawer(j.id); render(); }
-  else if (ds.promote) { const s = items.find(i => i.id === ds.promote); s.kind = 'action'; s.ctx = '@deep'; s.min = 30; s.createdAt = TODAY; state.kinds[s.id] = 'action'; state.overrides[s.id] = { ctx:'@deep', min:30, createdAt:TODAY }; save(); toast('Promoted to next action'); render(); }
-  else if (ds.drop) { const s = items.find(i => i.id === ds.drop); s.kind = 'trash'; state.kinds[s.id] = 'trash'; save(); toast('Dropped'); render(); }
+  else if (ds.primary) { const a = items.find(i => i.id === ds.primary); commit('next_action_set', { project: a.project }, { item: a.id }); toast('Marked as the next action for ' + projName(a.project)); projectDrawer(a.project); render(); }
+  else if (ds.addnext) { const j = projOf(ds.addnext); const next = $('#suggestText')?.value.trim(); if (!next) { $('#suggestErr').textContent = 'Write the next physical action first.'; return; } addAction({ next, project: j.id, ctx:$('#suggestCtx')?.value || '@deep', min:30 }, { primary:true }); toast('Next action added · tagged ai-suggested, confirmed by you'); projectDrawer(j.id); render(); }
+  else if (ds.promote) { commit('promoted', {}, { item: ds.promote }); toast('Promoted to next action'); render(); }
+  else if (ds.drop) { commit('dropped', {}, { item: ds.drop }); toast('Dropped'); render(); }
   else if ('status' in ds) statusDraft();
-  else if ('complete' in ds) { state.lastReview = iso(TODAY); state.review = {}; save(); toast('Weekly review completed · every project stamped'); render(); }
+  else if ('complete' in ds) { commit('review_completed', { steps: Object.keys(prefs.review).filter(k => prefs.review[k]) }); prefs.review = {}; savePrefs(); toast('Weekly review completed · every project stamped'); render(); }
   else if ('copy' in ds) { const ta = $('#drawer textarea'); ta?.select(); try { navigator.clipboard?.writeText(ta.value); } catch (x) {} toast('Copied'); }
-  else if ('reset' in ds) { try { localStorage.removeItem(STORE); } catch (x) {} location.reload(); }
+  else if ('reset' in ds) { if (ledger.mode === 'local') { resetPrefs(); resetLocal({ demo:true }); toast('Demo ledger reloaded'); } else { resetPrefs(); toast('Browser preferences reset · the ledger lives on the server'); render(); } }
+  else if (ds.data) dataActions(ds.data, t);
+  else if (ds.approvefor) { const x = deliverables.find(d => d.key === ds.approvefor); if (x) { commit('approved', { effect: x.effect, for: x.for }); toast(`Approved · ${x.effect}`); render(); } }
+  else if (ds.takebackfor) { const x = deliverables.find(d => d.key === ds.takebackfor); if (x) { commit('taken_back', { for: x.for }); toast('Taken back'); render(); } }
 }
 
 document.addEventListener('input', (e) => { if (e.target.closest('.form')) { const er = $('#npErr'); if (er) er.textContent = ''; } });
@@ -208,59 +228,54 @@ document.addEventListener('dragover', (e) => { const z = e.target.closest?.('[da
 document.addEventListener('dragleave', (e) => { const z = e.target.closest?.('[data-drop]'); if (z && !z.contains(e.relatedTarget)) z.classList.remove('dropping'); });
 document.addEventListener('drop', (e) => {
   const z = e.target.closest?.('[data-drop]'); if (!z) return; e.preventDefault(); z.classList.remove('dropping');
-  const before = JSON.stringify(state);
-  if (moveItem(e.dataTransfer.getData('text/plain'), z.dataset.drop)) { render(); offerUndo(before); }
+  withTx(() => { if (moveItem(e.dataTransfer.getData('text/plain'), z.dataset.drop)) render(); });
 });
 
-document.addEventListener('change', (e) => {
-  const before = JSON.stringify(state);
-  onChange(e);
-  if (JSON.stringify(state) !== before) offerUndo(before);
-});
+document.addEventListener('change', (e) => withTx(() => onChange(e)));
 
 function onChange(e) {
   const t = e.target;
   if (t.dataset.moveitem && t.value) { const it = items.find(i => i.id === t.dataset.moveitem); if (moveItem(it.id, t.value)) { itemDrawer(it.id); render(); } }
-  if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { const spawned = completeItem(it); toast(doneToast(spawned)); if (spawned) render(); } else uncompleteItem(it); save(); renderNav(); }
-  if (t.dataset.step) { state.review[t.dataset.step] = t.checked; save(); render(); }
-  if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; j.program = t.value; state.projOverrides[j.id] = Object.assign(state.projOverrides[j.id] || {}, { program:t.value }); save(); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
-  if (t.dataset.revisit) { const x = items.find(i => i.id === t.dataset.revisit); x.revisit = t.value ? new Date(t.value + 'T08:00:00') : null; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { revisit:x.revisit }); save(); toast(x.revisit ? `Will resurface ${fmtDate(x.revisit)}` : 'Revisit date cleared'); renderNav(); }
+  if (t.dataset.done) { const it = items.find(i => i.id === t.dataset.done); if (t.checked) { const spawned = completeItem(it); toast(doneToast(spawned)); if (spawned) render(); } else uncompleteItem(it); renderNav(); }
+  if (t.dataset.step) { prefs.review[t.dataset.step] = t.checked; savePrefs(); render(); }
+  if (t.dataset.moveproj && t.value) { const j = projOf(t.dataset.moveproj); const from = j.program; commit('project_updated', { id: j.id, fields:{ program: t.value } }); toast(`Moved "${j.name}" to ${projName(t.value)}`); retireDrawer(from); render(); }
+  if (t.dataset.revisit) { const x = items.find(i => i.id === t.dataset.revisit); const v = t.value ? new Date(t.value + 'T08:00:00') : null; commit('edited', { fields:{ revisit: v } }, { item: x.id }); toast(v ? `Will resurface ${fmtDate(v)}` : 'Revisit date cleared'); renderNav(); }
   if ('fscope' in t.dataset) { ui.nowScope = t.value; render(); }
-  if (t.dataset.setdate) { const x = items.find(i => i.id === t.dataset.id); const v = t.value ? new Date(t.value + 'T08:00:00') : null; x[t.dataset.setdate] = v; state.overrides[x.id] = Object.assign(state.overrides[x.id] || {}, { [t.dataset.setdate]: v }); save(); toast(v ? `${t.dataset.setdate === 'followUp' ? 'Follow-up' : t.dataset.setdate === 'hard' ? 'Pinned to' : t.dataset.setdate === 'start' ? 'Deferred until' : 'Due'} ${fmtDate(v)}` : 'Date cleared'); render(); }
-  if (t.dataset.autonomy) { state.autonomy[t.dataset.autonomy] = t.value; save(); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
+  if (t.dataset.setdate) { const x = items.find(i => i.id === t.dataset.id); const v = t.value ? new Date(t.value + 'T08:00:00') : null; commit('edited', { fields:{ [t.dataset.setdate]: v } }, { item: x.id }); toast(v ? `${t.dataset.setdate === 'followUp' ? 'Follow-up' : t.dataset.setdate === 'hard' ? 'Pinned to' : t.dataset.setdate === 'start' ? 'Deferred until' : 'Due'} ${fmtDate(v)}` : 'Date cleared'); render(); }
+  if (t.dataset.autonomy) { commit('config_set', { key:'autonomy.' + t.dataset.autonomy, value: t.value }); toast(`${capLabel[t.dataset.autonomy]}: ${autonomyLabel[t.value]}`); }
   /* Settings. Model rows re-render because the model list depends on the provider; effort only applies to Claude. */
-  if (t.dataset.model) { const [job, field] = t.dataset.model.split('|'); const m = state.models[job] = Object.assign({}, state.models[job], { [field]: t.value }); if (field === 'provider') { m.model = PROVIDERS[t.value].models[0]; if (t.value === 'local') delete m.effort; else m.effort = m.effort || 'medium'; } save(); toast(`${job}: ${PROVIDERS[m.provider].label} · ${m.model}${m.effort ? ' · ' + m.effort : ''}`); render(); }
-  if (t.dataset.prompt) { const job = t.dataset.prompt, v = t.value.trim(); if (v === DEFAULT_PROMPTS[job] || !v) delete state.prompts[job]; else state.prompts[job] = v; save(); toast('Prompt saved · used on the next run'); render(); }
-  if (t.dataset.opt === 'nowGroup') { state.nowGroup = t.value; save(); toast(`Engage groups by ${t.value}`); }
-  if (t.dataset.opt === 'rail') { state.collapsed.rail = t.checked; save(); render(); }
+  if (t.dataset.model) { const [job, field] = t.dataset.model.split('|'); const m = Object.assign({}, modelOf(job), { [field]: t.value }); if (field === 'provider') { m.model = PROVIDERS[t.value].models[0]; if (t.value === 'local') delete m.effort; else m.effort = m.effort || 'medium'; } commit('config_set', { key:'models.' + job, value: m }); toast(`${job}: ${PROVIDERS[m.provider].label} · ${m.model}${m.effort ? ' · ' + m.effort : ''}`); render(); }
+  if (t.dataset.prompt) { const job = t.dataset.prompt, v = t.value.trim(); commit('config_set', { key:'prompts.' + job, value: (v === DEFAULT_PROMPTS[job] || !v) ? null : v }); toast('Prompt saved · used on the next run'); render(); }
+  if (t.dataset.opt === 'nowGroup') { prefs.nowGroup = t.value; savePrefs(); toast(`Engage groups by ${t.value}`); }
+  if (t.dataset.opt === 'rail') { prefs.collapsed.rail = t.checked; savePrefs(); render(); }
+  if (t.dataset.data === 'import') dataActions('import', t);
 }
 $('#drawerBg').addEventListener('click', closeDrawer);
 
 document.addEventListener('submit', (e) => {
   const f = e.target.closest('[data-sweepform]'); if (!f) return; e.preventDefault();
-  const before = JSON.stringify(state); setTimeout(() => { if (JSON.stringify(state) !== before) offerUndo(before); }, 0);
   const v = f.querySelector('input').value.trim(); if (!v) return;
   const src = f.dataset.sweepform || 'sweep';
-  const id = 'C' + Date.now(); const n = { id, kind:'inbox', source:src, from:null, captured:TODAY, raw:v, p:{ kind:'action', next:v, project:null, ctx:'@quick', min:15, conf:.6, why: src === 'calendar' ? 'Captured from the two-week preview — prep for something on the calendar.' : 'From the mind sweep — clarify in the inbox.' } };
-  items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save(); f.querySelector('input').value = ''; toast(src === 'calendar' ? 'Captured — clarify it in the inbox' : 'Captured — keep sweeping'); render(); $(`[data-sweepform="${src === 'sweep' ? '' : src}"] input`)?.focus();
+  withTx(() => { capture({ source: src, raw: v, proposal:{ kind:'action', next: v, project:null, ctx:'@quick', min:15, conf:.6, why: src === 'calendar' ? 'Captured from the two-week preview — prep for something on the calendar.' : 'From the mind sweep — clarify in the inbox.' } }); f.querySelector('input').value = ''; toast(src === 'calendar' ? 'Captured — clarify it in the inbox' : 'Captured — keep sweeping'); render(); });
+  $(`[data-sweepform="${src === 'sweep' ? '' : src}"] input`)?.focus();
 });
 $('#captureForm').addEventListener('submit', (e) => {
-  e.preventDefault(); const before = JSON.stringify(state); setTimeout(() => { if (JSON.stringify(state) !== before) offerUndo(before); }, 0); const v = $('#captureInput').value.trim(); if (!v) return;
-  const id = 'C' + Date.now();
+  e.preventDefault(); const v = $('#captureInput').value.trim(); if (!v) return;
   const guessWait = /waiting|will send|said (he|she|they)|promised|get back/i.test(v), guessSome = /idea|someday|maybe|could/i.test(v);
   const m = parseMentions(v);           // @Program / @Project / @Person — text is kept as typed
-  const n = { id, kind:'inbox', source:'capture', from:null, captured:TODAY, raw:v, mentions:m.ids, p:{ kind: guessWait ? 'waiting' : guessSome ? 'someday' : 'action', next:v.replace(/^(todo|remember to|remind me to)\s*/i, ''), owner: guessWait ? (m.owner || 'priya') : m.owner || undefined, project:m.project, ctx:'@quick', min:15, conf: m.ids.length ? .72 : .66, why: m.ids.length ? 'Captured just now; the @-mentions set the project and person, the rest is a first guess from the wording.' : 'Captured just now with no source thread to read, so this is a first guess from the wording alone.' } };
-  items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save();
-  $('#captureInput').value = ''; ui.sel = id; location.hash = '#inbox'; toast('Captured · waiting for you in the inbox'); render();
+  withTx(() => {
+    const id = capture({ source:'capture', raw: v, mentions: m.ids, proposal:{ kind: guessWait ? 'waiting' : guessSome ? 'someday' : 'action', next: v.replace(/^(todo|remember to|remind me to)\s*/i, ''), owner: guessWait ? (m.owner || null) : m.owner || undefined, project: m.project, ctx:'@quick', min:15, conf: m.ids.length ? .72 : .66, why: m.ids.length ? 'Captured just now; the @-mentions set the project and person, the rest is a first guess from the wording.' : 'Captured just now with no source thread to read, so this is a first guess from the wording alone.' } });
+    $('#captureInput').value = ''; ui.sel = id; location.hash = '#inbox'; toast('Captured · waiting for you in the inbox'); render();
+  });
 });
 
 document.addEventListener('keydown', (e) => {
   const cur = location.hash.slice(1) || 'now', inInbox = cur === 'inbox' && !$('#drawer').classList.contains('open');
   /* Inbox: Cmd/Ctrl+Enter accepts from anywhere (fields included); Tab walks list → kinds → next action; arrows inside a kind group. */
-  if (inInbox && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); const before = JSON.stringify(state); acceptCurrent(); if (JSON.stringify(state) !== before) offerUndo(before); return; }
+  if (inInbox && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); withTx(() => acceptCurrent()); return; }
   if (inInbox && e.key === 'Tab' && inboxTab(e)) return;
   /* Sidebar toggle: plain [ outside fields; Cmd/Ctrl+[ anywhere, even while typing. */
-  if (e.key === '[' && (e.metaKey || e.ctrlKey || !e.target.matches('input,textarea,select'))) { e.preventDefault(); state.collapsed.rail = !state.collapsed.rail; save(); render(); return; }
+  if (e.key === '[' && (e.metaKey || e.ctrlKey || !e.target.matches('input,textarea,select'))) { e.preventDefault(); prefs.collapsed.rail = !prefs.collapsed.rail; savePrefs(); render(); return; }
   if (e.target.matches('input,textarea,select') ) { if (e.key === 'Escape') e.target.blur(); return; }
   if (inInbox && kgKeys(e)) return;
   if (e.key === 'Escape') { closeDrawer(); return; }
@@ -270,9 +285,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '?') { guideDrawer(); return; }
   if (cur === 'inbox') {
     if (e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const inList = !!document.activeElement?.closest?.('.ilist'); moveSel(e.key === 'j' || e.key === 'ArrowDown' ? 1 : -1); if (inList || e.key.startsWith('Arrow')) $('.ilist .row.sel')?.focus({ preventScroll:false }); }
-    else if ('axwst'.includes(e.key) && e.key.length === 1) { const before = JSON.stringify(state); acceptCurrent({ a:undefined, x:'done', w:'waiting', s:'someday', t:'trash' }[e.key]); if (JSON.stringify(state) !== before) offerUndo(before); }
+    else if ('axwst'.includes(e.key) && e.key.length === 1) withTx(() => acceptCurrent({ a:undefined, x:'done', w:'waiting', s:'someday', t:'trash' }[e.key]));
     else if (e.key === 'e') { e.preventDefault(); $('#pNext')?.focus(); $('#pNext')?.select(); }
-    else if (e.key === 'd') { const it = items.find(i => i.id === ui.sel); if (it?.p.ai) { ui.delegateOnAccept = true; acceptCurrent(); } }
+    else if (e.key === 'd') { const it = items.find(i => i.id === ui.sel); if (it?.p.ai) { ui.delegateOnAccept = true; withTx(() => acceptCurrent()); } }
   }
 });
 
@@ -287,4 +302,4 @@ document.addEventListener('mousemove', (e) => {
 initAutocomplete(); initFuzzyInputs();
 
 /* engage batch: paste a screenshot into capture (the toast carries its own Undo) */
-initPaste({ render });
+initPaste({ render, capture });

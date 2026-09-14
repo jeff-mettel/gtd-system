@@ -1,10 +1,10 @@
 // Rail navigation, health strip, instruction cards and the guide.
 
-import { programs, projects } from '../data/example.js';
 import { days, until } from '../lib/dates.js';
 import { $ } from '../lib/dom.js';
 import { by, delegated, projHealth } from '../model.js';
-import { state } from '../state.js';
+import { prefs } from '../prefs.js';
+import { lastReview, ledger, programs, projects } from '../store.js';
 import { openDrawer } from './drawer.js';
 
 /* ---------- nav & health ---------- */
@@ -55,7 +55,7 @@ export const guides = {
 export function guideBox(view) {
   const g = guides[view]; if (!g) return '';
   /* Dismissed guides fold to one line rather than vanishing, so the habit text stays one click away. */
-  if (state.guides[view]) return `<div class="guide mini"><span class="gi">${icons.guide}</span><div class="gh"><b>${g.stage}</b><span class="faint">· how this view works</span></div><button class="btn sm ghost" data-guide-show="${view}">Show</button></div>`;
+  if (prefs.guides[view]) return `<div class="guide mini"><span class="gi">${icons.guide}</span><div class="gh"><b>${g.stage}</b><span class="faint">· how this view works</span></div><button class="btn sm ghost" data-guide-show="${view}">Show</button></div>`;
   return `<div class="guide"><span class="gi">${icons.guide}</span><div><div class="gh"><b>${g.stage}</b><span class="faint">· how this view works</span></div><p>${g.text}</p></div><button class="btn sm" data-guide-dismiss="${view}">Got it</button></div>`;
 }
 
@@ -84,12 +84,13 @@ export const views = [
 
 export function renderNav() {
   const cur = location.hash.slice(1) || 'now';
-  const rail = $('.rail'); if (rail) { rail.classList.toggle('collapsed', !!state.collapsed.rail); const tb = rail.querySelector('.railtoggle'); if (tb) { tb.title = (state.collapsed.rail ? 'Expand' : 'Collapse') + ' sidebar ([)'; tb.setAttribute('aria-label', tb.title); tb.querySelector('span').textContent = state.collapsed.rail ? 'Expand' : 'Collapse'; } }
+  const rail = $('.rail'); if (rail) { rail.classList.toggle('collapsed', !!prefs.collapsed.rail); const tb = rail.querySelector('.railtoggle'); if (tb) { tb.title = (prefs.collapsed.rail ? 'Expand' : 'Collapse') + ' sidebar ([)'; tb.setAttribute('aria-label', tb.title); tb.querySelector('span').textContent = prefs.collapsed.rail ? 'Expand' : 'Collapse'; }
+  const foot = rail?.querySelector('.foot'); if (foot) foot.innerHTML = `${ledger.mode === 'server' ? 'Live ledger' + (ledger.stub ? ' (stub server)' : '') : ledger.demo ? 'Example data' : 'Local ledger'} · Mon 14 Sep 2026.<br>Every AI write is tagged and reversible.<br><span class="kbd">?</span> guide`; }
   $('#nav').innerHTML = views.slice(0, 1).map(v => `<a href="#${v.id}" class="primary ${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id]}<span><b>${v.label}</b><small>${v.sub}</small></span><span class="key">${v.key}</span></a>`).join('') +
     `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
     `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');
-  const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lr = days(state.lastReview);
-  $('#healthbar').innerHTML = `<a href="#inbox" class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></a><a href="#waiting" class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></a><a href="#programs" class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></a><a href="#review" class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr}d</b></a><a href="#delegated" class="ai">AI for review <b>${delegated('ready').length}</b></a>`;
+  const inbox = by('inbox').length, over = by('waiting').filter(w => until(w.followUp) < 0).length, noNext = projects.filter(p => !p.dropped && !programs.find(g => g.id === p.program)?.retired && projHealth(p).noNext).length, lrd = lastReview(), lr = lrd ? days(lrd) : null;
+  $('#healthbar').innerHTML = `<a href="#inbox" class="${inbox ? 'bad' : ''}">Inbox <b>${inbox}</b></a><a href="#waiting" class="${over ? 'bad' : ''}">Overdue waiting <b>${over}</b></a><a href="#programs" class="${noNext ? 'bad' : ''}">No next action <b>${noNext}</b></a><a href="#review" class="${lr > 7 ? 'bad' : ''}">Last review <b>${lr == null ? '—' : lr + 'd'}</b></a><a href="#delegated" class="ai">AI for review <b>${delegated('ready').length}</b></a>`;
 }
 
 export function navLink(v, cur) {

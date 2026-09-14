@@ -1,4 +1,5 @@
-import { aiLog, people } from '../data/example.js';
+import { aiLog } from '../data/constants.js';
+import { people } from '../store.js';
 import { days, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { by, delegated, initials, mine_ } from '../model.js';

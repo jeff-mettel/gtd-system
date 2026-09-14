@@ -1,7 +1,7 @@
 // Where each station lives in the scene, in world units. Space is the system; time is playback.
 //   ports → inbox tray → clarify ring → program lanes (one track per project) → done chute and heap → the program's wiki
 //   behind: waiting shelf (a post per person); in front: the review tray. Delegated items stay in their lane (charged look).
-import { projects, people } from '../data/example.js';
+import { people, projects } from '../store.js';
 
 export const LAY = { ports: { email: [-36, 0, -8], calendar: [-36, 0, -4], chat: [-36, 0, 0], meeting: [-36, 0, 4], voice: [-36, 0, 8] }, inbox: [-27, 0, 0], gate: [-18, 0, 0], trash: [-27, 0, 9], floorX: [-11, 13], laneZ: { P1: -11, P2: 0, P3: 11 }, shelf: { z: -23, y: 3.2, x0: -15, x1: 15 }, someday: [-26, 0, -23], chute: [20, 0, 0], heap: [30, 0, 0], wiki: { x: 43, w: 2.4 } };
 export const laneOf = (S, prog) => { if (LAY.laneZ[prog] != null) return LAY.laneZ[prog]; const extra = [...S.programs.values()].filter(g => !g.retired && LAY.laneZ[g.id] == null).map(g => g.id); return 22 + extra.indexOf(prog) * 11; };

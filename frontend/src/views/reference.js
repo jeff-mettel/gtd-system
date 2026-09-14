@@ -1,4 +1,4 @@
-import { people, wiki } from '../data/example.js';
+import { people, wiki } from '../store.js';
 import { TODAY, dueLabel, fmtDate } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, by } from '../model.js';

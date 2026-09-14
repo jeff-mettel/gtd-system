@@ -1,11 +1,10 @@
 // The three.js scene: balls are items, stations are the GTD lists. Every position is a fold of
 // events ≤ t (fold.js); only motion is tweened. createScene() mounts into `root` (see index.js for
 // the markup it expects) and returns the controls the Flow view uses.
-import { programs, projects, people } from '../data/example.js';
-import { state } from '../state.js';
+import { lastReview, people, programs, projects } from '../store.js';
 import { esc } from '../lib/dom.js';
 import { pname, srcLabel, progIdx } from '../model.js';
-import { fold, wikiByProgram, isCharged } from './fold.js';
+import { describe, fold, wikiByProgram, isCharged } from './fold.js';
 import { LAY, CAMS, laneOf, trackZ, postX, wikiPos } from './layout.js';
 
 const DAY = 864e5, H = 36e5;
@@ -87,7 +86,7 @@ export function createScene(THREE, root, data) {
   const setT = (v) => { t = Math.max(W0, Math.min(W1, v)); scrub.value = Math.round((t - W0) / H); };
   function setWindow(name) {
     root.querySelectorAll('[data-rpwin] button').forEach(b => b.classList.toggle('on', b.dataset.win === name));
-    if (name === 'week') { const lr = new Date(state.lastReview + 'T15:00:00').getTime(); W0 = Math.max(T0, Math.min(lr, T1 - DAY)); } else W0 = T0;
+    if (name === 'week') { const lrd = lastReview(); const lr = lrd ? lrd.getTime() : T1 - 7 * DAY; W0 = Math.max(T0, Math.min(lr, T1 - DAY)); } else W0 = T0;
     W1 = T1; scrub.max = Math.round((W1 - W0) / H); setT(W0);
     ticks.innerHTML = ''; const pct = (x) => ((x - W0) / (W1 - W0) * 100) + '%';
     for (let d0 = W0; d0 <= W1; d0 += DAY) { const dt = new Date(d0); const daily = (W1 - W0) < 21 * DAY; if (dt.getDay() === 1 || daily) { const el = document.createElement('div'); el.className = 'rp-tick week'; el.style.left = pct(d0); el.innerHTML = `<span class="l">${dt.getDate()}${!daily || d0 === W0 || dt.getDate() === 1 ? ' ' + dt.toLocaleDateString('en-GB', { month: 'short' }) : ''}</span>`; ticks.appendChild(el); } }
@@ -215,7 +214,7 @@ export function createScene(THREE, root, data) {
     const stalledN = [...S.projects.values()].filter(p => !p.dropped && (t - p.lastMove) / DAY > 7).length;
     const stats = { inbox: c.inbox, action: c.action, waiting: c.waiting, ai: c.ai, someday: c.someday, done: c.done, stalled: stalledN, words: words.toLocaleString(), reviews: S.reviews };
     for (const el of statEls) { const v = String(stats[el.dataset.stat]); if (el.textContent !== v) el.textContent = v; }
-    const e = S.last; if (e) { const ai = e.actor.startsWith('ai:'); const what = ({ captured: 'Captured', clarified: 'Proposed ' + (e.kind || ''), accepted: (e.corrected ? 'Corrected to ' : 'Accepted as ') + e.kind, done: 'Done', closed: 'Received', nudged: 'Nudged ' + pname(e.owner), nudge_drafted: 'Drafted nudge to ' + pname(e.owner), delegated: 'Handed to the AI (' + e.cap + ')', working: 'AI working', delivered: 'Ready for review', approved: 'Approved', taken_back: 'Taken back', promoted: 'Promoted from someday', dropped: 'Trashed', wiki_changed: 'Wiki · ' + (e.text || e.page), review_completed: 'Weekly review completed', program_created: 'Program created · ' + e.text, program_retired: 'Program retired · ' + e.text, project_created: 'Project created · ' + e.text, project_dropped: 'Project dropped', health_set: 'Health set' })[e.type] || e.type; const it = e.item ? S.items.get(e.item) : null; capEl.innerHTML = `<span class="when">${fmtD(e.at)} ${fmtT(e.at)}</span><span class="who ${ai ? 'ai' : ''}">${e.actor}</span><span>${esc(what)}${it ? ' · ' + esc(it.text) : ''}</span>`; }
+    const e = S.last; if (e) { const ai = e.actor.startsWith('ai:'); const what = describe(e, pname); const it = e.item ? S.items.get(e.item) : null; capEl.innerHTML = `<span class="when">${fmtD(e.at)} ${fmtT(e.at)}</span><span class="who ${ai ? 'ai' : ''}">${e.actor}</span><span>${esc(what)}${it ? ' · ' + esc(it.text) : ''}</span>`; }
   }
   const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
   function hover(e) {

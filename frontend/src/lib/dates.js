@@ -2,6 +2,12 @@
 /* ---------- example data ---------- */
 export const TODAY = new Date('2026-09-14T08:00:00');
 
+/* The ledger clock. Real wall-clock time — except while the demo anchor is ahead of the real date, when events are
+   stamped from TODAY forward (elapsed time since the page opened) so that "today" in the app and `at` in the ledger
+   agree. Drop this once TODAY becomes the real date. */
+const opened = Date.now();
+export const clock = () => new Date(Math.max(Date.now(), TODAY.getTime() + (Date.now() - opened))).toISOString();
+
 export const d = (n) => { const x = new Date(TODAY); x.setDate(x.getDate() + n); return x; };
 
 export const iso = (x) => new Date(x).toISOString().slice(0, 10);

@@ -206,7 +206,8 @@ export function demoEvents() {
   // the tickler that fires today: R1's revisit date has arrived
   ev(T1, 'system', 'resurfaced', 'R1', { for: isoDay(d(0)) });
 
-  // background: ordinary weeks at the Flow view's captured-per-week volume
+  // background: ordinary weeks at the Flow view's captured-per-week volume. These items exist for the Replay and the
+  // Flow bars only; their `ref` starts with demo:bg/ and the front-end store keeps them out of the lists.
   const weekTargets = [31, 27, 35, 24, 40, 29, 33, 38];
   const verbs = ['Reply to', 'Send', 'Review', 'Confirm', 'Schedule', 'Update', 'Chase', 'Read', 'Summarise', 'Check'];
   const objs = ['the variance format', 'the dry-run checklist', 'the launch FAQ draft', 'the vendor pricing sheet', 'the steering agenda', 'the on-call rota', 'cutover runbook v2', 'the macro list', 'scorecard weighting', 'the contract notice period', 'the training room booking', 'the risk register', 'the sponsor one-pager', 'the release notes', 'the reconciliation export', 'the comms calendar'];
@@ -226,7 +227,7 @@ export function demoEvents() {
     const first = firstName(person);
     const text = kind === 'waiting' ? `${pick(waits)} ${pick(objs)} from ${first}` : `${pick(verbs)} ${pick(objs)}` + (rnd() < .5 ? ` with ${first}` : '');
     const minutes = pick([5, 10, 10, 15, 20, 30, 45, 60, 90]);
-    ev(capT, src(source), 'captured', id, { source, raw: text, minutes });
+    ev(capT, src(source), 'captured', id, { source, raw: text, minutes, ref: 'demo:bg/' + id });   // background volume: the replay shows it, the views hide it (store filters demo:bg refs)
     const clarT = capT + between(0.2, 14) * H, corrected = rnd() < .13, pkind = corrected ? pick(kinds.filter(x => x !== kind && x !== 'delegate')) : kind;
     ev(clarT, 'ai:clarify', 'clarified', id, { proposal: { kind: pkind, next: text, project: proj, owner: kind === 'waiting' ? person : null, ctx: minutes <= 15 ? '@quick' : '@deep', min: minutes, conf: +(corrected ? between(.45, .7) : between(.7, .98)).toFixed(2), why: 'Clarified from the source thread.' } });
     const accT = clarT + between(0.5, 30) * H; if (accT >= T1) continue;

@@ -1,7 +1,7 @@
 // Deferred actions — GTD's tickler for next actions. An action with a `start` date in the future is parked:
 // it stays on its project (so the project is covered) but leaves the context lists and the open counts.
 // On the day `start` arrives it re-enters the lists at the top with a "back today" chip; `resurfacedAt`
-// remembers the day it came back so the chip shows for that day only (state.js stamps it on render).
+// remembers the day it came back so the chip shows for that day only (store.tick() commits a `resurfaced` event).
 //
 // Pure helpers take an optional `today` so tests can pin the date.
 
@@ -24,7 +24,7 @@ export function isBackToday(a, today = TODAY) {
 }
 
 /* Stamp `resurfacedAt` on every action whose start has arrived and which has not been stamped since that start.
-   Returns the ids it stamped so the caller can persist them (state.js does). Idempotent. */
+   Returns the ids it stamped. Pure helper kept for tests; the store does the same through `resurfaced` events. */
 export function resurfaceDeferred(list, today = TODAY) {
   const hit = [];
   for (const a of list) {

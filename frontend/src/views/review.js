@@ -1,8 +1,9 @@
-import { aiLog, calendarAhead, items, pastMeetings, programs, projects, sweepTriggers, wikiLint } from '../data/example.js';
+import { aiLog, sweepTriggers, wikiLint } from '../data/constants.js';
+import { calendarAhead, items, lastReview, pastMeetings, programs, projects } from '../store.js';
 import { TODAY, d, days, fmtDate, iso, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, activeProjects, by, mine, pname, projHealth, projName } from '../model.js';
-import { state } from '../state.js';
+import { prefs } from '../prefs.js';
 import { projChip, waitingRow } from '../ui/fragments.js';
 import { icons } from '../ui/nav.js';
 
@@ -41,8 +42,8 @@ export function viewReview() {
     lint: 'Get current, for the wiki. Compiled status sections go stale, the wiki and the ledger can disagree, pages can go orphaned. Fix findings through a reviewed ingest so the context you rely on for prep briefs stays true.',
     horizons: 'Look up. Programs are areas of responsibility; each has a purpose you can check projects against. Ask: does every project still serve its program\'s purpose? Is there work with no home? Has a program met its purpose and earned retirement?',
   };
-  const doneCount = steps.filter(s => s.auto || state.review[s.id]).length;
-  return `<div class="vhead"><div><h1>Weekly review</h1><p>AI prepared the evidence; the decisions are yours. Last completed ${days(state.lastReview)} days ago.</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px"><button class="btn" data-goflow="week" title="Replay the week in Flow">Watch the week</button><div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
-  <div class="steps">${steps.map((s, i) => { const ok = s.auto || !!state.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><span class="sico">${icons[stepIcon[s.id]] || ''}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div>${why[s.id] ? `<div class="swhy">${why[s.id]}</div>` : ''}<div class="sb">${s.body}</div></div>`; }).join('')}</div>
+  const doneCount = steps.filter(s => s.auto || prefs.review[s.id]).length;
+  return `<div class="vhead"><div><h1>Weekly review</h1><p>AI prepared the evidence; the decisions are yours. ${lastReview() ? `Last completed ${days(lastReview())} days ago.` : 'Never completed yet.'}</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px"><button class="btn" data-goflow="week" title="Replay the week in Flow">Watch the week</button><div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
+  <div class="steps">${steps.map((s, i) => { const ok = s.auto || !!prefs.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><span class="sico">${icons[stepIcon[s.id]] || ''}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div>${why[s.id] ? `<div class="swhy">${why[s.id]}</div>` : ''}<div class="sb">${s.body}</div></div>`; }).join('')}</div>
   <div class="acts" style="border:0;padding:0"><span class="note">Completing the review stamps <code class="mono">last_reviewed</code> on every project and resets the health strip.</span><span class="sp"></span><button class="btn primary" data-complete ${doneCount < steps.length ? 'disabled' : ''}>Complete review</button></div>`;
 }

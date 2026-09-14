@@ -19,7 +19,7 @@ import { fold, validate, upcast, newId, now, demoEvents, LEDGER_VERSION } from '
 | `upcast(events, { migrations?, version? })` | Brings every event to `LEDGER_VERSION` by running `migrations/` in order (`v1.js` = v0 → v1 identity stamp). Returns the same array when nothing changed. |
 | `newId(prefix)` | Time-sortable unique id: `i_01J…` style (10 chars ms time, 2 chars counter, 6 random; Crockford base32). Prefixes: `i_` items, `p_` programs, `j_` projects, `u_` people, `r_` runs, `e_` events. |
 | `now()` | ISO timestamp for `at`. |
-| `demoEvents() → event[]` | The example ledger (three programs, eight projects, seven people, ~60 named items plus eight weeks of background volume) as a sorted, seq-numbered v1 event stream. Deterministic; dates are relative to `DEMO_TODAY` (Mon 14 Sep 2026 08:00 local). |
+| `demoEvents() → event[]` | The example ledger (three programs, eight projects, seven people, ~60 named items plus eight weeks of background volume) as a sorted, seq-numbered v1 event stream. Deterministic; dates are relative to `DEMO_TODAY` (Mon 14 Sep 2026 08:00 local). Background items carry `ref: 'demo:bg/<id>'` — they give the Replay and the Flow bars their volume; the front-end store keeps them out of the lists. |
 | `EVENT_TYPES`, `SPEC`, `ACTOR_RULES`, `ACCEPT_KINDS`, `DEFAULT_CONFIG`, `wikiStub`, `slug`, `defaultProposal` | The vocabulary and defaults, for writers that build events. |
 
 ### Event envelope

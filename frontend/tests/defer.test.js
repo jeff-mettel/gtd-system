@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { demoEvents } from '@gtd/ledger';
 import { isBackToday, isDeferred, resurfaceDeferred, untilStart } from '../src/features/defer.js';
-import { items, projects } from '../src/data/example.js';
+import { commit, load, projects } from '../src/store.js';
 import { TODAY, d } from '../src/lib/dates.js';
 import { mine, openActions, projHealth } from '../src/model.js';
-import { state } from '../src/state.js';
-
-const find = (id) => items.find(i => i.id === id);
 
 describe('deferred actions', () => {
   it('is deferred while the start date is ahead, by whole days', () => {
@@ -44,25 +42,22 @@ describe('deferred actions', () => {
   });
 });
 
-describe('deferred actions in the model', () => {
-  beforeEach(() => { state.primary = {}; });
+describe('deferred actions in the model (over the demo ledger)', () => {
+  beforeEach(async () => { await load({ seed: demoEvents() }); });
 
   it('A14 is parked: off my open list and off its project, but the project still counts as covered', () => {
-    const a14 = find('A14'); expect(isDeferred(a14)).toBe(true);
     expect(mine().some(a => a.id === 'A14')).toBe(false);
     expect(openActions('J2').some(a => a.id === 'A14')).toBe(false);
-    const w7 = find('W7'); w7.kind = 'done';                  // take away the waiting-for so only the deferred action covers J2
+    commit('done', {}, { item: 'W7' });                        // take away the waiting-for so only the deferred action covers J2
     const h = projHealth(projects.find(j => j.id === 'J2'));
     expect(h.na).toBeNull(); expect(h.w).toBeNull(); expect(h.deferred?.id).toBe('A14'); expect(h.noNext).toBe(false);
-    a14.kind = 'someday';                                       // and with the deferred action gone too, it is uncovered
+    commit('parked', {}, { item: 'A14' });                     // and with the deferred action gone too, it is uncovered
     expect(projHealth(projects.find(j => j.id === 'J2')).noNext).toBe(true);
-    a14.kind = 'action'; w7.kind = 'waiting';
   });
 
   it('re-enters the open list on its start day', () => {
-    const a14 = find('A14'); const start = a14.start; a14.start = d(0);
+    commit('edited', { fields: { start: d(0) } }, { item: 'A14' });
     expect(mine().some(a => a.id === 'A14')).toBe(true);
     expect(projHealth(projects.find(j => j.id === 'J2')).na?.id).toBe('A14');
-    a14.start = start;
   });
 });

@@ -1,7 +1,7 @@
 // "@" autocomplete in the capture box: programs, projects (under their program) and people.
 // Selecting inserts "@<Name> "; on capture, parseMentions() turns those back into ids.
 
-import { people, projects } from '../data/example.js';
+import { people, projects } from '../store.js';
 import { $, esc } from '../lib/dom.js';
 import { active } from '../model.js';
 

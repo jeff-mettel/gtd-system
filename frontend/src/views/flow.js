@@ -1,4 +1,4 @@
-import { cycle } from '../data/example.js';
+import { cycle } from '../data/constants.js';
 import { weeks } from '../replay/events.js';
 import { by, delegated, mine } from '../model.js';
 
@@ -12,7 +12,7 @@ export function viewFlow() {
   const ticks = [0, 15, 30, 45].map(v => `<line x1="${padL}" x2="${W - 8}" y1="${y(v)}" y2="${y(v)}"></line><text x="${padL - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join('');
   const labels = flowWeeks.map((wk, i) => `<text x="${padL + i * gw + gw / 2}" y="${H - 8}" text-anchor="middle">${wk.w}</text>`).join('');
   const streak = 4;
-  return `<div class="vhead"><div><h1>Flow</h1><p>Is the system itself healthy? Capture must be clarified within a day, and done should track captured — a widening gap means the lists are filling faster than you close them.</p></div><a class="note" href="#settings">Reset demo data → Settings</a></div>
+  return `<div class="vhead"><div><h1>Flow</h1><p>Is the system itself healthy? Capture must be clarified within a day, and done should track captured — a widening gap means the lists are filling faster than you close them.</p></div><a class="note" href="#settings">Ledger and data → Settings</a></div>
   <div class="panel"><div class="ph"><h2>Replay</h2><span class="note">Every ball is an item; where it sits is a fold of the ledger up to the playhead. Nothing here is a status field.</span></div><div id="replayHost"></div></div>
   <div class="attn">
     <div class="tile"><div class="v">${streak}</div><div class="l">days in a row at inbox zero</div></div>

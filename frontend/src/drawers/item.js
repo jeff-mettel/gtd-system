@@ -1,4 +1,5 @@
-import { items, levelLabel, programs } from '../data/example.js';
+import { levelLabel } from '../data/constants.js';
+import { items, programs } from '../store.js';
 import { days, fmtDate, iso } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, activeProjects, activity, energyOf, person, projOf, srcLabel } from '../model.js';

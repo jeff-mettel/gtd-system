@@ -1,6 +1,6 @@
 // Shared HTML fragments.
 
-import { capLabel } from '../data/example.js';
+import { capLabel } from '../data/constants.js';
 import { days, dueLabel, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { isPrimary, pname, progIdx, progOfAny, projName } from '../model.js';

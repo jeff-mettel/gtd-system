@@ -1,10 +1,9 @@
 // Repeating actions: `repeat: 'daily' | 'weekly' | 'monthly'` on an action. Marking one done spawns the next
 // instance with its dates advanced by one period (further, if that would still be in the past).
 
-import { items } from '../data/example.js';
-import { TODAY, fmtDate, iso } from '../lib/dates.js';
+import { TODAY, fmtDate } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
-import { save, state } from '../state.js';
+import { commit, items } from '../store.js';
 
 export const REPEATS = [['', 'none'], ['daily', 'daily'], ['weekly', 'weekly'], ['monthly', 'monthly']];
 
@@ -23,25 +22,22 @@ export const repeatChip = (a) => a.repeat ? `<span class="chip rep" title="Repea
 /* Mark an item done and, if it repeats, schedule the next instance. Returns the spawned item (or null).
    Callers still toast and render; use `doneToast(spawned)` for the message. */
 export function completeItem(it) {
-  it._prev = it.kind; it.kind = 'done'; it.doneAt = TODAY;
-  state.done[it.id] = true; state.overrides[it.id] = Object.assign(state.overrides[it.id] || {}, { doneAt:TODAY });
-  if (!it.repeat) { save(); return null; }
-  const id = 'R' + Date.now();
-  const n = { id, kind:'action', next:it.next, project:it.project ?? null, ctx:it.ctx, min:it.min, repeat:it.repeat, createdAt:TODAY, energy:it.energy, owner:it.owner === 'ai' ? undefined : it.owner, ai:it.ai };
-  if (it.hard) n.hard = nextDate(it.hard, it.repeat);
-  if (it.due) n.due = nextDate(it.due, it.repeat);
-  items.push(n);
-  state.captured.push(Object.assign({}, n, { createdAt:iso(TODAY), hard:n.hard ? iso(n.hard) : undefined, due:n.due ? iso(n.due) : undefined }));
-  it._spawned = id;
-  save();
-  return n;
+  commit('done', {}, { item: it.id });
+  if (!it.repeat) return null;
+  const id = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const fields = { next:it.next, project:it.project ?? null, ctx:it.ctx, min:it.min, repeat:it.repeat, energy:it.energy, ai:it.ai, spawnedFrom:it.id };
+  if (it.hard) fields.hard = nextDate(it.hard, it.repeat);
+  if (it.due) fields.due = nextDate(it.due, it.repeat);
+  commit('captured', { source:'repeat', raw:it.next, ref:`repeat:${it.id}:${(fields.hard || fields.due || TODAY).toISOString().slice(0, 10)}` }, { item: id });
+  commit('accepted', { kind:'action', fields }, { item: id });
+  return items.find(x => x.id === id);
 }
 
-/* Undo of a tick: put the item back and withdraw the instance it spawned. */
+/* Undo of a tick: put the item back and withdraw the instance it spawned (nothing is deleted — it goes to trash). */
 export function uncompleteItem(it) {
-  it.kind = it._prev || 'action'; delete state.done[it.id];
-  if (it._spawned) { const i = items.findIndex(x => x.id === it._spawned); if (i >= 0) items.splice(i, 1); state.captured = state.captured.filter(c => c.id !== it._spawned); delete it._spawned; }
-  save();
+  commit('undone', {}, { item: it.id });
+  const spawned = items.find(x => x.spawnedFrom === it.id && x.kind === 'action');
+  if (spawned) commit('trashed', {}, { item: spawned.id });
 }
 
 export const doneToast = (spawned) => !spawned ? 'Done · logged for the weekly review' : (spawned.hard || spawned.due) ? `Done · next one scheduled for ${fmtDate(spawned.hard || spawned.due)}` : `Done · repeats ${spawned.repeat}, next one added to your list`;

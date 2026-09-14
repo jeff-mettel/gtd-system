@@ -1,13 +1,12 @@
 // Paste a screenshot into capture. An image on the clipboard — pasted into #captureInput, or anywhere while the
 // capture box is focused — is downsized on a canvas (≤ MAX px on the long edge, JPEG q.7) and becomes an inbox
 // item like any other capture: source 'screenshot', the typed text (if any) as the raw ask, the data URL on
-// `image`. It persists through state.captured with the rest; at this size a data URL is fine in localStorage.
+// `image`. It is a `captured` event like any other; at this size a data URL is fine in the ledger.
 // In the live system the assistant reads the image (vision) and proposes the ask; here the human describes it.
 
-import { items } from '../data/example.js';
-import { TODAY, iso } from '../lib/dates.js';
+import { TODAY } from '../lib/dates.js';
 import { $, toast } from '../lib/dom.js';
-import { save, state } from '../state.js';
+import { withTx } from '../store.js';
 import { ui } from '../ui/session.js';
 
 export const MAX = 480;
@@ -39,17 +38,15 @@ export function screenshotItem(text, image, id = 'C' + Date.now()) {
   return { id, kind:'inbox', source:'screenshot', from:null, captured:TODAY, raw: t || 'Screenshot', image, p:{ kind:'action', next: t || 'Screenshot — clarify what it asks for', project:null, ctx:'@quick', min:15, conf:.5, why:'A screenshot: in the live system the assistant reads it (vision) and proposes the ask; here you describe it.' } };
 }
 
-export function initPaste({ render }) {
+export function initPaste({ render, capture }) {
   const inp = $('#captureInput'); if (!inp) return;
   if (!/paste a screenshot/.test(inp.placeholder)) inp.placeholder = inp.placeholder.replace(/\s*$/, ' — or paste a screenshot');
   document.addEventListener('paste', async (e) => {
     if (e.target !== inp && document.activeElement !== inp) return;
     const file = imageFrom(e.clipboardData); if (!file) return;
     e.preventDefault();
-    const before = JSON.stringify(state);
     let image; try { image = await shrink(file); } catch (x) { toast('Could not read that image'); return; }
     const n = screenshotItem(inp.value, image);
-    items.unshift(n); state.captured.push(Object.assign({}, n, { captured:iso(TODAY) })); save();
-    inp.value = ''; ui.sel = n.id; location.hash = '#inbox'; render(); toast('Screenshot captured · describe the ask in the inbox', before);
+    withTx(() => { const id = capture({ source:'screenshot', raw:n.raw, image:n.image, proposal:n.p }); inp.value = ''; ui.sel = id; location.hash = '#inbox'; render(); toast('Screenshot captured · describe the ask in the inbox'); });
   });
 }

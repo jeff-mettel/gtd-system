@@ -1,7 +1,7 @@
 // Replay: mount point for the Flow view. Owns one persistent root element (the WebGL context
 // survives view re-renders because the element is re-parented, never rebuilt) and lazy-loads
 // three.js the first time the scene is needed.
-import { programs } from '../data/example.js';
+import { programs } from '../store.js';
 import { buildEvents } from './events.js';
 import { createScene } from './scene.js';
 

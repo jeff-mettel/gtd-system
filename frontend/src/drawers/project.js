@@ -1,10 +1,9 @@
 // Project, program and wiki drawers.
 
-import { items, people, programs, projects, wiki } from '../data/example.js';
-import { TODAY, dueLabel, fmtDate, iso, until } from '../lib/dates.js';
+import { dueLabel, fmtDate, until } from '../lib/dates.js';
 import { $, esc } from '../lib/dom.js';
-import { active, activeProjects, activity, openActions, pname, projHealth, projName, projOf, wikiOf, wikiStub } from '../model.js';
-import { save, state } from '../state.js';
+import { active, activeProjects, activity, openActions, pname, projHealth, projName, projOf, wikiOf } from '../model.js';
+import { commit, items, people, programs, wiki } from '../store.js';
 import { openDrawer } from '../ui/drawer.js';
 import { healthPill, waitingRow } from '../ui/fragments.js';
 
@@ -17,8 +16,8 @@ export function projectDrawer(pid) {
     <div class="sec"><h3>Open actions · ${open.length}</h3>${open.length ? `<div class="panel"><div class="pb">${open.map(a => { const prim = s.na?.id === a.id; return `<div class="row"><div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}${prim ? ' <span class="chip" style="color:var(--accent-text);background:var(--accent-soft)">next</span>' : ''}</div><div class="m"><span class="chip ctx">${esc(a.ctx)}</span>${a.min ? `<span class="num">${a.min} min</span>` : ''}${a.due ? `<span class="age ${until(a.due) < 0 ? 'over' : ''}">${dueLabel(a.due)}</span>` : ''}</div></div>${!prim && open.length > 1 ? `<button class="btn sm" data-primary="${a.id}">Make it the next action</button>` : ''}</div>`; }).join('')}</div></div>` : `<div class="note">None. ${waits.length ? 'Covered by a waiting-for below.' : 'This project cannot move until you decide one.'}</div>`}
       ${open.length > 1 ? '<div class="note" style="margin-top:6px">Several actions are open; the one marked <b>next</b> is what the Programs table and the morning brief lead with.</div>' : ''}</div>
     <details class="fold" ${open.length ? '' : 'open'}><summary>${open.length ? 'Add another action' : 'Decide the next action'}</summary><div class="note" style="margin-bottom:6px">AI suggestion from the outcome and recent activity — edit freely, then confirm.</div>
-      <input id="suggestText" class="draft" style="min-height:0;padding:9px 12px" value="${esc(j.suggest || 'Book 20 minutes with the owner to agree the next step')}" aria-label="Next action">
-      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><select id="suggestCtx" style="border:1px solid var(--line);background:var(--ground);border-radius:6px;padding:6px 9px">${ctxs.map(c => `<option ${c === '@deep' ? 'selected' : ''}>${c}</option>`).join('')}</select><button class="btn primary sm" data-addnext="${pid}">Add as next action</button><span id="suggestErr" class="note" style="color:var(--crit)"></span></div></details>
+      <input id="suggestText" class="draft" style="min-height:0;padding:9px 12px" value="${esc(j.proposed?.next || j.suggest || 'Book 20 minutes with the owner to agree the next step')}" aria-label="Next action">${j.proposed ? `<div class="note" style="margin-top:4px"><span class="chip aichip">AI proposed</span> ${esc(j.proposed.why)}${j.proposed.ctx ? ` · ${esc(j.proposed.ctx)}` : ''}${j.proposed.min ? ` · ${j.proposed.min} min` : ''}</div>` : ''}
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><select id="suggestCtx" style="border:1px solid var(--line);background:var(--ground);border-radius:6px;padding:6px 9px">${ctxs.map(c => `<option ${c === (j.proposed?.ctx || '@deep') ? 'selected' : ''}>${c}</option>`).join('')}</select><button class="btn primary sm" data-addnext="${pid}">Add as next action</button><span id="suggestErr" class="note" style="color:var(--crit)"></span></div></details>
     ${waits.length ? `<details class="fold"><summary>Waiting for · ${waits.length}</summary><div class="panel"><div class="pb">${waits.map(w => waitingRow(w, { showOwner:true })).join('')}</div></div></details>` : ''}
     ${(() => { const w = wikiOf(pid); if (!w) return ''; const dec = w.decisions.filter(x => isProg || x.projects.includes(pid)); const rk = w.risks.filter(x => isProg || x.projects.includes(pid)); return `<details class="fold"><summary>From the wiki</summary><div class="wlinks">${w.links.slice(0, 3).map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}<button class="btn sm ghost" data-wiki="${isProg ? pid : j.program}">Open ${esc(w.page)}</button></div>
       ${dec.length ? `<div class="wrow"><span class="eyebrow">Latest decision</span><div><b>${esc(dec[0].what)}</b> <span class="faint">${dec[0].on} · ${esc(dec[0].who)}</span><div class="muted">${esc(dec[0].why)}</div></div></div>` : ''}
@@ -28,14 +27,17 @@ export function projectDrawer(pid) {
     `<button class="btn" data-close>Close</button>`);
 }
 
+/* Create a program (program_created stubs its wiki hub), optionally its first project and first action. */
 export function createProgram(g, firstProject, firstAction, ctx) {
-  g.id = 'PN' + Date.now(); programs.push(g); state.programs.push(g); wiki[g.id] = wikiStub(g);
+  const id = 'p_' + Date.now().toString(36);
+  commit('program_created', { program:{ id, name:g.name, purpose:g.purpose, sponsor:g.sponsor || null, cadence:g.cadence || 'Status Fri' } });
+  const add = (next, project) => { const aid = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); commit('captured', { source:'capture', raw:next }, { item:aid }); commit('accepted', { kind:'action', fields:{ next, project, ctx:ctx || '@deep', min:30 } }, { item:aid }); return aid; };
   if (firstProject) {
-    const j = { id:'JN' + Date.now(), program:g.id, name:firstProject, outcome:'', health:'good', suggest:'Write the outcome — what does done look like?' };
-    projects.push(j); state.projects.push(j);
-    if (firstAction) { const aid = 'N' + Date.now(); const a = { id:aid, kind:'action', next:firstAction, project:j.id, ctx:ctx || '@deep', min:30, createdAt:TODAY }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); state.primary[j.id] = aid; }
-  } else if (firstAction) { const aid = 'N' + Date.now(); const a = { id:aid, kind:'action', next:firstAction, project:g.id, ctx:ctx || '@deep', min:30, createdAt:TODAY }; items.push(a); state.captured.push(Object.assign({}, a, { createdAt:iso(TODAY) })); }
-  save(); return g;
+    const jid = 'j_' + Date.now().toString(36);
+    commit('project_created', { project:{ id:jid, program:id, name:firstProject, outcome:'', health:'good', suggest:'Write the outcome — what does done look like?' } });
+    if (firstAction) { const aid = add(firstAction, jid); commit('next_action_set', { project:jid }, { item:aid }); }
+  } else if (firstAction) add(firstAction, id);
+  return programs.find(x => x.id === id);
 }
 
 export function addProgramDrawer() {
@@ -45,7 +47,7 @@ export function addProgramDrawer() {
     <div class="form">
       ${field('ngName', 'Program', `<input id="ngName" class="in" placeholder="e.g. Vendor risk function" autocomplete="off">`)}
       ${field('ngPurpose', 'Purpose — why does this exist?', `<textarea id="ngPurpose" class="in" rows="2" placeholder="One checkable sentence: 'Every tooling vendor has a risk rating and an owner by Q2, reviewed quarterly'"></textarea>`)}
-      ${field('ngSponsor', 'Sponsor', `<select id="ngSponsor" class="in">${people.map(x => `<option value="${x.id}" ${x.id === 'ingrid' ? 'selected' : ''}>${esc(x.name)} — ${esc(x.role)}</option>`).join('')}</select>`)}
+      ${field('ngSponsor', 'Sponsor', `<select id="ngSponsor" class="in"><option value="">— none yet —</option>${people.map(x => `<option value="${x.id}" ${x.id === 'ingrid' ? 'selected' : ''}>${esc(x.name)} — ${esc(x.role)}</option>`).join('')}</select>`)}
       ${field('ngCadence', 'Cadence', `<input id="ngCadence" class="in" value="Status Fri" placeholder="e.g. Steering Thu · status Fri">`)}
       ${field('ngProj', 'First project (optional)', `<input id="ngProj" class="in" placeholder="Short name" autocomplete="off">`)}
       ${field('ngNext', 'Its first next action', `<input id="ngNext" class="in" placeholder="Verb first" autocomplete="off">`)}
@@ -88,7 +90,7 @@ export function wikiDrawer(pid) {
   const g = programs.find(x => x.id === pid), w = wiki[pid]; if (!w) return;
   const st = (x) => ({ done:'good', 'on track':'good', locked:'good', 'at risk':'warn', 'room clash':'warn', 'pending window':'warn', blocked:'crit', undecided:'crit' })[x] || 'neutral';
   openDrawer(esc(g.name), `
-    <div class="sec"><div class="eyebrow">wiki/${esc(w.page)}.md · living doc · compiled ${fmtDate(w.compiled)}</div></div>
+    <div class="sec"><div class="eyebrow">wiki/${esc(w.page)}.md · living doc · ${w.compiled ? 'compiled ' + fmtDate(w.compiled) : 'not compiled yet'}</div></div>
     <div class="sec"><h3>Purpose</h3><p class="muted" style="margin:0">${esc(g.purpose)}</p></div>
     <div class="sec"><h3>Key links</h3><div class="wlinks">${w.links.map(l => l[1] ? `<a class="chip" href="${l[1]}">${esc(l[0])}</a>` : `<span class="chip">${esc(l[0])}</span>`).join('')}</div></div>
     <div class="sec"><h3>Current status <span class="faint" style="font-weight:400">· compiled</span></h3><p class="muted" style="margin:0">${healthPill(w.health)} ${esc(w.status)}</p></div>
