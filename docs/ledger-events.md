@@ -29,7 +29,7 @@ Entities
 | `program_retired` | `{ id }` |
 | `project_created` | `{ project:{ id, program, name, outcome, health } }` |
 | `project_updated` | `{ id, fields }` (program, health, outcome, dropped, suggest) |
-| `person_created` | `{ person:{ id, name, role?, channels? } }` |
+| `person_created` | `{ person:{ id, name, role?, channels?:{ email?: string[], slack?: string } } }` — `channels.email` is what calendar attendee matching uses |
 | `person_updated` | `{ id, fields }` |
 
 Items (every one carries `item`)
@@ -45,10 +45,11 @@ Items (every one carries `item`)
 | `parked` / `promoted` / `dropped` | `{ revisit? }` / `{}` / `{}` | someday / action / trash |
 | `nudged` | `{ text, channel? }` | nudges+1, lastNudged, followUp+5d |
 | `handed_off` | `{ cap, what, effect, minutes? }` | owner `ai`, del.status queued |
-| `delivered` | `{ deliverable }` | del.status ready |
+| `delivered` | `{ deliverable, for?:{ kind:'meeting'|'status'|'review'|'wiki', id? } }` | del.status ready; may omit `item` when `for` names a target (prep briefs, status/review drafts land in the Ready lane keyed by `for`) |
 | `approved` | `{ deliverable?, effect }` | done; del.status approved |
 | `taken_back` | `{}` | owner cleared |
-| `next_action_set` | `{ project }` | primary for project |
+| `next_action_set` | `{ project }` | primary for project (human) |
+| `next_action_proposed` | `{ project, proposal:{ next, ctx?, min?, why } }` | AI-writable; shows in the project drawer as a suggestion until accepted (accepting = `captured`+`accepted` by the human) |
 | `resurfaced` | `{ for }` (`revisit` or `start` date it fired for) | tickler back in inbox / deferred back today |
 
 Knowledge and system
@@ -61,15 +62,17 @@ Knowledge and system
 | `review_completed` | `{ steps? }` |
 | `config_set` | `{ key, value }` — keys `autonomy.<cap>`, `models.<job>`, `prompts.<job>`, `progColor.<program>` |
 | `job_started` / `job_finished` / `job_failed` | `{ job, run, args? }` / `{ job, run, summary?, events? }` / `{ job, run, error }` |
+| `calendar_synced` | `{ window:{ from, to }, events:[{ id, title, start, end, attendees:[{ name, email }], who:[personId], calendar, location?, allDay? }], source:'macos'\|'connector' }` — actor `ingest:calendar`; folds into `meetings` (today), `calendarAhead`, `pastMeetings` and `calendarWindow`; a later sync replaces the window |
 | `migrated` | `{ from, to }` |
 
 ## Rules
 
 - Writers validate: unknown `type` → reject; required payload fields per table → reject;
   `project`/`owner` must name an existing id (or be null) — enums built from the fold at
-  write time. AI actors may only write `captured`, `clarified`, `delivered`, `wiki_changed`,
-  `job_*`, `milestone_added` (proposed), `decision_recorded` (proposed); never
-  `approved`, `accepted`, `nudged`, `done`.
+  write time. AI actors may only write `captured`, `clarified`, `delivered`, `next_action_proposed`,
+  `wiki_changed`, `job_*`, `milestone_added` (proposed), `decision_recorded` (proposed);
+  `ingest:*` actors write `captured` and `calendar_synced`; never `approved`, `accepted`,
+  `nudged`, `done`.
 - Idempotency: `captured` with the same `ref` as an existing item is a no-op that
   returns the existing item id.
 - Upcasters live in `packages/ledger/migrations/` as `v1_to_v2.js` etc.; `fold`
