@@ -9,6 +9,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../index.js';
 import { parseSpec, due, Scheduler } from '../schedule.js';
+import { prepTargets, nudgeTargets } from '../jobs.js';
 import { matchAttendees } from '../calendar-macos.js';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gtd-test-'));
@@ -178,6 +179,63 @@ test('schedule specs', () => {
   const started = []; const s = new Scheduler({ schedule: { clarify: '15m', review: 'fri 15:00', x: 'bad' }, start: (job) => started.push(job), log: { warn() {}, log() {} } });
   s.tick(fri); assert.deepEqual(started.sort(), ['clarify', 'review']);
   s.tick(new Date(fri.getTime() + 20e3)); assert.equal(started.length, 2);
+});
+
+test('GET /api/stream: hello, then every append and job status change as SSE', async () => {
+  const ac = new AbortController();
+  const r = await fetch(base + '/api/stream', { signal: ac.signal });
+  assert.equal(r.status, 200); assert.match(r.headers.get('content-type'), /text\/event-stream/);
+  const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  const readUntil = async (re) => { const t0 = Date.now(); while (!re.test(buf) && Date.now() - t0 < 4000) { const { value, done } = await reader.read(); if (done) break; buf += dec.decode(value); } return buf; };
+  await readUntil(/event: hello/);
+  assert.match(buf, /^retry: 2000/); assert.match(buf, /event: hello\ndata: \{"seq":\d+,"dataDir":/);
+  await post('/api/events', { type: 'review_completed', payload: {} });
+  await readUntil(/event: append/);
+  const line = buf.split('\n').find(l => l.startsWith('data:') && l.includes('review_completed'));
+  assert.ok(line, 'append event carries the JSON event'); const ev = JSON.parse(line.slice(5)); assert.equal(ev.type, 'review_completed'); assert.equal(ev.seq, (await j('GET', '/api/health')).body.seq);
+  app.runner.spawnClaude = async () => ({ code: 0, stdout: JSON.stringify({ result: 'ok' }), stderr: '' });
+  await post('/api/jobs/review', { args: {} });
+  await readUntil(/"status":"finished"/);
+  assert.match(buf, /event: job\ndata: \{"run":"r_[^"]+","job":"review".*"status":"queued"/);
+  assert.match(buf, /"status":"running"/); assert.match(buf, /"status":"finished"/);
+  ac.abort();
+});
+
+test('ahead of need: prep and nudge targets, once per target, autonomy gate, done.json', async () => {
+  const now = new Date(), iso = (ms) => new Date(ms).toISOString();
+  assert.deepEqual(prepTargets({ calendar: { events: [{ id: 'soon', start: iso(now.getTime() + 20 * 60e3) }, { id: 'later', start: iso(now.getTime() + 60 * 60e3) }, { id: 'gone', start: iso(now.getTime() - 5 * 60e3) }, { id: 'allday', start: iso(now.getTime() + 10 * 60e3), allDay: true }] } }, now), [{ meeting: 'soon' }]);
+  assert.deepEqual(prepTargets({ calendar: null }, now), []);
+  // a waiting-for whose follow-up passed a minute ago, one owed by nobody (skipped), one still ahead
+  const cap = async (raw) => (await post('/api/events', { type: 'captured', payload: { source: 'chat', raw } })).body.event.item;
+  const w1 = await cap('Priya: send the numbers'), w2 = await cap('nobody owes this'), w3 = await cap('Priya: later');
+  await post('/api/events', { type: 'accepted', item: w1, payload: { kind: 'waiting', fields: { next: 'Numbers from Priya', owner: 'u_priya', followUp: iso(now.getTime() - 60e3) } } });
+  await post('/api/events', { type: 'accepted', item: w2, payload: { kind: 'waiting', fields: { next: 'No owner', followUp: iso(now.getTime() - 60e3) } } });
+  await post('/api/events', { type: 'accepted', item: w3, payload: { kind: 'waiting', fields: { next: 'Later', owner: 'u_priya', followUp: iso(now.getTime() + 3600e3) } } });
+  const S1 = app.store.S;
+  assert.deepEqual(nudgeTargets(S1, now, 0), [{ item: w1 }]);
+  assert.deepEqual(nudgeTargets(S1, now, now.getTime() - 30e3), []);   // passed before the last check
+  // the scheduler's derived tick: one nudge run for w1, handed off as system first so the draft lands in the Ready lane
+  const started = [];
+  app.runner.spawnClaude = async (args) => { started.push(args[1]); return { code: 0, stdout: JSON.stringify({ result: 'nudge drafted' }), stderr: '' }; };
+  app.runner.state.nudgeCheckedAt = null;
+  const sch = new Scheduler({ schedule: { nudge: '30m', prep: '5m' }, start: (jb, a, o) => app.runner.start(jb, a, o), targets: (jb, n) => app.runner.targets(jb, n), log: { log() {}, warn() {} } });
+  sch.tick(now);
+  await new Promise(res => { const t0 = Date.now(); (function poll() { if ((app.runner.recent.some(x => x.job === 'nudge') && !app.runner.current && !app.runner.queue.length) || Date.now() - t0 > 5000) return res(); setTimeout(poll, 20); })(); });
+  assert.deepEqual(started.sort(), [`/gtd-nudge ${w1}`, '/gtd-prep today']);   // 'today' starts in 60 s (calendar test above)
+  const done = JSON.parse(fs.readFileSync(path.join(tmp, 'runs', 'done.json'), 'utf8'));
+  assert.ok(done.done[`nudge:${w1}`]); assert.ok(done.done['prep:today']); assert.ok(done.nudgeCheckedAt);
+  const it = (await j('GET', '/api/state')).body.items[w1]; assert.equal(it.owner, 'ai'); assert.ok(it.del);
+  // once per target: a second tick with the check time rewound does not run it again
+  app.runner.state.nudgeCheckedAt = null; sch.entries.forEach(e => { e.last = null; });
+  sch.tick(new Date(now.getTime() + 31 * 60e3)); assert.equal(app.runner.queue.length, 0); assert.equal(app.runner.current, null);
+  // autonomy.draft = never gates both
+  await post('/api/events', { type: 'config_set', payload: { key: 'autonomy.draft', value: 'never' } });
+  assert.equal(app.runner.start('prep', { meeting: 'm_x' }, { by: 'schedule' }), null);
+  await post('/api/events', { type: 'config_set', payload: { key: 'autonomy.draft', value: 'draft' } });
+  assert.ok(app.runner.start('prep', { meeting: 'm_x' }, { by: 'schedule' }));
+  assert.equal(app.runner.start('prep', { meeting: 'm_x' }, { by: 'schedule' }), null);   // done.json remembers
+  assert.ok(app.runner.start('prep', { meeting: 'm_x' }, { by: 'jeff' }));                 // an explicit ask always runs
+  await new Promise(res => { const t0 = Date.now(); (function poll() { if ((!app.runner.current && !app.runner.queue.length) || Date.now() - t0 > 5000) return res(); setTimeout(poll, 20); })(); });
 });
 
 test('static: / says dist is missing when it is', async () => {

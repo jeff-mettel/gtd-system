@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 
 export const DEFAULT_CONFIG = {
   ledgerVersion: 1,
-  schedule: { clarify: '*/15m', 'ingest-calendar': '1h', review: 'fri 15:00' },
+  schedule: { clarify: '*/15m', 'ingest-calendar': '1h', review: 'fri 15:00', prep: '5m', nudge: '30m' },
   calendar: { source: 'macos', calendars: [] },
 };
 

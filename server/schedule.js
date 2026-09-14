@@ -1,4 +1,6 @@
-// In-process scheduler. config.json → { schedule: { clarify:'*/15m', 'ingest-calendar':'1h', review:'fri 15:00' } }
+// In-process scheduler. config.json → { schedule: { clarify:'*/15m', 'ingest-calendar':'1h', review:'fri 15:00', prep:'5m', nudge:'30m' } }
+// Derived jobs (prep, nudge): on each due tick `targets(job, now)` lists the args to run — one run per target
+// (a meeting about to start, a waiting-for whose follow-up just passed); the runner's skipIf gates each one.
 // Specs: `Nm` / `*/Nm` every N minutes · `Nh` / `*/Nh` every N hours · `<dow> HH:MM` weekly (mon…sun) ·
 // `daily HH:MM` · `off`. Ticks every 30 s; interval jobs run when their period has elapsed since the
 // last start, clock jobs run once in the matching minute.
@@ -29,17 +31,21 @@ export function due(parsed, last, now) {
 }
 
 export class Scheduler {
-  constructor({ schedule = {}, start, log = console, tickMs = 30e3 }) {
+  constructor({ schedule = {}, start, targets = null, log = console, tickMs = 30e3 }) {
     this.entries = Object.entries(schedule).map(([job, spec]) => ({ job, spec, parsed: parseSpec(spec), last: null }));
     for (const e of this.entries) if (e.spec && !e.parsed && !/^(off|never)$/i.test(String(e.spec))) log.warn(`[gtd] schedule: cannot parse "${e.spec}" for ${e.job}; ignored`);
-    this.start = start; this.log = log; this.tickMs = tickMs; this.timer = null;
+    this.start = start; this.targets = targets; this.log = log; this.tickMs = tickMs; this.timer = null;
   }
   tick(now = new Date()) {
     for (const e of this.entries) {
       if (!due(e.parsed, e.last, now)) continue;
       e.last = now.getTime();
-      try { const r = this.start(e.job, {}, { by: 'schedule' }); if (r) this.log.log(`[gtd] schedule → ${e.job} (${e.spec})`); }
-      catch (err) { this.log.warn(`[gtd] schedule: ${e.job} not started: ${err.message}`); }
+      let list = null;
+      try { list = this.targets ? this.targets(e.job, now) : null; } catch (err) { this.log.warn(`[gtd] schedule: ${e.job} targets failed: ${err.message}`); continue; }
+      for (const args of (list || [{}])) {
+        try { const r = this.start(e.job, args, { by: 'schedule' }); if (r) this.log.log(`[gtd] schedule → ${e.job} ${list ? JSON.stringify(args) : ''}(${e.spec})`); }
+        catch (err) { this.log.warn(`[gtd] schedule: ${e.job} not started: ${err.message}`); }
+      }
     }
   }
   run() {

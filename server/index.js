@@ -25,8 +25,23 @@ export function createApp({ dir = dataDir(), port = Number(process.env.PORT) || 
   assertLedgerVersion(config, LEDGER_VERSION);
   const store = new Store(dir).load();
   const runner = new JobRunner({ store, dataDir: dir, config, port, log });
-  const scheduler = new Scheduler({ schedule: schedule ? config.schedule : {}, start: (j, a, o) => runner.start(j, a, o), log });
+  const scheduler = new Scheduler({ schedule: schedule ? config.schedule : {}, start: (j, a, o) => runner.start(j, a, o), targets: (j, now) => runner.targets(j, now), log });
   const dist = path.join(APP_ROOT, 'frontend', 'dist');
+
+  /* GET /api/stream — server-sent events: `append` (every ledger event, in seq order), `job` (run status changes),
+     `reset` (the log was replaced; reload), `: ping` every 25 s. `hello` carries seq + dataDir so a client can reconcile. */
+  const clients = new Set();
+  const broadcast = (event, data) => { const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`; for (const c of clients) c.write(msg); };
+  store.onAppend(e => broadcast('append', e));
+  runner.onChange(r => broadcast('job', publicRun(r)));
+  const ping = setInterval(() => { for (const c of clients) c.write(': ping\n\n'); }, 25e3); ping.unref?.();
+  function stream(req, res) {
+    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no', 'access-control-allow-origin': '*' });
+    res.write(`retry: 2000\n\n`);
+    res.write(`event: hello\ndata: ${JSON.stringify({ seq: store.seq, dataDir: dir, version: VERSION })}\n\n`);
+    clients.add(res);
+    req.on('close', () => clients.delete(res));
+  }
 
   const send = (res, code, body, headers = {}) => { const s = JSON.stringify(body); res.writeHead(code, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(s), 'access-control-allow-origin': '*', ...headers }); res.end(s); };
   const readBody = (req) => new Promise((resolve, reject) => { let b = ''; req.on('data', d => { b += d; if (b.length > 64e6) reject(Object.assign(new Error('body too large'), { status: 413 })); }); req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch { reject(Object.assign(new Error('invalid JSON body'), { status: 400 })); } }); req.on('error', reject); });
@@ -57,7 +72,7 @@ export function createApp({ dir = dataDir(), port = Number(process.env.PORT) || 
     ['POST', /^\/api\/import$/, async (req) => {
       const body = await readBody(req);
       if (!Array.isArray(body.events)) throw Object.assign(new Error('events must be an array'), { status: 400 });
-      if (body.mode === 'replace') return { ok: true, mode: 'replace', ...(await store.replaceAll(body.events)) };
+      if (body.mode === 'replace') { const r = await store.replaceAll(body.events); broadcast('reset', { seq: store.seq }); return { ok: true, mode: 'replace', ...r }; }
       if (body.mode === 'append' || !body.mode) return { ok: true, mode: 'append', ...(await store.appendMany(body.events)), seq: store.seq };
       throw Object.assign(new Error('mode must be append or replace'), { status: 400 });
     }],
@@ -67,6 +82,7 @@ export function createApp({ dir = dataDir(), port = Number(process.env.PORT) || 
   async function handle(req, res) {
     const url = new URL(req.url, 'http://localhost');
     if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, x-gtd-actor', 'access-control-allow-methods': 'GET, POST, OPTIONS' }); return res.end(); }
+    if (req.method === 'GET' && url.pathname === '/api/stream') return stream(req, res);
     for (const [method, re, fn] of routes) {
       const m = url.pathname.match(re); if (!m || req.method !== method) continue;
       try { return send(res, 200, await fn(req, url, m)); }
@@ -87,7 +103,7 @@ export function createApp({ dir = dataDir(), port = Number(process.env.PORT) || 
   }
 
   const server = http.createServer((req, res) => { handle(req, res).catch(err => { log.error(err); try { send(res, 500, { error: err.message }); } catch {} }); });
-  return { server, store, runner, scheduler, config, dir, port, listen: () => new Promise(r => server.listen(port, '127.0.0.1', () => { if (schedule) scheduler.run(); r(server); })), close: () => { scheduler.stop(); return new Promise(r => server.close(r)); } };
+  return { server, store, runner, scheduler, config, dir, port, listen: () => new Promise(r => server.listen(port, '127.0.0.1', () => { if (schedule) scheduler.run(); r(server); })), close: () => { scheduler.stop(); clearInterval(ping); for (const c of clients) c.end(); clients.clear(); return new Promise(r => server.close(r)); } };
 }
 function publicRun(r) { const { run, job, args, status, queuedAt, by, log } = r; return { run, job, args, status, queuedAt, by, log }; }
 
