@@ -79,3 +79,28 @@ Knowledge and system
   always runs `upcast()` first.
 - The demo fixture is the example data expressed as this event stream
   (`frontend/src/replay/events.js` already does most of it).
+
+## Optional payload fields the front-end store writes (v1 additions, 2026-09-13)
+
+Additive only — every field below is optional and the tables above stay valid.
+`packages/ledger/schema.js` is the executable form; `packages/ledger/README.md` documents the fold.
+
+- `program_created.program.page` — the wiki hub slug (`program-billing-migration`); default `program-<slug(name)>`.
+- `clarified.proposal.followUp` — for a waiting proposal.
+- `accepted.fields` may also carry `energy`, `ai` (the "AI can help" hint carried from the proposal),
+  `spawnedFrom` (a repeat instance names the action it was spawned from), `since`, `filedAt`, `createdAt`.
+- `captured.source` values in use: `email chat meeting voice calendar capture sweep screenshot tickler repeat cli`;
+  `captured.ref` for repeat instances is `repeat:<item>:<date>`, for calendar-captured items `cal:event/<id>`.
+- `nudged.followUp` — the follow-up date the sender chose; the fold uses it instead of `at + 5 d`.
+- `job_started` may name an `item` on the envelope: the fold moves that item's `del.status` to `working`
+  (`args.progress` optional). `job_finished` may name the item it worked on (`ai:nudge` drafts, for instance).
+- `wiki_changed.program` — which program the page belongs to (else matched by page prefix);
+  `wiki_changed.fields` — merged into the program's wiki entry (`status`, `health`, `links`, `risks`, `pending`,
+  `compiled: true | iso`), which is how the compile job publishes a new status paragraph.
+- `edited.fields` may carry any item field, `kind` included — the store's Undo re-appends the prior fields when no
+  compensating type exists (`accepted` → `edited { kind:'inbox', … }`, `parked` → `edited { kind:'action', … }`).
+- `resurfaced` is written by the front-end store (actor `system`) when a revisit or start date arrives; the fold
+  keeps `resurfacedFor` per item so a date fires once.
+- `review_completed.steps` — the step ids ticked when the review was completed.
+- The demo fixture lives in `packages/ledger/demo.js` (`demoEvents()`); its background-volume items carry
+  `ref: demo:bg/<id>` and are shown by the Replay only.
