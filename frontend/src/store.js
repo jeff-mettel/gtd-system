@@ -3,9 +3,12 @@
 //
 // Backends. `server` when window.__GTD_SERVER__ is set or the page is served by the server (GET /api/health answers
 // JSON { ok:true }): GET /api/events?since= to load, POST /api/events to write (optimistic: the event is applied
-// locally at once and reconciled with the server's seq/id/at when the reply lands), a light poll for events other
-// writers (the CLI, jobs) append. `local` otherwise: the event array under localStorage `gtd-ledger-v1`, seeded
-// with demoEvents() on first run (or with ?demo=1) — that is what keeps the published artifact working.
+// locally at once and reconciled with the server's seq/at when the reply lands; the client's id is kept), then
+// GET /api/stream (server-sent events) for everything other writers — the CLI, jobs — append, with a 60 s poll only
+// while the stream is down. The last fold's events are cached under localStorage `gtd-cache-v1` so the next open
+// paints at once and fetches only what is newer. `local` otherwise: the event array under localStorage
+// `gtd-ledger-v1`, seeded with demoEvents() on first run (or with ?demo=1) — that is what keeps the published
+// artifact working.
 //
 // Transactions and undo. A click handler runs inside withTx(); commits inside it do not render (the handler
 // renders once), and when it ends the toast grows an Undo that commits the compensating events in reverse.
@@ -14,8 +17,12 @@ import { fold, validate, newId, demoEvents, LEDGER_VERSION, LedgerTooNew, defaul
 import { TODAY, clock, setToday } from './lib/dates.js';
 import { isDeferred } from './features/defer.js';
 import * as fixtures from './data/constants.js';
+import { prefs, savePrefs } from './prefs.js';
 
 export const LEDGER_KEY = 'gtd-ledger-v1';
+export const CACHE_KEY = 'gtd-cache-v1';
+export const CACHE_MAX = 4e6;        // serialized characters; above this the cache is skipped, not truncated
+export const POLL_FALLBACK_MS = 60e3;
 
 /* Demo background volume (packages/ledger/demo.js) is replay-only: it never reaches the lists. */
 const isBackground = (i) => typeof i.ref === 'string' && i.ref.startsWith('demo:bg/');
@@ -25,9 +32,11 @@ export let S = fold([]);
 export let items = S.items, projects = S.projects, programs = S.programs, people = S.people, wiki = S.wiki, config = S.config, runs = S.runs, deliverables = S.deliverables;
 /* Calendar: from the latest calendar_synced when there is one, else the fixture constants (demo mode). */
 export let meetings = fixtures.meetings, calendarAhead = fixtures.calendarAhead, pastMeetings = fixtures.pastMeetings, calendarLive = false;
-export const ledger = { mode: 'local', events: [], seq: 0, v: LEDGER_VERSION, dataDir: null, serverUrl: '', demo: false, pending: 0, error: null, tooNew: null, stub: false };
+/* `stream`: 'live' (SSE open) | 'polling' (SSE down, 60 s poll) | 'off' (local mode). `online` goes false when the server stops
+   answering. `lastSync` is the last moment the server was heard from. `cached` says the first paint came from the fold cache. */
+export const ledger = { mode: 'local', events: [], seq: 0, v: LEDGER_VERSION, dataDir: null, serverUrl: '', demo: false, pending: 0, error: null, tooNew: null, stub: false, stream: 'off', online: true, lastSync: null, cached: false, lastJob: null };
 
-let backend = null, tx = null, depth = 0, renderFn = null, undoFn = null, pollTimer = null;
+let backend = null, tx = null, depth = 0, renderFn = null, undoFn = null, pollTimer = null, navTimer = null;
 
 export const lastReview = () => S.lastReview;
 
@@ -40,12 +49,34 @@ export function refold() {
   meetings = S.calendar ? (S.meetings ?? []) : fx.meetings; calendarAhead = S.calendar ? (S.calendarAhead ?? []) : fx.calendarAhead; pastMeetings = S.calendar ? (S.pastMeetings ?? []) : fx.pastMeetings;
   ledger.seq = S.seq;
   for (const it of items) if (it.kind === 'inbox' && !it.p) it.p = defaultProposal(it);
+  if (ledger.mode === 'server') scheduleCacheWrite();
 }
+
+/* ---------- fold cache (server mode): { events, seq, dataDir } so the next open paints before the network answers ---------- */
+let cacheTimer = null;
+function scheduleCacheWrite() { if (typeof localStorage === 'undefined') return; clearTimeout(cacheTimer); cacheTimer = setTimeout(writeCache, 400); }
+export function writeCache() {
+  if (typeof localStorage === 'undefined' || ledger.mode !== 'server') return false;
+  try {
+    const s = JSON.stringify({ events: ledger.events, seq: ledger.seq, dataDir: ledger.dataDir, v: LEDGER_VERSION });
+    if (s.length > CACHE_MAX) { localStorage.removeItem(CACHE_KEY); return false; }
+    localStorage.setItem(CACHE_KEY, s); return true;
+  } catch (e) { return false; }
+}
+/** The cached fold for this data folder, or null (missing, another data folder, or unreadable). */
+export function readCache(dataDir) {
+  if (typeof localStorage === 'undefined') return null;
+  try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); return c && Array.isArray(c.events) && c.events.length && c.dataDir === dataDir ? c : null; } catch (e) { return null; }
+}
+export function clearCache() { try { localStorage.removeItem(CACHE_KEY); } catch (e) {} }
 
 /* ---------- rendering (lazy, to avoid the import cycle with app.js) ---------- */
 export function setRenderer(fn) { renderFn = fn; }
 export function setUndoOffer(fn) { undoFn = fn; }
 async function render() { if (!renderFn) { try { renderFn = (await import('./app.js')).render; } catch (e) { return; } } renderFn(); }
+/* The footer and health strip only (sync status, AI status): cheaper than a full render, and it never disturbs a form in progress. */
+async function renderNav() { if (typeof document === 'undefined') return; try { (await import('./ui/nav.js')).renderNav(); } catch (e) { /* not mounted */ } }
+const heard = () => { ledger.lastSync = new Date(); ledger.online = true; };
 
 /* ---------- commit ---------- */
 const plain = (v) => JSON.parse(JSON.stringify(v ?? {}));          // Dates → ISO strings, undefined dropped
@@ -161,39 +192,87 @@ function localBackend() {
   return { mode: 'local', exists: !!(stored?.events?.length), load: async () => stored?.events || [], append: () => write(ledger.events), replace: (evs) => write(evs), backup: async () => ({ ok: false, note: 'Local mode keeps the ledger in this browser. Use Export JSON to take a copy; the server backs up to the data folder.' }) };
 }
 
+/**
+ * Apply events another writer appended (from the stream or a poll), in seq order. Ones already present (our own
+ * optimistic appends come back with the same id) are ignored; a gap in seq means something was missed, so the caller
+ * reloads from `since`. Returns { applied, gap }.
+ */
+export function applyRemote(incoming) {
+  const list = [...incoming].sort((a, b) => a.seq - b.seq);
+  const have = new Set(ledger.events.map(e => e.id));
+  let applied = 0, gap = false;
+  for (const e of list) {
+    if (have.has(e.id)) { const mine = ledger.events.find(x => x.id === e.id); if (mine && mine.seq !== e.seq) mine.seq = e.seq; ledger.serverSeq = Math.max(ledger.serverSeq ?? 0, e.seq); continue; }
+    const expected = (ledger.serverSeq ?? 0) + 1;
+    if (e.seq > expected + ledger.pending) { gap = true; break; }
+    ledger.events.push(e); have.add(e.id); applied++; ledger.serverSeq = Math.max(ledger.serverSeq ?? 0, e.seq);
+  }
+  if (applied) { ledger.events.sort((a, b) => a.seq - b.seq); refold(); }
+  return { applied, gap };
+}
+
 function serverBackend(base, health) {
   const url = (p) => base + p;
-  const q = []; let busy = false;
+  const q = []; let busy = false, es = null, renderTimer = null;
+  const get = async (p) => { const r = await fetch(url(p), { headers: { accept: 'application/json' } }); if (!r.ok) throw new Error(`server said ${r.status}`); const j = await r.json(); heard(); return j; };
   const post = async (e) => {
-    const r = await fetch(url('/api/events'), { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ type: e.type, payload: e.payload, item: e.item, actor: e.actor }) });
+    const r = await fetch(url('/api/events'), { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ id: e.id, type: e.type, payload: e.payload, item: e.item, actor: e.actor }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new LedgerError(j.errors || [`server said ${r.status}`]);
-    return j;
+    heard(); return j;
   };
   const flush = async () => {
     if (busy || !q.length) return; busy = true; const e = q[0];
     try { const j = await post(e); Object.assign(e, j.event); q.shift(); ledger.pending = q.length; if (typeof j.seq === 'number') ledger.serverSeq = j.seq; }
-    catch (err) { q.shift(); ledger.pending = q.length; ledger.error = err.message; notify(`Server rejected "${e.type}": ${err.message} — reloading from the server`); await reload(); }
+    catch (err) { q.shift(); ledger.pending = q.length; ledger.error = err.message; if (err instanceof LedgerError) notify(`Server rejected "${e.type}": ${err.message} — reloading from the server`); else { ledger.online = false; notify(`Could not reach the server: ${err.message}`); } await reload().catch(() => {}); }
     finally { busy = false; if (q.length) flush(); else if (ledger.events.some((x, i) => i && x.seq < ledger.events[i - 1].seq)) { ledger.events.sort((a, b) => a.seq - b.seq); refold(); } }
   };
-  const reload = async () => { const j = await (await fetch(url('/api/events?since=0'), { headers: { accept: 'application/json' } })).json(); ledger.events = j.events || []; ledger.serverSeq = j.seq; refold(); render(); };
-  const poll = async () => {
+  /* Coalesce a burst of stream events into one render. */
+  const renderSoon = () => { clearTimeout(renderTimer); renderTimer = setTimeout(() => { tick(); render(); }, 40); };
+  const reload = async () => { const j = await get('/api/events?since=0'); ledger.events = j.events || []; ledger.serverSeq = j.seq; refold(); render(); };
+  /* Fetch what is newer than the last confirmed seq (a gap on the stream, a poll, the reconcile after a cached paint). */
+  const catchUp = async () => {
     if (busy || q.length) return;
     try {
       const since = ledger.serverSeq ?? 0;
-      const j = await (await fetch(url(`/api/events?since=${since}`), { headers: { accept: 'application/json' } })).json();
-      const fresh = (j.events || []).filter(e => !ledger.events.some(x => x.id === e.id));
+      const j = await get(`/api/events?since=${since}`);
+      if (typeof j.seq === 'number' && j.seq < since) return reload();                       // the log shrank: replaced
+      const evs = j.events || [];
+      if (evs.length && evs[0].seq !== since + 1) return reload();                         // not a continuation of what we hold
+      const { applied, gap } = applyRemote(evs);
       if (typeof j.seq === 'number') ledger.serverSeq = j.seq;
-      if (fresh.length) { ledger.events.push(...fresh); ledger.events.sort((a, b) => a.seq - b.seq); refold(); tick(); render(); }
-    } catch (e) { /* offline for a moment; try again next tick */ }
+      if (gap) return reload();
+      if (applied) renderSoon(); else renderNav();
+    } catch (e) { ledger.online = false; renderNav(); }
+  };
+  const stopPoll = () => { if (pollTimer) clearInterval(pollTimer); pollTimer = null; };
+  const startPoll = () => { if (pollTimer) return; pollTimer = setInterval(catchUp, POLL_FALLBACK_MS); };
+  const subscribe = () => {
+    if (typeof EventSource === 'undefined') { ledger.stream = 'polling'; startPoll(); return; }
+    es = new EventSource(url('/api/stream'));
+    es.addEventListener('hello', (ev) => {
+      ledger.stream = 'live'; heard(); stopPoll();
+      let h = null; try { h = JSON.parse(ev.data); } catch (e) {}
+      if (h && typeof h.seq === 'number' && h.seq !== (ledger.serverSeq ?? 0)) catchUp(); else renderNav();
+    });
+    es.addEventListener('append', (ev) => {
+      let e = null; try { e = JSON.parse(ev.data); } catch (x) { return; }
+      heard();
+      const { applied, gap } = applyRemote([e]);
+      if (gap) catchUp(); else if (applied) renderSoon(); else renderNav();
+    });
+    es.addEventListener('job', (ev) => { try { ledger.lastJob = JSON.parse(ev.data); } catch (e) {} heard(); renderNav(); });
+    es.addEventListener('reset', () => reload().catch(() => {}));
+    es.onerror = () => { if (ledger.stream !== 'polling') { ledger.stream = 'polling'; startPoll(); renderNav(); } };   // EventSource reconnects by itself (retry: 2000)
   };
   return {
     mode: 'server', exists: true, health,
-    load: async () => { const j = await (await fetch(url('/api/events?since=0'), { headers: { accept: 'application/json' } })).json(); ledger.serverSeq = j.seq; return j.events || []; },
+    load: async () => { const j = await get('/api/events?since=0'); ledger.serverSeq = j.seq; return j.events || []; },
     append: (e) => { q.push(e); ledger.pending = q.length; flush(); },
     replace: () => { throw new Error('Replacing the ledger is a server-side operation'); },
     backup: async () => (await fetch(url('/api/backup'), { method: 'POST', headers: { accept: 'application/json' } })).json(),
-    poll, reload,
+    poll: catchUp, reload, subscribe, catchUp,
+    close: () => { if (es) es.close(); es = null; stopPoll(); ledger.stream = 'off'; },
   };
 }
 
@@ -212,17 +291,39 @@ async function pickBackend() {
 
 /* ---------- load / reset / import ---------- */
 export async function load({ seed } = {}) {
+  backend?.close?.();
   backend = seed ? memoryBackend(seed) : await pickBackend();      // an explicit seed (tests) is authoritative, even when empty
   ledger.mode = backend.mode; ledger.serverUrl = backend.mode === 'server' ? (typeof window !== 'undefined' && typeof window.__GTD_SERVER__ === 'string' ? window.__GTD_SERVER__ : location.origin) : '';
-  ledger.dataDir = backend.health?.dataDir || null; ledger.stub = !!backend.health?.stub; ledger.demo = false;
+  ledger.dataDir = backend.health?.dataDir || null; ledger.stub = !!backend.health?.stub; ledger.demo = false; ledger.cached = false;
+  ledger.stream = 'off'; ledger.online = true; ledger.lastSync = backend.mode === 'server' ? new Date() : null;
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).get('demo') === '1';
+  if (pollTimer) clearInterval(pollTimer); pollTimer = null;
+  if (navTimer) clearInterval(navTimer); navTimer = null;
+  if (backend.mode === 'server') {
+    setToday(false);
+    /* Live mode is for working, not learning: the instruction cards start folded to their one-line form. */
+    if (!prefs.guidesInit) { prefs.guidesInit = true; for (const v of ['now', 'inbox', 'programs', 'waiting', 'delegated', 'someday', 'reference', 'people', 'review', 'flow', 'settings']) prefs.guides[v] = true; savePrefs(); }
+    /* Instant paint: fold the cached events first, then fetch only what is newer and reconcile. */
+    const cache = readCache(ledger.dataDir);
+    if (cache) {
+      ledger.events = cache.events; ledger.serverSeq = cache.seq; ledger.cached = true; refold();
+      await render();
+      await backend.catchUp();
+      if (ledger.online === false) ledger.stream = 'polling';
+    } else {
+      ledger.events = await backend.load(); refold();
+    }
+    tick();
+    ledger.stream = 'polling';                                             // until the stream's hello lands (or its error starts the 60 s poll)
+    backend.subscribe();
+    navTimer = setInterval(renderNav, 30e3); navTimer.unref?.();          // "Synced · 2 min ago" keeps counting
+    return S;
+  }
   let events = await backend.load();
   if (backend.mode === 'local' && (demo || !backend.exists)) { events = demoEvents(); backend.replace(events); ledger.demo = true; }
   else if (backend.mode === 'local' && events.some(e => e.id?.startsWith('e_demo'))) ledger.demo = true;
   setToday(ledger.demo);                                                 // demo anchor vs. the real date, before the first fold
   ledger.events = events; refold(); tick();
-  if (pollTimer) clearInterval(pollTimer);
-  if (backend.poll) pollTimer = setInterval(backend.poll, 8000);
   return S;
 }
 

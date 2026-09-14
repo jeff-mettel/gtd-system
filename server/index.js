@@ -58,7 +58,9 @@ export function createApp({ dir = dataDir(), port = Number(process.env.PORT) || 
       let actor = body.actor || 'jeff';
       if (hdr) { if (!/^(ai:[\w-]+|ingest:[\w-]+|system)$/.test(hdr)) throw Object.assign(new Error(`X-GTD-Actor must be ai:<job>, ingest:<source> or system; got ${hdr}`), { status: 400 }); actor = hdr; }
       else if (/^(ai:|ingest:)/.test(actor)) throw Object.assign(new Error('ai:/ingest: actors must be set with the X-GTD-Actor header (the gtd CLI does this)'), { status: 400 });
-      const r = await store.append({ type: body.type, payload: body.payload, item: body.item, actor, at: body.at });
+      // A client may send its own event id (the front-end's optimistic append) so it recognises the event when it comes back on the stream.
+      const id = typeof body.id === 'string' && /^e_[\w-]{4,40}$/.test(body.id) && !store.events.some(e => e.id === body.id) ? body.id : undefined;
+      const r = await store.append({ type: body.type, payload: body.payload, item: body.item, actor, at: body.at, id });
       return r.existing ? { existing: true, item: r.existing, seq: r.seq } : { event: r.event, seq: r.seq };
     }],
     ['POST', /^\/api\/backup$/, async () => {
