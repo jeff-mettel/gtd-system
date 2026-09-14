@@ -4,6 +4,9 @@ description: Prepare the weekly review — gather the evidence for each step (in
 allowed-tools: Bash(gtd *), Read(wiki/**), Grep
 ---
 
+**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+
+
 # gtd-review
 
 Rules: `.claude/agents/gtd-reviewer.md` (Review prep). You gather facts; the human walks the

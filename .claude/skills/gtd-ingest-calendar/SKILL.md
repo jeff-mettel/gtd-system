@@ -4,6 +4,9 @@ description: Sync the calendar window [-7 days, +14 days] into the ledger throug
 allowed-tools: Bash(gtd *), mcp__*__list_calendars, mcp__*__list_events, mcp__*__get_event, mcp__*__search_events
 ---
 
+**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+
+
 # gtd-ingest-calendar
 
 Rules: `.claude/agents/gtd-ingest.md`. This is the **connector** path: it needs the Claude Code

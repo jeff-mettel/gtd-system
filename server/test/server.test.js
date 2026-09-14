@@ -41,7 +41,7 @@ test('health', async () => {
 test('rejects unknown types and unknown ids; accepts valid entities', async () => {
   assert.equal((await post('/api/events', { type: 'bogus', payload: {} })).status, 400);
   const bad = await post('/api/events', { type: 'project_created', payload: { project: { id: 'j_1', program: 'p_nope', name: 'x', outcome: 'y', health: 'good' } } });
-  assert.equal(bad.status, 400); assert.match(bad.body.errors[0], /no known program/);
+  assert.equal(bad.status, 400); assert.match(bad.body.errors[0], /unknown program/);
   const p = await post('/api/events', { type: 'program_created', payload: { program: { id: 'p_1', name: 'Billing', purpose: 'Move billing' } } });
   assert.equal(p.status, 200); assert.equal(p.body.seq, 1); assert.equal(p.body.event.actor, 'jeff');
   assert.equal((await post('/api/events', { type: 'project_created', payload: { project: { id: 'j_1', program: 'p_1', name: 'Cutover', outcome: 'Done', health: 'good' } } })).status, 200);
@@ -71,7 +71,7 @@ test('ai actors need the header and may only write their types', async () => {
 
 test('events?since, export, import append/replace with backup', async () => {
   const seq = (await j('GET', '/api/health')).body.seq;
-  assert.equal((await j('GET', `/api/events?since=${seq - 1}`)).body.length, 1);
+  assert.equal((await j('GET', `/api/events?since=${seq - 1}`)).body.events.length, 1);
   assert.equal((await j('GET', '/api/export')).body.length, seq);
   const imp = await post('/api/import', { mode: 'append', events: [{ type: 'review_completed', payload: {} }, { type: 'nope', payload: {} }] });
   assert.equal(imp.body.written, 1); assert.equal(imp.body.rejected.length, 1);
@@ -157,7 +157,7 @@ test('calendar_synced folds into meetings / calendarAhead / pastMeetings with at
   const people = (await j('GET', '/api/state')).body.people;
   const mk = (id, start, attendees) => ({ id, title: id, start: iso(start), end: iso(start + 36e5), attendees, who: matchAttendees(attendees, people), calendar: 'Work' });
   const events = [mk('past', now - 2 * 864e5, [{ name: 'Priya Natarajan', email: 'PRIYA@example.com' }]), mk('today', now + 60e3, [{ name: 'Nobody', email: 'x@y' }]), mk('ahead', now + 3 * 864e5, [{ name: 'Priya Natarajan', email: null }])];
-  const r = await post('/api/events', { type: 'calendar_synced', payload: { window: { from: iso(now - 7 * 864e5), to: iso(now + 14 * 864e5) }, events } }, { 'x-gtd-actor': 'ingest:calendar' });
+  const r = await post('/api/events', { type: 'calendar_synced', payload: { window: { from: iso(now - 7 * 864e5), to: iso(now + 14 * 864e5) }, events, source: 'macos' } }, { 'x-gtd-actor': 'ingest:calendar' });
   assert.equal(r.status, 200);
   const S = (await j('GET', '/api/state')).body;
   assert.deepEqual(S.pastMeetings.map(m => m.id), ['past']); assert.deepEqual(S.pastMeetings[0].who, ['u_priya']);

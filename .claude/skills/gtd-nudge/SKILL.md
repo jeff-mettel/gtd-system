@@ -4,6 +4,9 @@ description: Draft a follow-up for a waiting-for item that is past its follow-up
 allowed-tools: Bash(gtd *), Read(wiki/**)
 ---
 
+**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+
+
 # gtd-nudge `<itemId>`
 
 Rules: `.claude/agents/gtd-drafter.md`. Interactive or headless (`claude -p "/gtd-nudge i_…"`).

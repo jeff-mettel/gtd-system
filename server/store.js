@@ -107,6 +107,10 @@ export class Store {
 }
 
 /** JSON-safe copy of the fold: Maps → objects, Dates → ISO strings (the stub already uses plain objects). */
+/* The API view of the fold: entity collections keyed by id (the CLI and jobs address items/projects/people by id;
+   the front-end folds client-side from /api/events and never reads this). Dates become ISO strings. */
 export function serialize(S) {
-  return JSON.parse(JSON.stringify(S, (k, v) => (v instanceof Map ? Object.fromEntries(v) : v instanceof Set ? [...v] : v)));
+  const byId = (a) => Array.isArray(a) ? Object.fromEntries(a.map(x => [x.id, x])) : (a || {});
+  const out = { ...S, items: byId(S.items), projects: byId(S.projects), programs: byId(S.programs), people: byId(S.people), deliverables: byId(S.deliverables), runs: byId(S.runs) };
+  return JSON.parse(JSON.stringify(out, (k, v) => (v instanceof Map ? Object.fromEntries(v) : v instanceof Set ? [...v] : v)));
 }

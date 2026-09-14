@@ -107,7 +107,7 @@ const commands = {
   async guard() {
     const tool = need('tool'), item = flags.item;
     if (!item || item === true) die(`guard: refused — ${tool} needs --item ID and an approved event for it`, 2, { tool, allowed: false });
-    const evs = await api('GET', '/api/events?since=0');
+    const evs = (await api('GET', '/api/events?since=0')).events;
     const approved = evs.filter(e => e.type === 'approved' && e.item === item).at(-1);
     const takenBack = evs.filter(e => e.type === 'taken_back' && e.item === item).at(-1);
     const ok = approved && (!takenBack || takenBack.seq < approved.seq);

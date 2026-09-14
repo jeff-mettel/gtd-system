@@ -4,6 +4,11 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-13
 
+- **Beta foundation built.** `packages/ledger` is the contract's implementation; the
+  front-end is event-sourced (two backends: server, local demo); `server/` is the only
+  writer; `bin/gtd` + `.claude/skills/gtd-*` run Claude jobs headlessly with tiers from
+  Settings; `GET /api/state` returns entity collections keyed by id for the CLI/jobs while
+  the front-end folds from `/api/events`. First real `claude -p /gtd-clarify` run verified.
 - **Beta plan adopted** (`beta-plan.md`): data outside the app in `~/GTD-data/` (private
   repo), append-only versioned event log with upcasters, one writer (local service),
   Calendar first, Claude via subscription skills. Event contract in `ledger-events.md`.

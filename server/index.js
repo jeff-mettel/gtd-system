@@ -34,7 +34,7 @@ export function createApp({ dir = dataDir(), port = Number(process.env.PORT) || 
   const routes = [
     ['GET', /^\/api\/health$/, () => ({ ok: true, version: VERSION, ledgerVersion: LEDGER_VERSION, ledgerSource: LEDGER_SOURCE, seq: store.seq, dataDir: dir, mode: 'server', schedule: scheduler.describe() })],
     ['GET', /^\/api\/state$/, () => serialize(store.S)],
-    ['GET', /^\/api\/events$/, (req, url) => store.since(Number(url.searchParams.get('since') || 0))],
+    ['GET', /^\/api\/events$/, (req, url) => ({ events: store.since(Number(url.searchParams.get('since') || 0)), seq: store.seq })],
     ['GET', /^\/api\/export$/, () => store.events],
     ['GET', /^\/api\/jobs$/, () => ({ jobs: Object.fromEntries(Object.entries(JOBS).map(([k, v]) => [k, { what: v.what, agent: v.agent, tier: runner.tier(k) }])), ...runner.list() })],
     ['POST', /^\/api\/events$/, async (req) => {

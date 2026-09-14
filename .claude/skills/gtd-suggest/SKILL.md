@@ -4,6 +4,9 @@ description: Propose the next physical action for a project that has none (or is
 allowed-tools: Bash(gtd *), Read(wiki/**)
 ---
 
+**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+
+
 # gtd-suggest `<projectId>`
 
 Rules: `.claude/agents/gtd-reviewer.md` (Suggest section). Works interactively and headless

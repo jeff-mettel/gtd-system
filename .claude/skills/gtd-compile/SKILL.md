@@ -4,6 +4,9 @@ description: Rewrite the compiled sections of the program wiki hubs from ledger 
 allowed-tools: Bash(gtd *), Read(wiki/**), Edit, Write
 ---
 
+**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+
+
 # gtd-compile `[programId]`
 
 Rules: `.claude/agents/gtd-reviewer.md` (Compile) and the wiki conventions in `docs/wiki.md`.

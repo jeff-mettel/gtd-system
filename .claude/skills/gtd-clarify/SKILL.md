@@ -4,6 +4,9 @@ description: Clarify every inbox item that has no proposal yet — propose kind,
 allowed-tools: Bash(gtd *), Read(wiki/**)
 ---
 
+**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+
+
 # gtd-clarify
 
 Clarify is GTD's second stage: for each captured item, is it actionable, what is the very next

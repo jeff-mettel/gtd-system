@@ -11,7 +11,12 @@ an item *is*, and doing the weekly review.
 
 | Path | What |
 |---|---|
-| `frontend/` | The front-end: a Vite project in plain ES modules. `src/data` (example ledger), `src/model.js` (derived reads), `src/views`, `src/drawers`, `src/replay` (the event log, its fold, and the three.js scene shown in Flow), `tests/` (Vitest). Built output is published as the artifact. |
+| `packages/ledger/` | Event schema v1, validation, fold, upcasters, ids, and the demo fixture. Every writer imports it. |
+| `server/` | The local service: the only ledger writer, JSON API, `claude -p` job runner with per-job model tiers, scheduler, macOS/connector calendar ingest, backup (git commit of the data repo). |
+| `bin/gtd` | CLI — thin client of the server; the write path for Claude jobs (`GTD_ACTOR` required). `bin/gtd-hook` is the PreToolUse guard. |
+| `.claude/agents`, `.claude/skills` | The Claude jobs (`gtd-clarify`, `gtd-suggest`, `gtd-nudge`, `gtd-prep`, `gtd-review`, `gtd-compile`, `gtd-ingest-calendar`) and the harness deny rules. |
+| `frontend/` | The event-sourced front-end (Vite, plain ES modules): `src/store.js` (commit/fold, server or local backend), `src/views`, `src/drawers`, `src/features`, `src/replay`. Built output is served by the server and published as the demo artifact. |
+| `docs/beta-plan.md`, `docs/ledger-events.md`, `docs/runbook-beta.md` | The beta plan, the event contract, and how to install/run/upgrade. |
 | `docs/architecture.md` | The architecture: GTD mapping, data model, capture, clarify engine, views, agents, trust invariants, phasing. |
 | `docs/backend-wiring.md` | How the front-end connects to a real back-end: event log, endpoints, the five typed model calls, confidence gating, evals. |
 | `docs/subscription-wiring.md` | The same back-end on a Claude subscription instead of an API key: skills + subagents per tier, the `gtd` CLI as the single write path, harness-enforced trust rules. |
@@ -22,17 +27,17 @@ an item *is*, and doing the weekly review.
 
 ## Status
 
-Design and front-end prototype. No back-end yet — see `docs/backend-wiring.md` for the plan.
+Beta foundation: event-sourced front-end over a local service and the `packages/ledger` contract; Claude jobs run under your subscription via `claude -p`; Google Calendar via macOS Calendar or the connector. See `docs/runbook-beta.md` to run it on real data (empty start, data in `~/GTD-data`).
 
 Published prototype: https://claude.ai/code/artifact/11289ecb-31a3-4cdc-a8e5-c7b3861d58b6
 
-## Running the front-end
+## Running it
 
 ```bash
-cd frontend && npm install && npm run dev
+npm install && npm run build && npm run serve
 ```
 
-Then open http://localhost:5173. Everything is client-side; "Reset demo data" on the
+Then open http://localhost:4310 (data in `~/GTD-data`, created on first run). For front-end work: `cd frontend && npm run dev` (http://localhost:5173, `?demo=1` for example data). Everything is client-side; "Reset demo data" on the
 Flow view clears localStorage. `npm test` runs the Vitest suites (event log, fold);
 `npm run lint` runs ESLint; `npm run build:artifact` writes `dist/` plus
 `dist/artifact.html`, the fragment published to the artifact URL above.

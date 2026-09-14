@@ -4,6 +4,9 @@ description: Assemble a pre-meeting brief from the ledger and the wiki — `/gtd
 allowed-tools: Bash(gtd *), Read(wiki/**)
 ---
 
+**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+
+
 # gtd-prep `<meetingId>`
 
 Rules: `.claude/agents/gtd-drafter.md`. Interactive or headless (`claude -p "/gtd-prep <id>"`).
