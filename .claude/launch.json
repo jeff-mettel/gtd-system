@@ -24,6 +24,17 @@
         "GTD_DATA": "/private/tmp/claude-501/gtd-beta-test",
         "PORT": "4310"
       }
+    },
+    {
+      "name": "beta",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "server/index.js"
+      ],
+      "port": 4310,
+      "env": {
+        "PORT": "4310"
+      }
     }
   ]
 }

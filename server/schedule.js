@@ -38,7 +38,7 @@ export class Scheduler {
     for (const e of this.entries) {
       if (!due(e.parsed, e.last, now)) continue;
       e.last = now.getTime();
-      try { this.start(e.job, {}, { by: 'schedule' }); this.log.log(`[gtd] schedule → ${e.job} (${e.spec})`); }
+      try { const r = this.start(e.job, {}, { by: 'schedule' }); if (r) this.log.log(`[gtd] schedule → ${e.job} (${e.spec})`); }
       catch (err) { this.log.warn(`[gtd] schedule: ${e.job} not started: ${err.message}`); }
     }
   }

@@ -21,7 +21,9 @@ const CAL_READ = ['mcp__*__list_events', 'mcp__*__get_event', 'mcp__*__search_ev
 
 /** The registry. `prompt(args)` builds the `-p` text; `tools` is the allowlist; `writes` says which paths the job may edit. */
 export const JOBS = {
-  clarify: { agent: 'gtd-clarify', what: 'Propose a clarification for every inbox item without one', prompt: () => '/gtd-clarify', tools: READ_TOOLS },
+  clarify: { agent: 'gtd-clarify', what: 'Propose a clarification for every inbox item without one', prompt: () => '/gtd-clarify', tools: READ_TOOLS,
+    // Scheduled runs skip when there is nothing to clarify — every run is a Claude call against the subscription's quota.
+    skipIf: (S) => (Array.isArray(S.items) ? S.items : Object.values(S.items || {})).some(i => i.kind === 'inbox' && !i.p) ? null : 'inbox has nothing to clarify' },
   suggest: { agent: 'gtd-reviewer', what: 'Propose the next physical action for a project', prompt: a => `/gtd-suggest ${need(a, 'project')}`, tools: READ_TOOLS },
   nudge: { agent: 'gtd-drafter', what: 'Draft a follow-up for a waiting-for item', prompt: a => `/gtd-nudge ${need(a, 'item')}`, tools: READ_TOOLS },
   prep: { agent: 'gtd-drafter', what: 'Assemble a prep brief for a meeting', prompt: a => `/gtd-prep ${need(a, 'meeting')}`, tools: READ_TOOLS },
@@ -55,6 +57,7 @@ export class JobRunner {
   start(job, args = {}, { by = 'jeff' } = {}) {
     const def = JOBS[job];
     if (!def) throw Object.assign(new Error(`unknown job: ${job}`), { status: 404 });
+    if (by === 'schedule' && def.skipIf) { const why = def.skipIf(this.store.S); if (why) { this.log.log(`[gtd] schedule: ${job} skipped — ${why}`); return null; } }
     let prompt; try { prompt = def.prompt(args); } catch (err) { throw Object.assign(err, { status: 400 }); }
     const run = { run: newId('r'), job, args, prompt, by, status: 'queued', queuedAt: new Date().toISOString(), log: path.join(this.dataDir, 'runs', '') };
     run.log = path.join(this.dataDir, 'runs', `${run.run}.log`);
