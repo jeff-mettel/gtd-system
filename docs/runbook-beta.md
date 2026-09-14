@@ -45,15 +45,14 @@ curl -s localhost:4310/api/health
 ```
 
 `/api/health` → `{ ok, version, ledgerVersion, ledgerSource, seq, dataDir, mode:'server', schedule }`.
-`ledgerSource` says whether the real `packages/ledger` or the interim `server/_stub_ledger` is in
-use. If `frontend/dist` is missing, `/` says so; run `npm run build`.
+If `frontend/dist` is missing, `/` says so; run `npm run build`.
 
 ### Endpoints
 
 | | |
 |---|---|
-| `GET /api/state` | the fold (plain JSON, ISO dates) |
-| `GET /api/events?since=N` | events after seq N |
+| `GET /api/state` | the fold for the CLI and jobs (entity collections keyed by id, ISO dates) |
+| `GET /api/events?since=N` | `{ events, seq }` — events after seq N (the front-end folds from this) |
 | `POST /api/events` `{ type, payload, item?, actor? }` | validate → append → `{ event, seq }`; 400 `{ errors }`; `captured` with an existing `ref` → `{ existing:true, item }` |
 | `POST /api/backup` | `git add -A && git commit` in the data dir, `git push` if a remote exists |
 | `GET /api/export` · `POST /api/import { events, mode }` | raw event array; `replace` writes `events.<ts>.bak.jsonl` first |
