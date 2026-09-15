@@ -422,3 +422,27 @@ details.fold.deferred .row .t{color:var(--ink-2)}
 /* Screenshot capture: thumbnail in the inbox list, larger preview in the source block. */
 .ilist .thumb{width:44px;height:32px;object-fit:cover;border-radius:4px;border:1px solid var(--line);flex:none;margin-top:2px}
 .detail .src .shot{display:block;max-width:100%;max-height:220px;width:auto;border:1px solid var(--line);border-radius:6px;margin:8px 0 2px}
+/* speed: engage + sync */
+/* Needs you now: one panel, labelled groups of real rows; the quiet state is a single muted line. */
+.panel.needs .nlabel{display:flex;align-items:center;gap:8px;padding:10px 16px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.panel.needs .nlabel .n{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.panel.needs .nlabel + .row{border-top:0}
+.panel.needs.quiet{border-style:dashed} .panel.needs.quiet .row{padding:12px 16px}
+/* Next actions header: count and the Filter chip on the right; the chip lights when open or when a filter is active. */
+.phr{display:flex;align-items:center;gap:10px}
+button.chip.fchip{cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:11.5px;font-weight:500;padding:2px 8px}
+button.chip.fchip:hover{border-color:var(--accent)} button.chip.fchip.on{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+/* Rail footer: three facts. The dot is a status colour and always sits next to its word. */
+.rail .foot{display:grid;gap:3px;padding:0 8px 4px}
+.rail .foot .fact{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.rail .foot .fact.working{color:var(--accent-text)}
+.rail .foot .dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ink-3)}
+.rail .foot .dot.live{background:var(--good)} .rail .foot .dot.poll{background:var(--warn)} .rail .foot .dot.down{background:var(--crit)}
+@media (prefers-reduced-motion:no-preference){.rail .foot .dot.live{animation:sync-pulse 2.4s ease-out infinite}}
+@keyframes sync-pulse{0%{box-shadow:0 0 0 0 var(--good-soft)}70%{box-shadow:0 0 0 5px transparent}100%{box-shadow:0 0 0 0 transparent}}
+/* Weekly review, guided: one step, a dot per step above it, Back / Next below. */
+.steps.guided{gap:10px} .gdots{display:flex;gap:6px;align-items:center;padding:2px 4px}
+.gdot{width:10px;height:10px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);padding:0;cursor:pointer}
+.gdot.ok{background:var(--good);border-color:var(--good)} .gdot.cur{box-shadow:0 0 0 3px var(--accent-soft);border-color:var(--accent)}
+.acts.gnav{border:0;padding:4px 0}
+.panel.rdraft .draftbody{margin:0;white-space:pre-wrap;font:inherit;font-size:13px;line-height:1.55;color:var(--ink-2);max-height:360px;overflow:auto}

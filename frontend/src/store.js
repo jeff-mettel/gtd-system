@@ -302,7 +302,7 @@ export async function load({ seed } = {}) {
   if (backend.mode === 'server') {
     setToday(false);
     /* Live mode is for working, not learning: the instruction cards start folded to their one-line form. */
-    if (!prefs.guidesInit) { prefs.guidesInit = true; for (const v of ['now', 'inbox', 'programs', 'waiting', 'delegated', 'someday', 'reference', 'people', 'review', 'flow', 'settings']) prefs.guides[v] = true; savePrefs(); }
+    if (!prefs.guidesInit) { prefs.guidesInit = true; for (const v of ['now', 'inbox', 'programs', 'waiting', 'delegated', 'someday', 'reference', 'people', 'review', 'flow', 'settings']) prefs.guides[v] = true; if (prefs.collapsed.strip == null) prefs.collapsed.strip = true; savePrefs(); }
     /* Instant paint: fold the cached events first, then fetch only what is newer and reconcile. */
     const cache = readCache(ledger.dataDir);
     if (cache) {

@@ -1,10 +1,10 @@
 // Rail navigation, health strip, instruction cards and the guide.
 
 import { TODAY, days, until } from '../lib/dates.js';
-import { $ } from '../lib/dom.js';
+import { $, esc } from '../lib/dom.js';
 import { by, delegated, projHealth } from '../model.js';
 import { prefs } from '../prefs.js';
-import { activeRuns, lastReview, ledger, programs, projects } from '../store.js';
+import { activeRuns, lastReview, ledger, programs, projects, runs } from '../store.js';
 import { openDrawer } from './drawer.js';
 
 /* ---------- nav & health ---------- */
@@ -82,10 +82,31 @@ export const views = [
   { id:'settings', label:'Settings', key:',' },
 ];
 
+/* "just now" / "3 min ago" / "2 h ago" / "yesterday" / a date — for the footer's sync and AI facts. */
+export function ago(x, now = new Date()) {
+  if (!x) return 'never';
+  const s = Math.max(0, Math.round((now - new Date(x)) / 1000));
+  if (s < 45) return 'just now'; if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min ago`; if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  if (s < 172800) return 'yesterday'; return new Date(x).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+}
+
+/* Three small facts, no sentence: sync (with a live dot), the AI's last run and whether it is working, the ledger size. */
+export function statusFooter() {
+  const n = `${ledger.events.length.toLocaleString('en-GB')} event${ledger.events.length === 1 ? '' : 's'}`;
+  if (ledger.mode !== 'server') return `<div class="fact">${ledger.demo ? 'Example data' : 'Local ledger'} · ${TODAY.toLocaleDateString('en-GB', { day:'numeric', month:'short' })}</div><div class="fact">${n}</div>`;
+  const state = !ledger.online ? 'down' : ledger.stream === 'live' ? 'live' : 'poll';
+  const syncWord = state === 'down' ? 'Server unreachable' : `Synced · ${ago(ledger.lastSync)}`;
+  const title = state === 'live' ? 'Live: the server streams every change' : state === 'poll' ? 'Stream closed: checking every minute' : 'The server is not answering; changes wait here';
+  const working = activeRuns().length || (ledger.lastJob && (ledger.lastJob.status === 'queued' || ledger.lastJob.status === 'running'));
+  const last = (runs || []).reduce((m, r) => (!m || new Date(r.startedAt) > new Date(m.startedAt) ? r : m), null);
+  const aiLine = last ? `AI · last run ${ago(last.startedAt)} · ${working ? 'working' : last.status === 'failed' ? 'failed' : 'idle'}` : `AI · no runs yet · ${working ? 'working' : 'idle'}`;
+  return `<div class="fact"><span class="dot ${state}" title="${title}"></span>${syncWord}${ledger.pending ? ` · ${ledger.pending} to send` : ''}</div><div class="fact ${working ? 'working' : ''}" title="${last ? esc(last.job + (last.summary ? ': ' + last.summary : last.error ? ': ' + last.error : '')) : ''}">${aiLine}</div><div class="fact">${n}${ledger.stub ? ' · stub server' : ''}</div>`;
+}
+
 export function renderNav() {
   const cur = location.hash.slice(1) || 'now';
   const rail = $('.rail'); if (rail) { rail.classList.toggle('collapsed', !!prefs.collapsed.rail); const tb = rail.querySelector('.railtoggle'); if (tb) { tb.title = (prefs.collapsed.rail ? 'Expand' : 'Collapse') + ' sidebar ([)'; tb.setAttribute('aria-label', tb.title); tb.querySelector('span').textContent = prefs.collapsed.rail ? 'Expand' : 'Collapse'; }
-  const foot = rail?.querySelector('.foot'); if (foot) foot.innerHTML = `${ledger.mode === 'server' ? 'Live ledger' + (ledger.stub ? ' (stub server)' : '') : ledger.demo ? 'Example data' : 'Local ledger'} · ${TODAY.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' })}.<br>Every AI write is tagged and reversible.<br><span class="kbd">?</span> guide`; const dt = $('.topbar .date'); if (dt) dt.textContent = TODAY.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' }); }
+  const foot = rail?.querySelector('.foot'); if (foot) foot.innerHTML = statusFooter(); const dt = $('.topbar .date'); if (dt) dt.textContent = TODAY.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' }); }
   $('#nav').innerHTML = views.slice(0, 1).map(v => `<a href="#${v.id}" class="primary ${cur === v.id ? 'on' : ''}" title="${v.label} (${v.key})">${icons[v.id]}<span><b>${v.label}</b><small>${v.sub}</small></span><span class="key">${v.key}</span></a>`).join('') +
     `<div class="group">Lists</div>` + views.slice(1, 8).map(v => navLink(v, cur)).join('') +
     `<div class="group">Reflect</div>` + views.slice(8).map(v => navLink(v, cur)).join('');

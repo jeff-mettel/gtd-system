@@ -1,11 +1,22 @@
 import { aiLog, sweepTriggers, wikiLint } from '../data/constants.js';
-import { calendarAhead, items, lastReview, pastMeetings, programs, projects } from '../store.js';
+import { calendarAhead, deliverables, items, lastReview, pastMeetings, programs, projects } from '../store.js';
 import { TODAY, d, days, fmtDate, iso, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, activeProjects, by, mine, pname, projHealth, projName } from '../model.js';
-import { prefs } from '../prefs.js';
+import { prefs, savePrefs } from '../prefs.js';
 import { projChip, waitingRow } from '../ui/fragments.js';
 import { icons } from '../ui/nav.js';
+import { ui } from '../ui/session.js';
+
+/* The Friday review job's draft, when it is waiting in the Ready lane: `delivered` keyed for:{kind:'review'} (or a status
+   draft whose target is the review). The deliverable is the CLI's object ({ title, body }) or plain text. */
+export function reviewDraft() {
+  const x = deliverables.find(d => d.status === 'ready' && (d.for?.kind === 'review' || (d.for?.kind === 'status' && d.for.id === 'review')));
+  if (!x) return null;
+  const dl = x.deliverable, text = dl && typeof dl === 'object' ? String(dl.body || dl.text || '') : String(dl ?? '');
+  return { key: x.key, title: dl && typeof dl === 'object' && dl.title ? String(dl.title) : 'Weekly review · prepared by AI', text, actor: x.actor, at: x.readyAt, effect: x.effect };
+}
+const draftPanel = (dr) => dr ? `<div class="panel rdraft"><div class="ph"><h2>${esc(dr.title)}</h2><span class="note"><span class="chip aichip">${esc(dr.actor)}</span> ${dr.at ? fmtDate(dr.at) : ''}</span></div><div class="pb"><div class="row"><div class="t"><pre class="draftbody">${esc(dr.text)}</pre></div></div><div class="row"><div class="t muted">Evidence gathered by the review job; the calls below are yours. On approval: ${esc(dr.effect)}.</div><button class="btn sm ghost" data-takebackfor="${esc(dr.key)}">Dismiss</button><button class="btn sm" data-approvefor="${esc(dr.key)}">Mark as read</button></div></div></div>` : '';
 
 /* Step → icon key in `icons`; one clean stroke icon per step, aligned with the step number. */
 const stepIcon = { inbox:'stepInbox', sweep:'stepSweep', pastcal:'stepPastcal', upcoming:'stepUpcoming', next:'stepNext', waiting:'stepWaiting', someday:'stepSomeday', wins:'stepWins', ai:'stepAi', lint:'stepLint', horizons:'stepHorizons' };
@@ -43,7 +54,47 @@ export function viewReview() {
     horizons: 'Look up. Programs are areas of responsibility; each has a purpose you can check projects against. Ask: does every project still serve its program\'s purpose? Is there work with no home? Has a program met its purpose and earned retirement?',
   };
   const doneCount = steps.filter(s => s.auto || prefs.review[s.id]).length;
-  return `<div class="vhead"><div><h1>Weekly review</h1><p>AI prepared the evidence; the decisions are yours. ${lastReview() ? `Last completed ${days(lastReview())} days ago.` : 'Never completed yet.'}</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px"><button class="btn" data-goflow="week" title="Replay the week in Flow">Watch the week</button><div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
-  <div class="steps">${steps.map((s, i) => { const ok = s.auto || !!prefs.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><span class="sico">${icons[stepIcon[s.id]] || ''}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div>${why[s.id] ? `<div class="swhy">${why[s.id]}</div>` : ''}<div class="sb">${s.body}</div></div>`; }).join('')}</div>
-  <div class="acts" style="border:0;padding:0"><span class="note">Completing the review stamps <code class="mono">last_reviewed</code> on every project and resets the health strip.</span><span class="sp"></span><button class="btn primary" data-complete ${doneCount < steps.length ? 'disabled' : ''}>Complete review</button></div>`;
+  const guided = !!prefs.reviewGuided, dr = reviewDraft();
+  const stepCard = (s, i) => { const ok = s.auto || !!prefs.review[s.id]; return `<div class="step ${ok ? 'ok' : ''}"><div class="sh"><input class="chk" type="checkbox" data-step="${s.id}" ${ok ? 'checked' : ''} ${s.auto ? 'disabled' : ''}><span class="n">${i + 1}</span><span class="sico">${icons[stepIcon[s.id]] || ''}</span><h3>${s.title}</h3><span class="st">${s.status}</span></div>${why[s.id] ? `<div class="swhy">${why[s.id]}</div>` : ''}<div class="sb">${s.body}</div></div>`; };
+  const modeToggle = `<span class="seg" role="group" aria-label="Review mode"><button data-review-mode="list" class="${guided ? '' : 'on'}" title="Every step on one page">List</button><button data-review-mode="guided" class="${guided ? 'on' : ''}" title="One step at a time · ⏎ next">Guided</button></span>`;
+  const complete = `<div class="acts" style="border:0;padding:0"><span class="note">Completing the review stamps <code class="mono">last_reviewed</code> on every project and resets the health strip.</span><span class="sp"></span><button class="btn primary" data-complete ${doneCount < steps.length ? 'disabled' : ''}>Complete review</button></div>`;
+  if (!guided) return `<div class="vhead"><div><h1>Weekly review</h1><p>AI prepared the evidence; the decisions are yours. ${lastReview() ? `Last completed ${days(lastReview())} days ago.` : 'Never completed yet.'}</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px">${modeToggle}<button class="btn" data-goflow="week" title="Replay the week in Flow">Watch the week</button><div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
+  ${draftPanel(dr)}
+  <div class="steps">${steps.map(stepCard).join('')}</div>
+  ${complete}`;
+  /* Guided: one step at a time. ⏎ / → advance (and tick the step), ← goes back; the header carries the progress. */
+  const i = Math.max(0, Math.min(steps.length - 1, ui.reviewStep | 0)), s = steps[i], last = i === steps.length - 1;
+  return `<div class="vhead"><div><h1>Weekly review</h1><p>Step ${i + 1} of ${steps.length} · ${esc(s.title)}${lastReview() ? ` · last completed ${days(lastReview())} days ago` : ''}</p></div><div style="display:flex;align-items:center;gap:12px;min-width:260px">${modeToggle}<div class="progress"><i style="width:${doneCount / steps.length * 100}%"></i></div><span class="note num">${doneCount}/${steps.length}</span></div></div>
+  ${i === 0 ? draftPanel(dr) : ''}
+  <div class="steps guided"><div class="gdots">${steps.map((x, k) => `<button class="gdot ${k === i ? 'cur' : ''} ${x.auto || prefs.review[x.id] ? 'ok' : ''}" data-review-step="${k}" title="${k + 1}. ${esc(x.title)}"></button>`).join('')}</div>${stepCard(s, i)}
+  <div class="acts gnav"><button class="btn" data-review-step="${i - 1}" ${i === 0 ? 'disabled' : ''}>← Back</button><span class="note">${last ? 'Last step — complete the review when every step is ticked.' : `<span class="kbd">⏎</span> next · ticks this step`}</span><span class="sp"></span>${last ? `<button class="btn primary" data-complete ${doneCount < steps.length ? 'disabled' : ''}>Complete review</button>` : `<button class="btn primary" data-review-next="${s.auto ? '' : s.id}">Next →</button>`}</div></div>`;
+}
+
+/* Guided-mode controls are self-contained: a delegated click for the mode toggle, the dots and Back/Next, and ⏎ / ← / →
+   outside fields while the review is open. Prefs (mode, ticks) persist; the current step is session state. */
+const STEP_COUNT = 11;
+function rerender() { import('../app.js').then(m => m.render()); }
+export function reviewKey(e, cur = location.hash.slice(1)) {
+  if (cur !== 'review' || !prefs.reviewGuided) return false;
+  if (e.target.matches?.('input,textarea,select,button,a,[contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return false;   // a focused button takes ⏎ itself
+  if (document.getElementById('drawer')?.classList.contains('open')) return false;
+  const i = ui.reviewStep | 0;
+  if (e.key === 'Enter' || e.key === 'ArrowRight') { if (i >= STEP_COUNT - 1) return false; advance(i, true); return true; }
+  if (e.key === 'ArrowLeft' || e.key === 'Backspace') { if (i === 0) return false; ui.reviewStep = i - 1; rerender(); return true; }
+  return false;
+}
+const STEP_IDS = Object.keys(stepIcon);   // the steps above, in order
+function advance(i, tickIt) {
+  if (tickIt) { const id = STEP_IDS[i]; if (id && !prefs.review[id]) { prefs.review[id] = true; savePrefs(); } }
+  ui.reviewStep = Math.min(STEP_COUNT - 1, i + 1); rerender();
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-review-mode],[data-review-step],[data-review-next]'); if (!t) return;
+    const ds = t.dataset;
+    if (ds.reviewMode) { prefs.reviewGuided = ds.reviewMode === 'guided'; savePrefs(); if (prefs.reviewGuided) ui.reviewStep = ui.reviewStep | 0; rerender(); }
+    else if (ds.reviewStep != null) { ui.reviewStep = Math.max(0, Math.min(STEP_COUNT - 1, +ds.reviewStep)); rerender(); }
+    else if ('reviewNext' in ds) advance(ui.reviewStep | 0, !!ds.reviewNext);
+  });
+  document.addEventListener('keydown', (e) => { if (reviewKey(e)) e.preventDefault(); });
 }
