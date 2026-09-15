@@ -41,12 +41,14 @@ export function screenshotItem(text, image, id = 'C' + Date.now()) {
 export function initPaste({ render, capture }) {
   const inp = $('#captureInput'); if (!inp) return;
   if (!/paste a screenshot/.test(inp.placeholder)) inp.placeholder = inp.placeholder.replace(/\s*$/, ' — or paste a screenshot');
+  /* The capture overlay's input (features/captureOverlay.js) is a capture box too. */
+  const boxes = () => [inp, $('#ovlInput')].filter(Boolean);
   document.addEventListener('paste', async (e) => {
-    if (e.target !== inp && document.activeElement !== inp) return;
+    const src = boxes().find(b => e.target === b || document.activeElement === b); if (!src) return;
     const file = imageFrom(e.clipboardData); if (!file) return;
     e.preventDefault();
     let image; try { image = await shrink(file); } catch (x) { toast('Could not read that image'); return; }
-    const n = screenshotItem(inp.value, image);
-    withTx(() => { const id = capture({ source:'screenshot', raw:n.raw, image:n.image, proposal:n.p }); inp.value = ''; ui.sel = id; location.hash = '#inbox'; render(); toast('Screenshot captured · describe the ask in the inbox'); });
+    const n = screenshotItem(src.value, image);
+    withTx(() => { const id = capture({ source:'screenshot', raw:n.raw, image:n.image, proposal:n.p }); src.value = ''; src.closest('.ovl')?.setAttribute('hidden', ''); ui.sel = id; location.hash = '#inbox'; render(); toast('Screenshot captured · describe the ask in the inbox'); });
   });
 }

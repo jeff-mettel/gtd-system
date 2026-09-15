@@ -422,3 +422,57 @@ details.fold.deferred .row .t{color:var(--ink-2)}
 /* Screenshot capture: thumbnail in the inbox list, larger preview in the source block. */
 .ilist .thumb{width:44px;height:32px;object-fit:cover;border-radius:4px;border:1px solid var(--line);flex:none;margin-top:2px}
 .detail .src .shot{display:block;max-width:100%;max-height:220px;width:auto;border:1px solid var(--line);border-radius:6px;margin:8px 0 2px}
+
+/* speed: capture + keys */
+/* Overlays (capture, palette): centred box above everything, drawer included. */
+.ovl{position:fixed;inset:0;z-index:40;background:rgba(15,18,22,.32);display:flex;align-items:flex-start;justify-content:center;padding-top:14vh}
+.ovl[hidden]{display:none}
+.ovl-box{position:relative;width:min(640px,calc(100% - 32px));background:var(--raised);border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px 8px;display:flex;flex-direction:column;gap:6px}
+.ovl-row{display:flex;align-items:center;gap:10px}
+.ovl-plus{font-family:var(--mono);font-size:20px;color:var(--ink-3);line-height:1;flex:none}
+.ovl-row input{flex:1;border:0;background:transparent;outline:0;font-size:18px;padding:8px 0;min-width:0;font-family:var(--sans);color:var(--ink)}
+.ovl-hint{font-size:11.5px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;padding:0 2px 2px}
+.ovl-hint b{color:var(--ink-2);font-weight:500;font-family:var(--mono)}
+.ovl-preview{font-size:12.5px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-top:1px solid var(--line);padding:8px 2px 2px}
+.ovl-preview[hidden]{display:none}
+.ovl-box .ac{left:0!important;right:0;top:100%!important;margin-top:-6px}
+/* palette list */
+.pal .ovl-row input{font-size:16px}
+.pal-list{max-height:min(52vh,420px);overflow:auto;border-top:1px solid var(--line);margin:0 -6px;padding:4px 0}
+.pal-i{display:grid;grid-template-columns:82px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13.5px}
+.pal-i b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pal-i .faint{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+.pal-i .pal-g{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em}
+.pal-i .pal-r{font-family:var(--mono);font-size:10px;color:var(--accent-text);grid-column:3}
+.pal-i.on,.pal-i:hover{background:var(--accent-soft)} .pal-i.on b{color:var(--accent-text)}
+.pal-empty{padding:14px 10px;color:var(--ink-3);font-size:13px}
+/* inline field anchored to a row or chip */
+.inl{position:fixed;z-index:45;width:300px;background:var(--raised);border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow);padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.inl .inl-h{font-size:11.5px;color:var(--ink-2);font-weight:500}
+.inl input.in{width:100%}
+.inl input.bad{border-color:var(--crit)}
+.inl .inl-hint{font-size:11px;color:var(--ink-3);font-family:var(--mono);display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.inl-list{max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:1px}
+.inl-list[hidden]{display:none}
+.inl-opt{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+.inl-opt b{font-weight:500} .inl-opt .faint{font-size:11px;white-space:nowrap}
+.inl-opt.on,.inl-opt:hover{background:var(--accent-soft)} .inl-opt.on b{color:var(--accent-text)}
+/* keyboard focus ring on rows (roving tabindex; the inbox list keeps its own .sel) */
+.row.krow,.dcard.krow{box-shadow:inset 3px 0 0 var(--accent);background:color-mix(in srgb, var(--accent) 6%, transparent);outline:0}
+tr.krow>td{box-shadow:inset 0 -1px 0 var(--accent),inset 0 1px 0 var(--accent);background:color-mix(in srgb, var(--accent) 6%, transparent)}
+tr.krow>td:first-child{box-shadow:inset 3px 0 0 var(--accent),inset 0 -1px 0 var(--accent),inset 0 1px 0 var(--accent)}
+.row.krow:focus-visible,.dcard.krow:focus-visible,tr.krow:focus-visible{outline:0}
+/* one "when" chip per row — a button, so it takes a click without opening the drawer */
+button.chip.when{border:1px solid transparent;cursor:pointer;font:inherit;font-size:11.5px;font-weight:500;line-height:inherit;font-family:var(--mono)}
+button.chip.when:hover{border-color:var(--line-2)}
+.chip.when.warn{color:var(--warn);background:var(--warn-soft)}
+.chip.when.over{color:var(--crit);background:var(--crit-soft)}
+.chip.when.back{color:var(--accent-text);background:var(--accent-soft)}
+.chip.when.defer{color:var(--ink-3);background:transparent;border-color:var(--line-2);border-style:dashed}
+.chip.when.tick{color:var(--accent-text);background:var(--accent-soft)}
+.chip.when.nodate{color:var(--ink-3);background:transparent;border-color:var(--line);opacity:.7}
+.row:hover .chip.when.nodate{opacity:1}
+/* the AI's late second opinion on a filed item */
+.aisug{display:inline-flex;align-items:center;gap:6px}
+.aisug .lnk{background:none;border:0;padding:0;font:inherit;font-size:11.5px;font-weight:500;color:var(--accent-text);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.aisug .lnk:hover{color:var(--accent)}

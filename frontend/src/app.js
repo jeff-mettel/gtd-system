@@ -14,7 +14,7 @@ import { prefs, savePrefs, resetPrefs } from './prefs.js';
 import { activeRuns, commit, deliverables, isServer, items, ledger, programs, resetLocal, runJob, tick, wiki, withTx } from './store.js';
 import { closeDrawer, openDrawer } from './ui/drawer.js';
 import { actionRow } from './ui/fragments.js';
-import { guideBox, guideDrawer, icons, renderNav, views } from './ui/nav.js';
+import { guideBox, guideDrawer, icons, renderNav } from './ui/nav.js';
 import { proposalOf, ui } from './ui/session.js';
 import { viewDelegated } from './views/delegated.js';
 import { viewFlow } from './views/flow.js';
@@ -31,11 +31,17 @@ import { colorPopover } from './views/programs.js';
 /* inbox batch */
 import { initAutocomplete, parseMentions } from './features/autocomplete.js';
 import { initFuzzyInputs } from './features/fuzzyinput.js';
-import { inboxTab, kgKeys } from './features/inboxkeys.js';
 import { completeItem, doneToast, uncompleteItem } from './features/repeat.js';
 /* engage batch */
 import { isDeferred } from './features/defer.js';
 import { initPaste } from './features/paste.js';
+/* speed pass: capture overlay + inline grammar, one key router, command palette, one "when" per row */
+import { parseCapture } from './features/captureParse.js';
+import { initCaptureOverlay } from './features/captureOverlay.js';
+import { currentItemId, initKeys } from './features/keys.js';
+import { initPalette } from './features/palette.js';
+import { acceptSuggestion, keepFiling, setWhen } from './features/rowActions.js';
+import { inlineDate } from './ui/inline.js';
 
 /* ---------- render & events ---------- */
 let lastView = null;
@@ -120,12 +126,39 @@ function moveItem(id, pid) {
   toast(`Moved to ${j.name}`); return true;
 }
 
-/* A capture from anywhere in the UI: `captured` then the local first-guess `clarified` (the clarify job's stand-in). */
-export function capture({ source = 'capture', raw, from = null, image, mentions, proposal }) {
+/* A capture from anywhere in the UI: `captured` then the local first-guess `clarified` (the clarify job's stand-in).
+   With `file` (optimistic filing — the text named a project): `captured` + `accepted` by jeff at once, so it lands on
+   Engage immediately; the AI still gets to clarify, and a late proposal that disagrees shows as a chip on the row
+   (features/aiSuggest.js) instead of pulling the item back into the inbox. */
+export function capture({ source = 'capture', raw, from = null, image, mentions, proposal, file }) {
   const id = 'i_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   commit('captured', { source, raw, from, image, mentions }, { item: id });
+  if (file) commit('accepted', { kind:'action', fields: file }, { item: id });
   if (isServer()) requestClarify();                                            // the real clarify job, via the server
   else if (proposal) commit('clarified', { proposal }, { item: id, actor:'ai:clarify' });   // local stand-in
+  return id;
+}
+
+/* One line of text from the overlay, the top bar or the palette → an item. The inline grammar (features/captureParse.js)
+   reads @mentions, a trailing date, `!` and `~30m`; a project or program mention files it at once, anything else (and
+   every question) goes to the inbox. Never navigates: the toast says where it went. */
+export function captureText(v) {
+  const p = parseCapture(v, { mentions: parseMentions });
+  const guessWait = /waiting|will send|said (he|she|they)|promised|get back/i.test(v), guessSome = /idea|someday|maybe|could/i.test(v);
+  const proposal = { kind: guessWait ? 'waiting' : guessSome ? 'someday' : 'action', next: p.next, owner: guessWait ? (p.mentions.owner || null) : p.mentions.owner || undefined, project: p.mentions.project, ctx: (p.min || 15) <= 15 ? '@quick' : '@deep', min: p.min || 15, due: p.due || undefined, hard: p.hard || undefined, conf: p.mentions.ids.length ? .72 : .66, why: p.mentions.ids.length ? 'Captured just now; the @-mentions set the project and person, the rest is a first guess from the wording.' : 'Captured just now with no source thread to read, so this is a first guess from the wording alone.' };
+  let id;
+  withTx(() => {
+    if (p.filed) {
+      const min = p.min || 15, file = { next: p.next, project: p.mentions.project, ctx: min <= 15 ? '@quick' : '@deep', min };
+      if (p.due) file.due = p.due; if (p.hard) file.hard = p.hard;
+      id = capture({ source:'capture', raw: v, mentions: p.mentions.ids, proposal, file });
+      toast(`Filed to ${projName(p.mentions.project)}${p.hard ? ' · today' : p.due ? ' · due ' + fmtDate(p.due) : ''}${p.min ? ' · ' + p.min + ' min' : ''}`);
+    } else {
+      id = capture({ source:'capture', raw: v, mentions: p.mentions.ids, proposal });
+      toast(p.question ? 'Captured · a question waits for you in the inbox' : 'Captured · in the inbox' + (isServer() ? ', AI clarifying' : ''));
+    }
+    render();
+  });
   return id;
 }
 /* Ask the server to run clarify shortly after a burst of captures (one job for the whole inbox). */
@@ -140,12 +173,16 @@ export function requestClarify({ now = false } = {}) {
 document.addEventListener('click', (e) => withTx(() => onClick(e)));
 
 function onClick(e) {
-  const t = e.target.closest('[data-goflow],[data-guide-show],[data-pcolor],[data-colorpick],[data-promptreset],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-runjob],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset],[data-data],[data-approvefor],[data-takebackfor]');
+  const t = e.target.closest('[data-when],[data-aiaccept],[data-aikeep],[data-goflow],[data-guide-show],[data-pcolor],[data-colorpick],[data-promptreset],[data-quickadd],[data-sel],[data-kind],[data-accept],[data-accept-ai],[data-skip],[data-draft],[data-prep],[data-nudge],[data-agenda],[data-close],[data-send],[data-proj],[data-addmilestone],[data-item],[data-duelist],[data-received],[data-markdone],[data-park],[data-restore],[data-capfrom],[data-capprep],[data-ftime],[data-fenergy],[data-fclear],[data-collapse],[data-group],[data-addprog],[data-saveprog],[data-retire],[data-doretire],[data-dropproj],[data-guide],[data-runjob],[data-guide-dismiss],[data-guide-reset],[data-wiki],[data-ingest],[data-hand],[data-review],[data-approve],[data-takeback],[data-addproj],[data-saveproj],[data-primary],[data-addnext],[data-promote],[data-drop],[data-status],[data-complete],[data-copy],[data-reset],[data-data],[data-approvefor],[data-takebackfor]');
   if (!t) return;
   /* Project rows carry data-drop as a drag target, not as the "Drop" action: a click that bubbles up to one is not a command. */
   if (t.tagName === 'TR' && 'drop' in t.dataset) return;
   const ds = t.dataset;
-  if (ds.goflow) { Replay.preset(ds.goflow); location.hash = '#flow'; }
+  /* speed pass: the row's one "when" chip edits the field its kind lives by; the AI's late second opinion is accepted or kept */
+  if (ds.when) { const x = items.find(i => i.id === ds.when); if (!x) return; const f = ds.wfield; const label = { hard:'Pinned to…', due:'Due…', followUp:'Follow up on…', revisit:'Revisit on…', start:'Defer until…' }[f] || 'When…'; inlineDate(t, { label, value: x[f] || null, onPick: (dt) => withTx(() => { setWhen(x.id, f, dt); render(); }) }); }
+  else if (ds.aiaccept) { if (acceptSuggestion(ds.aiaccept)) render(); }
+  else if (ds.aikeep) { if (keepFiling(ds.aikeep)) render(); }
+  else if (ds.goflow) { Replay.preset(ds.goflow); location.hash = '#flow'; }
   else if (ds.sel) { ui.sel = ds.sel; render(); }
   else if (ds.kind) { const it = items.find(i => i.id === ui.sel); const o = Object.assign({}, ui.pkind[it.id], { kind: ds.kind }); if (ds.kind === 'waiting' && !(o.owner || it.p.owner)) o.owner = it.from || it.p.owner || undefined; ui.pkind[it.id] = o; render(); }
   else if ('accept' in ds) acceptCurrent();
@@ -269,37 +306,15 @@ document.addEventListener('submit', (e) => {
   withTx(() => { capture({ source: src, raw: v, proposal:{ kind:'action', next: v, project:null, ctx:'@quick', min:15, conf:.6, why: src === 'calendar' ? 'Captured from the two-week preview — prep for something on the calendar.' : 'From the mind sweep — clarify in the inbox.' } }); f.querySelector('input').value = ''; toast(src === 'calendar' ? 'Captured — clarify it in the inbox' : 'Captured — keep sweeping'); render(); });
   $(`[data-sweepform="${src === 'sweep' ? '' : src}"] input`)?.focus();
 });
+/* The top-bar box hands off to the overlay on focus (features/captureOverlay.js); a submit here (a browser autofill,
+   a script) still goes down the same path. */
 $('#captureForm').addEventListener('submit', (e) => {
   e.preventDefault(); const v = $('#captureInput').value.trim(); if (!v) return;
-  const guessWait = /waiting|will send|said (he|she|they)|promised|get back/i.test(v), guessSome = /idea|someday|maybe|could/i.test(v);
-  const m = parseMentions(v);           // @Program / @Project / @Person — text is kept as typed
-  withTx(() => {
-    const id = capture({ source:'capture', raw: v, mentions: m.ids, proposal:{ kind: guessWait ? 'waiting' : guessSome ? 'someday' : 'action', next: v.replace(/^(todo|remember to|remind me to)\s*/i, ''), owner: guessWait ? (m.owner || null) : m.owner || undefined, project: m.project, ctx:'@quick', min:15, conf: m.ids.length ? .72 : .66, why: m.ids.length ? 'Captured just now; the @-mentions set the project and person, the rest is a first guess from the wording.' : 'Captured just now with no source thread to read, so this is a first guess from the wording alone.' } });
-    $('#captureInput').value = ''; ui.sel = id; location.hash = '#inbox'; toast('Captured · waiting for you in the inbox'); render();
-  });
+  $('#captureInput').value = ''; captureText(v);
 });
 
-document.addEventListener('keydown', (e) => {
-  const cur = location.hash.slice(1) || 'now', inInbox = cur === 'inbox' && !$('#drawer').classList.contains('open');
-  /* Inbox: Cmd/Ctrl+Enter accepts from anywhere (fields included); Tab walks list → kinds → next action; arrows inside a kind group. */
-  if (inInbox && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); withTx(() => acceptCurrent()); return; }
-  if (inInbox && e.key === 'Tab' && inboxTab(e)) return;
-  /* Sidebar toggle: plain [ outside fields; Cmd/Ctrl+[ anywhere, even while typing. */
-  if (e.key === '[' && (e.metaKey || e.ctrlKey || !e.target.matches('input,textarea,select'))) { e.preventDefault(); prefs.collapsed.rail = !prefs.collapsed.rail; savePrefs(); render(); return; }
-  if (e.target.matches('input,textarea,select') ) { if (e.key === 'Escape') e.target.blur(); return; }
-  if (inInbox && kgKeys(e)) return;
-  if (e.key === 'Escape') { closeDrawer(); return; }
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  const v = views.find(x => x.key === e.key); if (v) { location.hash = '#' + v.id; return; }
-  if (e.key === '/') { e.preventDefault(); $('#captureInput').focus(); return; }
-  if (e.key === '?') { guideDrawer(); return; }
-  if (cur === 'inbox') {
-    if (e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const inList = !!document.activeElement?.closest?.('.ilist'); moveSel(e.key === 'j' || e.key === 'ArrowDown' ? 1 : -1); if (inList || e.key.startsWith('Arrow')) $('.ilist .row.sel')?.focus({ preventScroll:false }); }
-    else if ('axwst'.includes(e.key) && e.key.length === 1) withTx(() => acceptCurrent({ a:undefined, x:'done', w:'waiting', s:'someday', t:'trash' }[e.key]));
-    else if (e.key === 'e') { e.preventDefault(); $('#pNext')?.focus(); $('#pNext')?.select(); }
-    else if (e.key === 'd') { const it = items.find(i => i.id === ui.sel); if (it?.p.ai) { ui.delegateOnAccept = true; withTx(() => acceptCurrent()); } }
-  }
-});
+/* ONE keyboard router — features/keys.js — for views, rows, the inbox, drawers, the overlay and the palette. */
+initKeys({ render, acceptCurrent, moveSel });
 
 document.addEventListener('mousemove', (e) => {
   const t = e.target.closest('[data-tip]');
@@ -313,3 +328,7 @@ initAutocomplete(); initFuzzyInputs();
 
 /* engage batch: paste a screenshot into capture (the toast carries its own Undo) */
 initPaste({ render, capture });
+
+/* speed pass: the global capture overlay (⌘K, /, top-bar focus) and the command palette (⌘P) */
+initCaptureOverlay({ capture: captureText });
+initPalette({ render, capture: captureText, currentItemId, runJob: (job) => { if (job === 'clarify') requestClarify({ now: true }); else runJob(job).then(() => { toast(`${job} started`); renderNav(); }).catch(e => toast(`${job} did not start: ${e.message}`)); } });
