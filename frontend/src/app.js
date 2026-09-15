@@ -11,7 +11,7 @@ import { TODAY, d, fmtDate, until } from './lib/dates.js';
 import { $, esc, toast } from './lib/dom.js';
 import { by, mine, person, pname, projName, projOf } from './model.js';
 import { prefs, savePrefs, resetPrefs } from './prefs.js';
-import { activeRuns, commit, deliverables, isServer, items, ledger, programs, resetLocal, runJob, tick, wiki, withTx } from './store.js';
+import { commit, deliverables, isServer, items, ledger, programs, resetLocal, runJob, tick, wiki, withTx } from './store.js';
 import { closeDrawer, openDrawer } from './ui/drawer.js';
 import { actionRow } from './ui/fragments.js';
 import { guideBox, guideDrawer, icons, renderNav } from './ui/nav.js';

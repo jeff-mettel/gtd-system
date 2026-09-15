@@ -8,7 +8,7 @@
   "scripts": {
     "serve": "node index.js",
     "test": "node --test test/*.test.js",
-    "lint": "node --check index.js && node --check store.js && node --check jobs.js && node --check schedule.js && node --check datadir.js && node --check calendar-macos.js && node --check ledger.js && node --check _stub_ledger/index.js && node --check ../bin/gtd && node --check ../bin/gtd-hook",
+    "lint": "node --check index.js && node --check store.js && node --check jobs.js && node --check schedule.js && node --check datadir.js && node --check calendar-macos.js && node --check ledger.js && node --check ../bin/gtd && node --check ../bin/gtd-hook",
     "install-launchd": "node launchd/install.js",
     "uninstall-launchd": "node launchd/install.js --uninstall"
   }

@@ -1,15 +1,15 @@
 import { calendarAhead, calendarLive, deliverables, items, ledger, meetings, programs, projects } from '../store.js';
 import { backFirst, untilStart } from '../features/defer.js';
-import { TODAY, d, fmtDate, until } from '../lib/dates.js';
+import { TODAY, d, until } from '../lib/dates.js';
 import { esc } from '../lib/dom.js';
 import { active, activeProjects, by, deferredActions, delegated, energyOf, mine, projHealth, projName, projOf } from '../model.js';
 import { prefs } from '../prefs.js';
-import { actionRow, projChip, readyRow, waitingRow } from '../ui/fragments.js';
+import { actionRow, projChip, readyRow, waitingRow, whenChip } from '../ui/fragments.js';
 import { ui } from '../ui/session.js';
 
 
 /* Parked rows for the "Deferred · N" fold: what it is, where it belongs, and when it comes back. */
-const deferredRow = (a) => `<div class="row"><div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}</div><div class="m">${a.project ? projChip(a.project) : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}<span class="chip defer">⏸ starts ${esc(fmtDate(a.start))}</span>${a.min ? `<span class="num">${a.min} min</span>` : ''}</div></div></div>`;
+const deferredRow = (a) => `<div class="row"><div class="t clickable" data-item="${a.id}"><div>${esc(a.next)}</div><div class="m">${a.project ? projChip(a.project) : ''}${a.ctx ? `<span class="chip ctx">${esc(a.ctx)}</span>` : ''}${whenChip(a)}${a.min ? `<span class="num">${a.min} min</span>` : ''}</div></div></div>`;
 
 /* ---------- views ---------- */
 /* "Needs you now": one compact panel of promises the system cannot keep for you. Every row is a real item or a link; nothing

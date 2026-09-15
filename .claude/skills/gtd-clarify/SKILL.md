@@ -19,7 +19,7 @@ Interactively you may delegate to the `gtd-clarify` subagent; headless runs do t
 ## Read
 
 1. `gtd snapshot` — programs, projects, people (ids and names), open items, meetings. Use these ids only.
-2. `gtd inbox` — the items to clarify. If it is `[]`, say "inbox has nothing to clarify" and stop.
+2. `gtd inbox` — the items to clarify. If it is `[]`, say "inbox has nothing to clarify" and stop. An item with `filedAs` was filed by the person straight from capture; still propose — if you agree with `filedAs`, propose the same kind/project with your confidence; if you disagree, propose what you think is right (it shows as a suggestion they can accept or keep).
 3. Optionally `Read wiki/<program>.md` for the hub of a program an item seems to belong to.
 
 ## Write — one call per item, nothing else

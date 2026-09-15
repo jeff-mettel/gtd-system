@@ -62,7 +62,9 @@ const commands = {
   },
   async inbox() {
     const S = await api('GET', '/api/state');
-    out(items(S).filter(it => it.kind === 'inbox' && !it.p).map(it => ({ id: it.id, source: it.source, ref: it.ref, from: it.from, raw: it.raw, captured: it.captured, mentions: it.mentions || [], minutes: it.min ?? null })));
+    // Unclarified inbox items, plus items the person filed straight from capture (no proposal yet, not reviewed):
+    // the AI reviews those too, and its proposal shows as a suggested correction rather than reopening the inbox.
+    out(items(S).filter(it => !it.p && !it.aiReviewed && (it.kind === 'inbox' || ((it.kind === 'action' || it.kind === 'waiting') && it.source === 'capture'))).map(it => ({ id: it.id, source: it.source, ref: it.ref, from: it.from, raw: it.raw, captured: it.captured, mentions: it.mentions || [], minutes: it.min ?? null, filedAs: it.kind === 'inbox' ? null : { kind: it.kind, next: it.next, project: it.project ?? null } })));
   },
   async capture() {
     const payload = { source: need('source'), raw: need('raw') };
