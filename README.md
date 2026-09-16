@@ -1,4 +1,8 @@
-# GTD System
+# Delivery System
+
+An AI-assisted Getting Things Done system for program management — capture from anywhere, let the AI clarify, keep the decisions yourself.
+
+![Engage — what needs you now, then next actions by context](docs/screenshots/engage.png)
 
 ## Download
 
@@ -8,12 +12,26 @@
 
 First launch: the app is not notarized yet, so **right-click → Open** (once) instead of double-clicking. Your data lives in `~/GTD-data`, outside the app; see [docs/desktop.md](docs/desktop.md).
 
-An AI-assisted Getting Things Done system for program management. The personal
-system tracks *commitments* — what I owe, what's owed to me, by whom, since when —
+## What it does
+
+The system tracks *commitments* — what you owe, what's owed to you, by whom, since when —
 organized as programs → projects → next actions. AI handles the high-volume stages
-(capture, drafting the clarification, preparing the review, generating views,
-drafting nudges); the human owns the two moments that create trust: confirming what
-an item *is*, and doing the weekly review.
+(clarifying captures, drafting nudges and prep briefs, preparing the weekly review,
+compiling the program wiki); you own the two moments that create trust: confirming what
+an item *is*, and doing the weekly review. The AI never sends, books or deletes without
+your approval, and every AI write is tagged in an append-only ledger.
+
+| | |
+|---|---|
+| **Inbox — clarify** · Every capture arrives with the AI's proposal (kind, next action, project, owner, confidence). `a` accepts, or correct it; ⌘⏎ from any field. | ![Inbox](docs/screenshots/inbox.png) |
+| **Programs — organize** · Every project shows the one action that moves it, or who it's waiting on; stalled and no-next-action are flagged. Status is compiled from the ledger into the program wiki. | ![Programs](docs/screenshots/programs.png) |
+| **Waiting for — the PM's real list** · What's owed to you, aged like receivables, with a 14-day follow-up strip. Draft nudge writes from the history; nothing sends until you approve. | ![Waiting for](docs/screenshots/waiting.png) |
+| **Delegated to AI** · Hand work to the assistant like to a person: queued → working → ready for your review. Approving executes exactly the declared effect. | ![Delegated](docs/screenshots/delegated.png) |
+| **Weekly review — reflect** · GTD's keystone habit with the evidence pre-gathered: inbox to zero, mind sweep, calendar sweeps, every project covered, aged waiting-fors, someday, wins, AI audit, wiki lint, horizons. | ![Weekly review](docs/screenshots/review.png) |
+| **Flow — the system itself** · A replay of the ledger: every item is a ball moving through capture, clarify, programs, waiting, the AI, done — with each program's wiki growing at the end of its lane. | ![Flow](docs/screenshots/flow.png) |
+| **Settings** · Autonomy per capability, the model behind each AI job (Claude or local), prompts, options, and your data (export, import, backup). | ![Settings](docs/screenshots/settings.png) |
+
+Capture from anywhere with **⌘K** (`@project fri ~20m` files it straight to Engage), jump with **⌘P**, and work every list with `j/k ⏎ x d p n m`.
 
 ## Layout
 

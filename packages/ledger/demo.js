@@ -193,8 +193,9 @@ export function demoEvents() {
       cap(i, dT - 20 * H); clar(i, dT - 19.5 * H, { kind: 'action', next: i.next, project: i.project, ctx: '@quick', min: i.del.minutes, ai: { level: 'do', cap: i.cap, what: i.next } });
       acc(i, dT - 19 * H, 'action', fields(i, ['next', 'project']));
       ev(dT, 'jeff', 'handed_off', i.id, { cap: i.cap, what: i.next, effect: i.del.effect, minutes: i.del.minutes });
-      if (i.del.status !== 'queued') ev(dT + 5 * 6e4, 'ai:' + i.cap, 'job_started', i.id, { job: i.cap, run: run(), args: { progress: i.del.progress ?? .5 } });
-      if (i.del.readyAt) { const r = +i.del.readyAt; ev(Math.min(r >= T1 ? T1 - (5 + k) * 6e4 : r, T1), 'ai:' + i.cap, 'delivered', i.id, { deliverable: i.del.deliverable }); }
+      const rid = run();
+      if (i.del.status !== 'queued') ev(dT + 5 * 6e4, 'ai:' + i.cap, 'job_started', i.id, { job: i.cap, run: rid, args: { progress: i.del.progress ?? .5 } });
+      if (i.del.readyAt) { const r = +i.del.readyAt; const t = Math.min(r >= T1 ? T1 - (5 + k) * 6e4 : r, T1); ev(t, 'ai:' + i.cap, 'delivered', i.id, { deliverable: i.del.deliverable }); ev(t + 1e3, 'system', 'job_finished', null, { job: i.cap, run: rid, events: 1 }); }
       continue;
     }
     if (i.kind === 'action') { const c = +(i.createdAt || DEMO_TODAY); cap(i, c - 18 * H); clar(i, c - 17 * H, { kind: 'action', next: i.next, project: i.project, ctx: i.ctx, min: i.min, due: i.due, hard: i.hard, start: i.start, repeat: i.repeat, ai: i.ai }); acc(i, c, 'action', fields(i, ['next', 'project', 'ctx', 'min', 'due', 'hard', 'start', 'repeat', 'energy', 'ai'])); continue; }
@@ -240,9 +241,9 @@ export function demoEvents() {
     if (delegate) {
       const dT = accT + between(0.2, 6) * H, c = pick(['draft', 'data', 'draft', 'calendar']);
       ev(dT, 'jeff', 'handed_off', id, { cap: c, what: text, effect: EFFECT[c], minutes });
-      ev(dT + 0.5 * H, 'ai:' + c, 'job_started', id, { job: c, run: run() });
+      const rid = run(); ev(dT + 0.5 * H, 'ai:' + c, 'job_started', id, { job: c, run: rid });
       const rT = dT + between(2, 30) * H; if (rT >= T1) continue;
-      ev(rT, 'ai:' + c, 'delivered', id, { deliverable: text + '\n\n(demo deliverable)' });
+      ev(rT, 'ai:' + c, 'delivered', id, { deliverable: text + '\n\n(demo deliverable)' }); ev(rT + 1e3, 'system', 'job_finished', null, { job: c, run: rid, events: 1 });
       const aT = rT + between(1, 30) * H; if (aT >= T1) continue;
       if (rnd() < .1) { ev(aT, 'jeff', 'taken_back', id, {}); const dn = aT + between(1, 8) * DAY; if (dn < T1) ev(dn, 'jeff', 'done', id, {}); }
       else ev(aT, 'jeff', 'approved', id, { effect: EFFECT[c] });

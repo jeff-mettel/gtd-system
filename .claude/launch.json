@@ -35,6 +35,18 @@
       "env": {
         "PORT": "4310"
       }
+    },
+    {
+      "name": "demo",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4390",
+        "--directory",
+        "frontend/dist"
+      ],
+      "port": 4390
     }
   ]
 }

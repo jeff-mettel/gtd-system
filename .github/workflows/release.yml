@@ -88,17 +88,24 @@ jobs:
           V="${GITHUB_REF_NAME#v}"
           node -e "const f='desktop/src-tauri/tauri.conf.json',fs=require('fs');const j=JSON.parse(fs.readFileSync(f));j.version=process.argv[1];fs.writeFileSync(f,JSON.stringify(j,null,2)+'\n')" "$V"
 
+      - name: Apple signing env (only when the secrets are set)
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        run: |
+          {
+            echo "APPLE_CERTIFICATE=${{ secrets.APPLE_CERTIFICATE }}"
+            echo "APPLE_CERTIFICATE_PASSWORD=${{ secrets.APPLE_CERTIFICATE_PASSWORD }}"
+            echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}"
+            echo "APPLE_ID=${{ secrets.APPLE_ID }}"
+            echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}"
+            echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}"
+          } >> "$GITHUB_ENV"
+
       - name: Build and release with tauri-action
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional signing (see the header comment). Empty secrets are ignored by tauri-action.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Optional Apple signing (see the header comment). Exported by the "Apple signing env" step below only
+          # when the secrets exist — an empty APPLE_CERTIFICATE makes Tauri try to import a blank keychain cert and fail.
           # Updater artifacts (.app.tar.gz + .sig + latest.json) are signed with this key.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
