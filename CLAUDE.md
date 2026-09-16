@@ -1,18 +1,23 @@
-# GTD System — working notes for Claude
+# Snowball — working notes for Claude
 
 - Read `docs/architecture.md` first; `docs/decisions.md` is the running log — append a
   line there for every design decision made in conversation.
 - Layout: `packages/ledger` (event schema, validate, fold, upcasters, demo fixture — the
   single source of truth for every writer), `server/` (local service: the only ledger
-  writer, JSON API, `claude -p` job runner, scheduler, calendar ingest), `bin/gtd` (CLI,
+  writer, JSON API, `claude -p` job runner, scheduler, calendar ingest), `bin/snow` (CLI,
   thin HTTP client — the write path for Claude jobs), `frontend/` (Vite, plain ES modules,
   event-sourced: every mutation is `commit(type, payload)` in `src/store.js`; no example
   data mutation — `packages/ledger/demo.js` seeds the published demo), `.claude/agents`
-  + `.claude/skills/gtd-*` (the jobs), `docs/` (architecture, contract, plan, runbook).
+  + `.claude/skills/snow-*` (the jobs), `docs/` (architecture, contract, plan, runbook).
 - Contract: `docs/ledger-events.md`. Adding an event type means: schema + fold + tests in
   `packages/ledger`, then the front-end/server. Never change a shipped type's shape
   without an upcaster in `packages/ledger/migrations/`.
-- User data never lives in this repo: `GTD_DATA` (default `~/GTD-data`). Tests use temp dirs.
+- User data never lives in this repo: `SNOW_DATA` (default `~/Snowball`; `~/GTD-data` is renamed on
+  first run, and the `GTD_*` env names still work for one release). Tests use temp dirs.
+- The product is **Snowball**. The method's concepts (inbox, next actions, waiting for, someday/maybe,
+  weekly review) stay lowercase and generic; "GTD" / "Getting Things Done" appear only in the README's
+  Inspiration section and in `docs/decisions.md` history. Storage keys (`gtd-ledger-v1`, …) keep their
+  names so demo viewers keep their state.
 - Run: `npm run dev` from `frontend/` (talks to a server on :4310 if one is running, else
   the local demo ledger; `?demo=1` seeds the demo); `npm run serve` at the root starts the
   server. `npm test` at the root runs server + frontend tests; also run

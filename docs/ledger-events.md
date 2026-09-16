@@ -2,7 +2,7 @@
 
 The ledger is `events.jsonl`: one JSON object per line, append-only. Everything the
 app shows is a fold over it (`packages/ledger/fold.js`). This file is the contract
-between the front-end store, the server, the `gtd` CLI and the Claude jobs.
+between the front-end store, the server, the `snow` CLI and the Claude jobs.
 
 ## Envelope
 
