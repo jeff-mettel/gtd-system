@@ -1,9 +1,9 @@
 {
-  "name": "commitment-ledger",
+  "name": "snowball-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "GTD commitment ledger for program management \u2014 front-end prototype",
+  "description": "Commitment management for program managers \u2014 front-end prototype",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Copies the freshly built dmg (Tauri names it "Delivery System_<version>_<arch>.dmg") to a deterministic
+// Copies the freshly built dmg (Tauri names it "Snowball_<version>_<arch>.dmg") to a deterministic
 // name next to it, so the README can link to
-// https://github.com/jeff-mettel/gtd-system/releases/latest/download/Delivery-System-macOS.dmg
+// https://github.com/jeff-mettel/snowball/releases/latest/download/Snowball-macOS.dmg
 // without editing per release. The release workflow uploads this copy.
 // Looks in target/release/bundle/dmg and target/<triple>/release/bundle/dmg (a `tauri build --target` run);
 // an explicit folder can be passed as the first argument.
@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const STABLE_NAME = 'Delivery-System-macOS.dmg';
+const STABLE_NAME = 'Snowball-macOS.dmg';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const target = path.join(here, '..', 'src-tauri', 'target');
 const candidates = process.argv[2] ? [process.argv[2]] : [path.join(target, 'release', 'bundle', 'dmg'), ...safeList(target).map(t => path.join(target, t, 'release', 'bundle', 'dmg'))];

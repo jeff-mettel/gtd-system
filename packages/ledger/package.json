@@ -1,7 +1,7 @@
 {
-  "name": "@gtd/ledger",
+  "name": "@snowball/ledger",
   "version": "0.1.0",
-  "description": "Delivery System ledger: event schema v1, validation, fold, upcasters, demo fixture. Plain ESM, zero runtime dependencies.",
+  "description": "Snowball ledger: event schema v1, validation, fold, upcasters, demo fixture. Plain ESM, zero runtime dependencies.",
   "type": "module",
   "main": "./index.js",
   "exports": {
