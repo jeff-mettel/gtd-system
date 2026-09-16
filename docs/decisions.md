@@ -4,6 +4,15 @@ Newest first. One line per decision, with the reason. Add to this as we go.
 
 ## 2026-09-15
 
+- **Renamed to Snowball** (was Delivery System). Snowflakes of work gathered into snowballs of
+  execution. Reason: legal hygiene around the GTD® / Getting Things Done® trademarks
+  (David Allen Company) — the concepts are free to implement, the names are not. The
+  product, repo (`jeff-mettel/snowball`), CLI (`snow`), skills (`snow-*`), bundle id and
+  data folder (`~/Snowball`, migrated from `~/GTD-data` once, data preserved) all drop
+  "GTD". "Inspired by David Allen's Getting Things Done methodology" appears once, with the
+  standard non-affiliation disclaimer; elsewhere generic wording (inbox, next actions,
+  waiting for, someday/maybe, weekly review — lowercase, generic).
+
 - **Desktop app (Tauri 2)** in `desktop/`: the Node service runs as a bundled sidecar
   (Node binary copied at build time); tray menu (open, capture ⌘⇧K, sync calendar, start
   at login, check for updates, quit); close hides so the scheduler keeps running; data
