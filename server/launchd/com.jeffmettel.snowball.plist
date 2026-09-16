@@ -3,7 +3,7 @@
 <!-- Template. `npm run install-launchd` fills the __PLACEHOLDERS__ and writes it to ~/Library/LaunchAgents/. -->
 <plist version="1.0">
 <dict>
-  <key>Label</key>              <string>com.jeffmettel.gtd</string>
+  <key>Label</key>              <string>com.jeffmettel.snowball</string>
   <key>ProgramArguments</key>
   <array>
     <string>__NODE__</string>
@@ -12,7 +12,7 @@
   <key>WorkingDirectory</key>   <string>__APP__</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>GTD_DATA</key>         <string>__DATA__</string>
+    <key>SNOW_DATA</key>         <string>__DATA__</string>
     <key>PORT</key>             <string>__PORT__</string>
     <key>PATH</key>             <string>__PATH__</string>
     <key>HOME</key>             <string>__HOME__</string>

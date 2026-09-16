@@ -1,5 +1,5 @@
-// The data folder (`GTD_DATA`, default ~/GTD-data): create, validate, read config. Shared by the
-// server and `gtd init`, so both agree on the layout.
+// The data folder (`SNOW_DATA`, default ~/Snowball): create, validate, read config. Shared by the
+// server and `snow init`, so both agree on the layout.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,9 +11,40 @@ export const DEFAULT_CONFIG = {
   calendar: { source: 'macos', calendars: [] },
 };
 
+/** `SNOW_<name>`, else the pre-0.2 `GTD_<name>` with a one-time deprecation warning (kept for one release). */
+const warned = new Set();
+export function envVar(name) {
+  const v = process.env[`SNOW_${name}`];
+  if (v != null && v !== '') return v;
+  const old = process.env[`GTD_${name}`];
+  if (old != null && old !== '') {
+    if (!warned.has(name)) { warned.add(name); console.warn(`[snow] GTD_${name} is deprecated; use SNOW_${name} (the old name stops working after 0.2)`); }
+    return old;
+  }
+  return undefined;
+}
+
+export const LEGACY_DIR_NAME = 'GTD-data';   // the pre-0.2 default; moved to ~/Snowball once, see migrateLegacyDataDir()
+
 export function dataDir() {
-  const d = process.env.GTD_DATA || path.join(os.homedir(), 'GTD-data');
+  const d = envVar('DATA') || path.join(os.homedir(), 'Snowball');
   return path.resolve(d.replace(/^~(?=$|\/)/, os.homedir()));
+}
+
+/**
+ * One-time move of the pre-0.2 default folder: if `dir` is the default `~/Snowball`, does not exist, and
+ * `~/GTD-data` does, rename it (same volume — never copy-then-delete). Both present → leave both alone and
+ * use `~/Snowball`. An explicit SNOW_DATA / --data is never migrated. Returns what happened, for the log.
+ */
+export function migrateLegacyDataDir(dir = dataDir(), { home = os.homedir(), log = console } = {}) {
+  const target = path.resolve(path.join(home, 'Snowball'));
+  const legacy = path.resolve(path.join(home, LEGACY_DIR_NAME));
+  if (path.resolve(dir) !== target) return { moved: false, reason: 'not the default folder' };
+  if (!fs.existsSync(legacy)) return { moved: false, reason: 'no legacy folder' };
+  if (fs.existsSync(target)) { log.warn(`[snow] both ${target} and ${legacy} exist; using ${target} — merge or remove ${legacy} by hand`); return { moved: false, reason: 'both exist' }; }
+  fs.renameSync(legacy, target);
+  log.log(`[snow] moved ${legacy} → ${target}`);
+  return { moved: true, from: legacy, to: target };
 }
 
 const WIKI_INDEX = `---
@@ -34,14 +65,15 @@ Newest first. One entry per page change.
 `;
 
 /** Create the folder layout if missing; returns { dir, created:[...] }. Never overwrites. */
-export function ensureDataDir(dir = dataDir()) {
+export function ensureDataDir(dir = dataDir(), opts = {}) {
+  migrateLegacyDataDir(dir, opts);
   const created = [];
   const mk = (p, content) => { const full = path.join(dir, p); if (fs.existsSync(full)) return; if (content == null) fs.mkdirSync(full, { recursive: true }); else { fs.mkdirSync(path.dirname(full), { recursive: true }); fs.writeFileSync(full, content); } created.push(p); };
   mk('ledger', null); mk('ledger/events.jsonl', ''); mk('wiki', null); mk('wiki/index.md', WIKI_INDEX); mk('wiki/log.md', WIKI_LOG);
   mk('attachments', null); mk('attachments/.gitkeep', ''); mk('runs', null);
   mk('config.json', JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
   if (!fs.existsSync(path.join(dir, '.git'))) {
-    try { execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' }); created.push('.git'); } catch (err) { console.warn(`[gtd] git init failed in ${dir}: ${err.message}`); }
+    try { execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' }); created.push('.git'); } catch (err) { console.warn(`[snow] git init failed in ${dir}: ${err.message}`); }
   }
   mk('.gitignore', 'runs/\n.DS_Store\n');
   return { dir, created };
@@ -60,7 +92,7 @@ export function assertLedgerVersion(cfg, understood) {
   if (v > understood) throw new Error(`data folder ledgerVersion ${v} is newer than this build understands (${understood}); upgrade the app before starting`);
 }
 
-/** Validation summary for `gtd init` / health. */
+/** Validation summary for `snow init` / health. */
 export function inspectDataDir(dir = dataDir()) {
   const need = ['ledger/events.jsonl', 'wiki/index.md', 'wiki/log.md', 'attachments', 'config.json'];
   const missing = need.filter(p => !fs.existsSync(path.join(dir, p)));

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { demoEvents } from '@gtd/ledger';
+import { demoEvents } from '@snowball/ledger';
 import { load, items } from '../src/store.js';
 import { buildEvents, weeks } from '../src/replay/events.js';
 import { fold, wikiByProgram, isCharged, describe as describeEvent } from '../src/replay/fold.js';

@@ -32,7 +32,7 @@ export class Store {
     for (const line of txt.split('\n')) {
       n++;
       if (!line.trim()) continue;
-      try { out.push(JSON.parse(line)); } catch { console.warn(`[gtd] skipping malformed line ${n} of ${this.file}`); }
+      try { out.push(JSON.parse(line)); } catch { console.warn(`[snow] skipping malformed line ${n} of ${this.file}`); }
     }
     this.events = upcast(out);
     this.S = fold(this.events);

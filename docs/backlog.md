@@ -35,7 +35,7 @@ item to `decisions.md` when it's decided and built.
   (`frontend/src/lib/fuzzydate.js`: today/tomorrow/weekdays/next week/in N days/t+N/
   eom/ISO/9-20/20 sep). If it proves limiting, `chrono-node` bundles cleanly through
   Vite and handles free text ("the Friday after next", "end of next month").
-- **Contexts, simplified.** Keep GTD contexts but make them optional and mostly derived
+- **Contexts, simplified.** Keep contexts but make them optional and mostly derived
   (`@quick` ≤15 min, `@deep` otherwise, `@1:1/<person>` when a person is mentioned,
   `@agenda/<meeting>` when captured from a meeting). Revisit whether to drop them
   entirely after a few weeks of real use.

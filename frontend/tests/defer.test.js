@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { demoEvents } from '@gtd/ledger';
+import { demoEvents } from '@snowball/ledger';
 import { isBackToday, isDeferred, resurfaceDeferred, untilStart } from '../src/features/defer.js';
 import { commit, load, projects } from '../src/store.js';
 import { TODAY, d } from '../src/lib/dates.js';

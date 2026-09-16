@@ -1,15 +1,15 @@
 ---
-name: gtd-ingest-calendar
-description: Sync the calendar window [-7 days, +14 days] into the ledger through the Google Calendar connector — `/gtd-ingest-calendar`. Connector path only; the macOS path (`config.json → calendar.source: macos`) runs in the server without Claude.
-allowed-tools: Bash(gtd *), mcp__*__list_calendars, mcp__*__list_events, mcp__*__get_event, mcp__*__search_events
+name: snow-ingest-calendar
+description: Sync the calendar window [-7 days, +14 days] into the ledger through the Google Calendar connector — `/snow-ingest-calendar`. Connector path only; the macOS path (`config.json → calendar.source: macos`) runs in the server without Claude.
+allowed-tools: Bash(snow *), mcp__*__list_calendars, mcp__*__list_events, mcp__*__get_event, mcp__*__search_events
 ---
 
-**Run `gtd …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(gtd *)` is permitted, so `cd … && gtd …` is denied.
+**Run `snow …` directly.** The working directory is already the app repo and `bin/` is on PATH — never `cd` first and never wrap the call; only `Bash(snow *)` is permitted, so `cd … && snow …` is denied.
 
 
-# gtd-ingest-calendar
+# snow-ingest-calendar
 
-Rules: `.claude/agents/gtd-ingest.md`. This is the **connector** path: it needs the Claude Code
+Rules: `.claude/agents/snow-ingest.md`. This is the **connector** path: it needs the Claude Code
 Google Calendar connector's read tools (`list_calendars`, `list_events`, …) to be available in
 this session.
 
@@ -28,14 +28,14 @@ and stop. The job runner turns that into a failed run whose message tells the us
 
 ## Read
 
-1. `gtd snapshot` → `people` (ids, names, `channels.email`) so you can report which attendees you recognised (matching itself is done by the server).
-2. `list_calendars`; keep the calendars named in `gtd snapshot` → `config.calendar.calendars` if that list is non-empty, else all of them.
+1. `snow snapshot` → `people` (ids, names, `channels.email`) so you can report which attendees you recognised (matching itself is done by the server).
+2. `list_calendars`; keep the calendars named in `snow snapshot` → `config.calendar.calendars` if that list is non-empty, else all of them.
 3. `list_events` per calendar for the window **today − 7 days … today + 14 days**.
 
 ## Write — exactly one call
 
 ```
-gtd log --type calendar_synced --json '{
+snow log --type calendar_synced --json '{
   "window": { "from": "<ISO>", "to": "<ISO>" },
   "source": "connector",
   "events": [ { "id": "<event id>", "title": "…", "start": "<ISO>", "end": "<ISO>",

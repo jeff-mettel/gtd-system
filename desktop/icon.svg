@@ -1,10 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- App mark: the route (two nodes joined by an arc) that ends in a check, on the accent. Same path as frontend/index.html's .mark. -->
+  <!-- App mark: a snowball — one circle holding three small six-point snowflakes — white on the accent tile. Same paths as frontend/index.html's .mark. -->
   <rect x="64" y="64" width="896" height="896" rx="200" fill="#3b45a8"/>
-  <g transform="translate(192 192) scale(26.667)" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="6" cy="17" r="2.2"/>
-    <path d="M8 15.5c2.5-6 6.5-8 10-4.5"/>
-    <circle cx="18" cy="9" r="2.2"/>
-    <path d="m14.5 18 2 2 4-4"/>
+  <g transform="translate(192 192) scale(26.667)" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.6"/>
+    <g stroke-width="1.5">
+      <path d="M8.6 8.1v4.2M6.78 9.15l3.64 2.1M6.78 11.25l3.64 -2.1"/>
+      <path d="M14.8 7.3v3.4M13.33 8.15l2.94 1.7M13.33 9.85l2.94 -1.7"/>
+      <path d="M13 13.1v4.2M11.18 14.15l3.64 2.1M11.18 16.25l3.64 -2.1"/>
+    </g>
   </g>
 </svg>

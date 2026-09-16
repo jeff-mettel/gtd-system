@@ -2,7 +2,7 @@
 
 ## Thesis
 
-GTD works because of a *trusted system*: everything is captured into it, each item is
+The method works because of a *trusted system*: everything is captured into it, each item is
 clarified into a concrete next action or a "waiting for," and the whole thing is
 reviewed on a cadence so your brain stops holding it. It collapses in two places —
 capture leaks (asks arrive in six places, you record four) and the weekly review
@@ -10,7 +10,7 @@ decays (it's tedious, so it stops happening).
 
 For a Program Manager, most tracked work is *other people's*. Your own next-action
 list is short; your "Waiting For" list is enormous and is where programs slip. So a
-PM's GTD system is a **commitments ledger** — what I owe, what's owed to me, by whom,
+PM's system is a **commitments ledger** — what I owe, what's owed to me, by whom,
 since when — with projects and programs as the structure above it.
 
 AI's job description follows from that:
@@ -21,11 +21,11 @@ AI's job description follows from that:
   *is*, and doing the weekly review.
 - **Invariant: AI proposes, the human disposes; everything AI does is logged and
   reversible.** If AI auto-files everything, lists fill with misjudged items and the
-  system dies the way paper GTD dies.
+  system dies the way a paper system dies.
 
-## The five GTD stages
+## The five stages
 
-| Stage | GTD says | AI does | Human does |
+| Stage | The method says | AI does | Human does |
 |---|---|---|---|
 | Capture | Everything into one inbox | Ingest from every surface on a schedule; dedupe; link back to source | Quick-capture from phone/voice/chat |
 | Clarify | Is it actionable? Next action? | Draft a structured clarification with a confidence score; do 2-minute items as drafts awaiting approval | Confirm/correct in a fast triage view (<10 s per item) |
@@ -35,7 +35,7 @@ AI's job description follows from that:
 
 ## Data model — the commitment store
 
-GTD's lists are views over one set of entities:
+The method's lists are views over one set of entities:
 
 - **Item** — the universal unit. `id`, `source`, `source_ref` (URI: `gmail:thread/…`,
   `cal:event/…`, `voice:<ts>`, `chat:<session>`), `captured_at`, `raw`; after clarify:
@@ -47,7 +47,7 @@ GTD's lists are views over one set of entities:
   like — required), one *primary* next action, `status`, `program`, `health`,
   `stakeholders`, `milestones`. Last movement is **computed** from item activity,
   never stored.
-- **Program** — GTD's Area of Responsibility. `purpose` (required), `sponsor`,
+- **Program** — the method's Area of Responsibility. `purpose` (required), `sponsor`,
   `cadences`, health rolled up from projects. Has no next action of its own. Created
   rarely and deliberately (Programs header, review horizons step, or an inbox item
   clarified as `kind: program`); creation stubs its wiki hub. Retired, never deleted:

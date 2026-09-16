@@ -18,7 +18,7 @@ import { guideDrawer, views } from '../ui/nav.js';
 import { rank, score } from './match.js';
 import { deferItem, doneItem, itemOf, moveItemTo, parkItem } from './rowActions.js';
 
-const RECENT_KEY = 'gtd-palette-recent';
+const RECENT_KEY = 'gtd-palette-recent';   // pre-rename prefix kept on purpose (see store.js LEDGER_KEY)
 let ovl = null, input = null, list = null, deps = {}, cmds = [], shown = [], idx = 0;
 
 const recent = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) { return []; } };

@@ -4,7 +4,7 @@ import { config, items, people, programs, projects, wiki } from './store.js';
 import { days } from './lib/dates.js';
 import { isDeferred } from './features/defer.js';
 
-export { wikiStub, slug } from '@gtd/ledger';
+export { wikiStub, slug } from '@snowball/ledger';
 
 /* A milestone's date: the ISO 4th element when added in the UI, else parsed from the seeded "11 Sep" label (demo year); ranges like "1 or 15 Nov" have no date. */
 export const msDate = (m) => { if (m[3]) return new Date(m[3] + 'T08:00:00'); const r = /^(\d{1,2}) ([A-Za-z]{3})$/.exec(m[0] || ''); if (!r) return null; const mi = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(r[2].toLowerCase()); return mi < 0 ? null : new Date(2026, mi, +r[1], 8); };

@@ -1,11 +1,11 @@
 # Desktop release: on a `v*` tag, build the macOS (Apple Silicon) app with tauri-action and attach the
 # .dmg to a GitHub Release under a deterministic name, so README's "latest" link never changes:
-#   https://github.com/jeff-mettel/gtd-system/releases/latest/download/Delivery-System-macOS.dmg
+#   https://github.com/jeff-mettel/snowball/releases/latest/download/Snowball-macOS.dmg
 #
 # Releases are published (not draft) and NOT marked prerelease, even for `v0.2.0-beta.1` tags —
 # GitHub's `releases/latest` ignores prereleases, and the README link must resolve. See docs/desktop.md.
 #
-# In-app updates: tauri-action also uploads `Delivery System.app.tar.gz` + `.sig` and `latest.json`
+# In-app updates: tauri-action also uploads `Snowball.app.tar.gz` + `.sig` and `latest.json`
 # (includeUpdaterJson), signed with the updater key. Required secrets:
 #   TAURI_SIGNING_PRIVATE_KEY            contents of ~/.tauri/gtd-updater.key (the private half of the
 #                                        pubkey in desktop/src-tauri/tauri.conf.json)
@@ -114,19 +114,19 @@ jobs:
         with:
           projectPath: desktop
           tagName: ${{ github.ref_name }}
-          releaseName: 'Delivery System ${{ github.ref_name }}'
-          releaseBody: 'Download **Delivery-System-macOS.dmg**, drag the app to Applications, then right-click → Open the first time (the app is not notarized). Your data stays in ~/GTD-data.'
+          releaseName: 'Snowball ${{ github.ref_name }}'
+          releaseBody: 'Download **Snowball-macOS.dmg**, drag the app to Applications, then right-click → Open the first time (the app is not notarized). Your data stays in ~/Snowball.'
           releaseDraft: false
           prerelease: false        # keep false even for -beta tags so releases/latest resolves (docs/desktop.md)
           includeUpdaterJson: true # uploads latest.json next to the dmg; the app's updater endpoint reads it
           # createUpdaterArtifacts is off in tauri.conf.json so local builds work without the private key.
           args: '${{ matrix.args }} --config src-tauri/tauri.release.conf.json'
 
-      # tauri-action uploads "Delivery System_<version>_aarch64.dmg"; add the stable-name copy the README links to.
+      # tauri-action uploads "Snowball_<version>_aarch64.dmg"; add the stable-name copy the README links to.
       - name: Upload the deterministically named dmg
         if: startsWith(github.ref, 'refs/tags/v') && startsWith(matrix.platform, 'macos')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node desktop/scripts/name-dmg.mjs
-          gh release upload "$GITHUB_REF_NAME" "desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/Delivery-System-macOS.dmg" --clobber
+          gh release upload "$GITHUB_REF_NAME" "desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/Snowball-macOS.dmg" --clobber

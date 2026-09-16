@@ -21,7 +21,7 @@
       ],
       "port": 4310,
       "env": {
-        "GTD_DATA": "/private/tmp/claude-501/gtd-beta-test",
+        "SNOW_DATA": "/private/tmp/claude-501/gtd-beta-test",
         "PORT": "4310"
       }
     },

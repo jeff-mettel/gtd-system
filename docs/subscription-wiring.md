@@ -29,17 +29,17 @@ launchd / scheduled task            deterministic; owns *when* and *which tier*
    ├─ claude -p "/clarify" --model sonnet
    └─ claude -p "/review"  --model opus
          └─ subagents (.claude/agents/*.md, each with its own model:)
-               └─ tools: gtd CLI · Gmail/Calendar MCP (read only) · Read/Grep on wiki/
-                     └─ gtd propose-clarify --item 42 --json '…'
+               └─ tools: snow CLI · Gmail/Calendar MCP (read only) · Read/Grep on wiki/
+                     └─ snow propose-clarify --item 42 --json '…'
                            validates schema + enums built from the store
                            → appends `clarified` with actor=ai:clarify
 ```
 
 Three things carry the design:
 
-1. **The `gtd` CLI is the only write path.** It validates against the same Zod schemas
+1. **The `snow` CLI is the only write path.** It validates against the same Zod schemas
    as `backend-wiring.md §3`, builds the `project` / `owner` enums from the store at
-   call time, stamps `actor` from `GTD_ACTOR` (set by the skill), and appends the
+   call time, stamps `actor` from `SNOW_ACTOR` (set by the skill), and appends the
    event. Structured output moves from `messages.parse` to *validation at the
    boundary*: the model can only name things that exist, and the proposal→accepted
    diff (§6, the eval set) is still recorded. `claude -p --output-format json` exists,
@@ -82,34 +82,34 @@ plus minutes.
 ```
 .claude/
   agents/
-    gtd-ingest.md      model: haiku    tools: Bash(gtd *), mcp gmail read, mcp calendar read
-    gtd-clarify.md     model: sonnet   tools: Bash(gtd *), Read(wiki/**)
-    gtd-drafter.md     model: sonnet   tools: Bash(gtd *), Read(wiki/**)          # nudges, prep, status
-    gtd-reviewer.md    model: opus     tools: Bash(gtd *), Read(wiki/**), Grep
+    snow-ingest.md      model: haiku    tools: Bash(snow *), mcp gmail read, mcp calendar read
+    snow-clarify.md     model: sonnet   tools: Bash(snow *), Read(wiki/**)
+    snow-drafter.md     model: sonnet   tools: Bash(snow *), Read(wiki/**)          # nudges, prep, status
+    snow-reviewer.md    model: opus     tools: Bash(snow *), Read(wiki/**), Grep
   skills/
     ingest / clarify / nudge / prep / status / review   → each invokes its agent
   settings.json
     permissions.deny: send_message, create_event, update_event, trash_*, delete_*
-    hooks.PreToolUse: gtd guard --tool $TOOL --item $ITEM   (exit 2 unless `approved` exists)
+    hooks.PreToolUse: snow guard --tool $TOOL --item $ITEM   (exit 2 unless `approved` exists)
 ```
 
-Each agent's system prompt carries the job's rules and the `gtd` contract; the ledger
-snapshot comes from `gtd snapshot` at run time rather than living in the prompt.
+Each agent's system prompt carries the job's rules and the `snow` contract; the ledger
+snapshot comes from `snow snapshot` at run time rather than living in the prompt.
 
-## The `gtd` CLI contract
+## The `snow` CLI contract
 
 ```
-gtd snapshot                         projects, people, open items — for the prompt
-gtd inbox                            captured items with no `clarified`
-gtd capture --source gmail --ref gmail:thread/… --raw '…'      idempotent on ref
-gtd propose-clarify --item ID --json '…'                       → `clarified`
-gtd propose-action  --project ID --json '…'                    → `next_action_set` (unconfirmed)
-gtd draft --kind nudge|prep|status --for ID --json '…'          → deliverable to Ready lane; writes nothing else
-gtd guard --tool T --item ID         exit 0 only if an `approved` event covers T for ID
-gtd log --actor ai:… --type … --item ID --json '…'              generic append (tagged)
+snow snapshot                         projects, people, open items — for the prompt
+snow inbox                            captured items with no `clarified`
+snow capture --source gmail --ref gmail:thread/… --raw '…'      idempotent on ref
+snow propose-clarify --item ID --json '…'                       → `clarified`
+snow propose-action  --project ID --json '…'                    → `next_action_set` (unconfirmed)
+snow draft --kind nudge|prep|status --for ID --json '…'          → deliverable to Ready lane; writes nothing else
+snow guard --tool T --item ID         exit 0 only if an `approved` event covers T for ID
+snow log --actor ai:… --type … --item ID --json '…'              generic append (tagged)
 ```
 
-`GTD_ACTOR` must be set; the CLI refuses an unset or non-`ai:` actor from a headless
+`SNOW_ACTOR` must be set; the CLI refuses an unset or non-`ai:` actor from a headless
 run. Every AI write lands `confirmed_by: null` and shows in the weekly review's audit
 step, as before.
 
@@ -122,7 +122,7 @@ step, as before.
 - **No Batch API discount.** Irrelevant on a flat fee.
 - **Synchronous clarify at capture time** (`POST /items` → enqueue) gets awkward:
   spawning `claude -p` per capture is slow. Clarify on a 15-minute cadence instead —
-  GTD wants capture to be dumb anyway — or, later, add a small API key for that one hot
+  capture should be dumb anyway — or, later, add a small API key for that one hot
   path. A hybrid (subscription for scheduled + interactive, API for one job) is fine.
 - **Ingestors get simpler.** They are skills over the Gmail / Calendar connectors, not
   OAuth apps to maintain. Dedupe on `source_ref` still lives in the CLI.
@@ -133,7 +133,7 @@ step, as before.
 
 ## Recommendation
 
-Start subscription-only: every job a skill + subagent, tiers as config, the `gtd` CLI
+Start subscription-only: every job a skill + subagent, tiers as config, the `snow` CLI
 as the single write path. The model-call boundary is one module either way, so moving
 a hot job to the API later is a local change. The durable, portable assets remain the
 event log and the eval set.

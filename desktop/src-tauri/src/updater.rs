@@ -1,14 +1,14 @@
 // In-app updates over GitHub Releases (tauri-plugin-updater).
 //
-// Endpoint: https://github.com/jeff-mettel/gtd-system/releases/latest/download/latest.json, produced by the
+// Endpoint: https://github.com/jeff-mettel/snowball/releases/latest/download/latest.json, produced by the
 // release workflow (tauri-action, includeUpdaterJson) and signed with the key whose public half is in
 // tauri.conf.json. Checked ~15 s after launch and every 6 h, plus the tray's "Check for updates…".
-// When an update exists: a native dialog "Delivery System X is available — Update now / Later"; on
+// When an update exists: a native dialog "Snowball X is available — Update now / Later"; on
 // Update the download progress shows in the tray tooltip, the bundle is replaced, the app relaunches.
-// The data folder (~/GTD-data) is never touched by an update — only the .app bundle changes.
+// The data folder (~/Snowball) is never touched by an update — only the .app bundle changes.
 //
 // While the repo is private the fetch needs a GitHub token: <data>/config.json → updater.token, or the
-// GTD_GITHUB_TOKEN env var, sent as `Authorization: Bearer …` on both the JSON and the download request.
+// SNOW_GITHUB_TOKEN env var, sent as `Authorization: Bearer …` on both the JSON and the download request.
 
 use std::{fs, path::Path, thread, time::Duration};
 
@@ -63,9 +63,9 @@ pub fn check(app: &AppHandle, manual: bool) {
             let version = update.version.clone();
             let body = update.body.clone().unwrap_or_default();
             let text = if body.trim().is_empty() {
-                format!("Delivery System {version} is available (you have {}).\n\nYour data in the GTD folder is not touched by an update.", update.current_version)
+                format!("Snowball {version} is available (you have {}).\n\nYour data in the data folder is not touched by an update.", update.current_version)
             } else {
-                format!("Delivery System {version} is available (you have {}).\n\n{}\n\nYour data in the GTD folder is not touched by an update.", update.current_version, body.trim())
+                format!("Snowball {version} is available (you have {}).\n\n{}\n\nYour data in the data folder is not touched by an update.", update.current_version, body.trim())
             };
             let go = app
                 .dialog()
@@ -77,7 +77,7 @@ pub fn check(app: &AppHandle, manual: bool) {
             if !go {
                 return;
             }
-            set_tooltip(app, &format!("Delivery System — downloading {version}…"));
+            set_tooltip(app, &format!("Snowball — downloading {version}…"));
             let h = app.clone();
             let v = version.clone();
             let mut got: u64 = 0;
@@ -85,19 +85,19 @@ pub fn check(app: &AppHandle, manual: bool) {
                 move |chunk, total| {
                     got += chunk as u64;
                     let pct = total.map(|t| format!("{}%", got * 100 / t.max(1))).unwrap_or_else(|| format!("{} MB", got / 1_000_000));
-                    set_tooltip(&h, &format!("Delivery System — downloading {v}: {pct}"));
+                    set_tooltip(&h, &format!("Snowball — downloading {v}: {pct}"));
                 },
                 || {},
             ));
             match r {
                 Ok(()) => {
-                    set_tooltip(app, &format!("Delivery System — {version} installed, restarting"));
+                    set_tooltip(app, &format!("Snowball — {version} installed, restarting"));
                     eprintln!("[desktop] update {version} installed; restarting");
                     crate::stop_sidecar(app);
                     app.restart();
                 }
                 Err(e) => {
-                    set_tooltip(app, "Delivery System");
+                    set_tooltip(app, "Snowball");
                     eprintln!("[desktop] update failed: {e}");
                     notice(app, MessageDialogKind::Error, &format!("The update could not be installed.\n\n{e}\n\nYou can download it from the README link instead."));
                 }
@@ -106,7 +106,7 @@ pub fn check(app: &AppHandle, manual: bool) {
         Ok(None) => {
             eprintln!("[desktop] updater: up to date");
             if manual {
-                notice(app, MessageDialogKind::Info, &format!("Delivery System {} is the newest version.", app.package_info().version));
+                notice(app, MessageDialogKind::Info, &format!("Snowball {} is the newest version.", app.package_info().version));
             }
         }
         Err(e) => {
@@ -119,7 +119,7 @@ pub fn check(app: &AppHandle, manual: bool) {
 }
 
 fn notice(app: &AppHandle, kind: MessageDialogKind, text: &str) {
-    app.dialog().message(text).title("Delivery System").kind(kind).blocking_show();
+    app.dialog().message(text).title("Snowball").kind(kind).blocking_show();
 }
 
 fn set_tooltip(app: &AppHandle, text: &str) {
@@ -128,11 +128,14 @@ fn set_tooltip(app: &AppHandle, text: &str) {
     }
 }
 
-/// GTD_GITHUB_TOKEN, else <data>/config.json → updater.token. None when neither is set (public repo).
+/// SNOW_GITHUB_TOKEN (or the old GTD_GITHUB_TOKEN), else <data>/config.json → updater.token. None when neither is set (public repo).
 fn github_token(data: &Path) -> Option<String> {
-    if let Ok(t) = std::env::var("GTD_GITHUB_TOKEN") {
-        if !t.trim().is_empty() {
-            return Some(t.trim().to_string());
+    // GTD_GITHUB_TOKEN is the pre-0.2 name, accepted for one release.
+    for name in ["SNOW_GITHUB_TOKEN", "GTD_GITHUB_TOKEN"] {
+        if let Ok(t) = std::env::var(name) {
+            if !t.trim().is_empty() {
+                return Some(t.trim().to_string());
+            }
         }
     }
     let raw = fs::read_to_string(data.join("config.json")).ok()?;

@@ -33,7 +33,7 @@ export function due(parsed, last, now) {
 export class Scheduler {
   constructor({ schedule = {}, start, targets = null, log = console, tickMs = 30e3 }) {
     this.entries = Object.entries(schedule).map(([job, spec]) => ({ job, spec, parsed: parseSpec(spec), last: null }));
-    for (const e of this.entries) if (e.spec && !e.parsed && !/^(off|never)$/i.test(String(e.spec))) log.warn(`[gtd] schedule: cannot parse "${e.spec}" for ${e.job}; ignored`);
+    for (const e of this.entries) if (e.spec && !e.parsed && !/^(off|never)$/i.test(String(e.spec))) log.warn(`[snow] schedule: cannot parse "${e.spec}" for ${e.job}; ignored`);
     this.start = start; this.targets = targets; this.log = log; this.tickMs = tickMs; this.timer = null;
   }
   tick(now = new Date()) {
@@ -41,10 +41,10 @@ export class Scheduler {
       if (!due(e.parsed, e.last, now)) continue;
       e.last = now.getTime();
       let list = null;
-      try { list = this.targets ? this.targets(e.job, now) : null; } catch (err) { this.log.warn(`[gtd] schedule: ${e.job} targets failed: ${err.message}`); continue; }
+      try { list = this.targets ? this.targets(e.job, now) : null; } catch (err) { this.log.warn(`[snow] schedule: ${e.job} targets failed: ${err.message}`); continue; }
       for (const args of (list || [{}])) {
-        try { const r = this.start(e.job, args, { by: 'schedule' }); if (r) this.log.log(`[gtd] schedule → ${e.job} ${list ? JSON.stringify(args) : ''}(${e.spec})`); }
-        catch (err) { this.log.warn(`[gtd] schedule: ${e.job} not started: ${err.message}`); }
+        try { const r = this.start(e.job, args, { by: 'schedule' }); if (r) this.log.log(`[snow] schedule → ${e.job} ${list ? JSON.stringify(args) : ''}(${e.spec})`); }
+        catch (err) { this.log.warn(`[snow] schedule: ${e.job} not started: ${err.message}`); }
       }
     }
   }

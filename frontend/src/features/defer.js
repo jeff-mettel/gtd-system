@@ -1,4 +1,4 @@
-// Deferred actions — GTD's tickler for next actions. An action with a `start` date in the future is parked:
+// Deferred actions — the tickler for next actions. An action with a `start` date in the future is parked:
 // it stays on its project (so the project is covered) but leaves the context lists and the open counts.
 // On the day `start` arrives it re-enters the lists at the top with a "back today" chip; `resurfacedAt`
 // remembers the day it came back so the chip shows for that day only (store.tick() commits a `resurfaced` event).

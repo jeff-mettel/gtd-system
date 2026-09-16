@@ -1,6 +1,6 @@
 # Delegating work to the AI
 
-GTD's clarify step ends in *do it, delegate it, or defer it*. Handing work to the AI
+The clarify step ends in *do it, delegate it, or defer it*. Handing work to the AI
 is delegation — the same as handing it to a person — with two differences: the clock
 runs in minutes instead of days, and there is a **review gate** before anything leaves
 the system. The AI therefore gets no special mode; it is treated as a delegate and

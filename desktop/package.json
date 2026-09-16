@@ -1,9 +1,9 @@
 {
-  "name": "gtd-desktop",
+  "name": "snowball-desktop",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Delivery System \u2014 Tauri 2 desktop shell around the local service (sidecar Node)",
+  "description": "Snowball \u2014 Tauri 2 desktop shell around the local service (sidecar Node)",
   "scripts": {
     "prepare-sidecar": "node scripts/prepare-sidecar.mjs",
     "dev": "tauri dev",

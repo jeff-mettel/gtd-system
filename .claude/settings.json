@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/bin/gtd-hook\"",
+            "command": "node \"$CLAUDE_PROJECT_DIR/bin/snow-hook\"",
             "timeout": 15
           }
         ]

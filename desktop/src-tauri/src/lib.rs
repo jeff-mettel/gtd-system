@@ -1,19 +1,20 @@
-// Delivery System desktop shell.
+// Snowball desktop shell.
 //
 // The app is a thin window around the local service: at launch it picks a free port (4310 upward),
 // spawns the bundled Node (`node` sidecar) on `server/index.js` from the app's Resources folder with
-// PORT + GTD_DATA, shows the bundled "Starting…" page until /api/health answers, then navigates the
+// PORT + SNOW_DATA, shows the bundled "Starting…" page until /api/health answers, then navigates the
 // webview to http://127.0.0.1:<port>. Closing the window hides it (the scheduler keeps running);
-// Quit — tray or ⌘Q — stops the sidecar. Data lives in GTD_DATA (default ~/GTD-data), never in the app.
+// Quit — tray or ⌘Q — stops the sidecar. Data lives in SNOW_DATA (default ~/Snowball), never in the app.
 //
-// CLI / env: `--data <dir>` or GTD_DATA picks the data folder (tests use a temp dir).
+// CLI / env: `--data <dir>` or SNOW_DATA picks the data folder (tests use a temp dir); GTD_DATA still
+// works for one release. On first 0.2 launch with the default folder, ~/GTD-data is renamed to ~/Snowball.
 
 use std::{
     collections::HashMap,
     env, fs,
     io::{Read, Write},
     net::{SocketAddr, TcpListener, TcpStream},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command as StdCommand, Stdio},
     sync::Mutex,
     thread,
@@ -49,6 +50,7 @@ struct Sidecar(Mutex<Option<CommandChild>>);
 
 pub fn run() {
     let data = data_dir();
+    migrate_legacy_data_dir(&data);
     if let Err(e) = fs::create_dir_all(data.join("runs")) {
         eprintln!("[desktop] cannot create {}: {e}", data.display());
     }
@@ -93,7 +95,7 @@ pub fn run() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("error while building the Delivery System app");
+        .expect("error while building the Snowball app");
 
     app.run(|app, event| match event {
         RunEvent::Exit => stop_sidecar(app),
@@ -109,7 +111,27 @@ fn home() -> PathBuf {
     env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// `--data <dir>` / `--data=<dir>` on the command line, else GTD_DATA, else ~/GTD-data.
+/// One-time move of the pre-0.2 default folder, mirroring `server/datadir.js`: when `data` is the default
+/// `~/Snowball`, does not exist yet, and `~/GTD-data` does, rename it (same volume — never copy-then-delete).
+/// Both present → leave both alone and use `~/Snowball`. An explicit `--data` / SNOW_DATA is never migrated.
+/// Runs here too because the launcher creates `<data>/runs` before the sidecar's own check would run.
+fn migrate_legacy_data_dir(data: &Path) {
+    let target = home().join("Snowball");
+    let legacy = home().join("GTD-data");
+    if data != target || !legacy.exists() {
+        return;
+    }
+    if target.exists() {
+        eprintln!("[desktop] both {} and {} exist; using the first — merge or remove the other by hand", target.display(), legacy.display());
+        return;
+    }
+    match fs::rename(&legacy, &target) {
+        Ok(()) => eprintln!("[desktop] moved {} → {}", legacy.display(), target.display()),
+        Err(e) => eprintln!("[desktop] could not move {} → {}: {e}", legacy.display(), target.display()),
+    }
+}
+
+/// `--data <dir>` / `--data=<dir>` on the command line, else SNOW_DATA (or the pre-0.2 GTD_DATA), else ~/Snowball.
 fn data_dir() -> PathBuf {
     let mut args = env::args().skip(1);
     let mut from_cli = None;
@@ -121,8 +143,9 @@ fn data_dir() -> PathBuf {
         }
     }
     let raw = from_cli
-        .or_else(|| env::var("GTD_DATA").ok().filter(|s| !s.is_empty()))
-        .unwrap_or_else(|| "~/GTD-data".to_string());
+        .or_else(|| env::var("SNOW_DATA").ok().filter(|s| !s.is_empty()))
+        .or_else(|| env::var("GTD_DATA").ok().filter(|s| !s.is_empty()))   // deprecated name, one release
+        .unwrap_or_else(|| "~/Snowball".to_string());
     let expanded = if raw == "~" {
         home()
     } else if let Some(rest) = raw.strip_prefix("~/") {
@@ -184,11 +207,11 @@ fn spawn_sidecar(app: &AppHandle) -> tauri::Result<()> {
     let log_path = cfg.data.join("runs").join("desktop.log");
     let mut envs: HashMap<String, String> = HashMap::new();
     envs.insert("PORT".into(), cfg.port.to_string());
-    envs.insert("GTD_DATA".into(), cfg.data.display().to_string());
-    envs.insert("GTD_APP_ROOT".into(), resources.display().to_string());
+    envs.insert("SNOW_DATA".into(), cfg.data.display().to_string());
+    envs.insert("SNOW_APP_ROOT".into(), resources.display().to_string());
     envs.insert("PATH".into(), child_path());
     envs.insert("HOME".into(), home().display().to_string());
-    envs.insert("GTD_DESKTOP".into(), "1".into());
+    envs.insert("SNOW_DESKTOP".into(), "1".into());
 
     let (mut rx, child) = app
         .shell()
@@ -339,13 +362,13 @@ fn open_capture(app: &AppHandle) {
     show_main(app);
     if let Some(w) = app.get_webview_window(MAIN) {
         // The front-end exports this hook from features/captureOverlay.js; on the "Starting…" page it is a no-op.
-        let _ = w.eval("setTimeout(() => { if (window.__gtdOpenCapture) window.__gtdOpenCapture(); }, 50)");
+        let _ = w.eval("setTimeout(() => { if (window.__snowOpenCapture) window.__snowOpenCapture(); }, 50)");
     }
 }
 
 fn status(app: &AppHandle, text: &str) {
     if let Some(w) = app.get_webview_window(MAIN) {
-        let _ = w.eval(&format!("window.__gtdStatus && window.__gtdStatus({})", js_str(text)));
+        let _ = w.eval(&format!("window.__snowStatus && window.__snowStatus({})", js_str(text)));
     }
 }
 
@@ -353,14 +376,14 @@ fn report_error(app: &AppHandle, text: &str) {
     eprintln!("[desktop] {text}");
     if let Some(w) = app.get_webview_window(MAIN) {
         let _ = w.show();
-        let _ = w.eval(&format!("window.__gtdError && window.__gtdError({})", js_str(text)));
+        let _ = w.eval(&format!("window.__snowError && window.__snowError({})", js_str(text)));
     }
 }
 
 /// A one-line notice inside the running app (the front-end's toast when present, else console).
 fn report_toast(app: &AppHandle, text: &str) {
     if let Some(w) = app.get_webview_window(MAIN) {
-        let _ = w.eval(&format!("(window.__gtdToast || console.warn)({})", js_str(text)));
+        let _ = w.eval(&format!("(window.__snowToast || console.warn)({})", js_str(text)));
     }
 }
 
@@ -384,13 +407,13 @@ fn js_str(s: &str) -> String {
 /* ---------- tray / menu bar ---------- */
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "Open Delivery System", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open Snowball", true, None::<&str>)?;
     let capture = MenuItem::with_id(app, "capture", "New capture", true, Some("CmdOrCtrl+Shift+K"))?;
     let sync = MenuItem::with_id(app, "sync", "Sync calendar", true, None::<&str>)?;
     let at_login = app.autolaunch().is_enabled().unwrap_or(false);
     let autostart = CheckMenuItem::with_id(app, "autostart", "Start at login", true, at_login, None::<&str>)?;
     let updates = MenuItem::with_id(app, "updates", "Check for updates…", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Delivery System", true, Some("CmdOrCtrl+Q"))?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Snowball", true, Some("CmdOrCtrl+Q"))?;
     let menu = Menu::with_items(
         app,
         &[&open, &capture, &sync, &PredefinedMenuItem::separator(app)?, &autostart, &updates, &PredefinedMenuItem::separator(app)?, &quit],
@@ -400,7 +423,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .icon_as_template(true)
-        .tooltip("Delivery System")
+        .tooltip("Snowball")
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(move |app, event| match event.id().as_ref() {

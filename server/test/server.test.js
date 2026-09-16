@@ -1,4 +1,4 @@
-// End-to-end tests over a temp GTD_DATA: endpoints, actor rules, idempotent capture, job runner
+// End-to-end tests over a temp SNOW_DATA: endpoints, actor rules, idempotent capture, job runner
 // (claude mocked), scheduler parsing. Run: `npm test` in server/ (node --test).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,18 +11,19 @@ import { createApp } from '../index.js';
 import { parseSpec, due, Scheduler } from '../schedule.js';
 import { prepTargets, nudgeTargets } from '../jobs.js';
 import { matchAttendees } from '../calendar-macos.js';
+import { migrateLegacyDataDir, envVar } from '../datadir.js';
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gtd-test-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'snow-test-'));
 const port = 4700 + Math.floor(Math.random() * 200);
 const base = `http://127.0.0.1:${port}`;
 let app;
 const j = async (method, p, body, headers = {}) => { const r = await fetch(base + p, { method, headers: { 'content-type': 'application/json', ...headers }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json() }; };
 const post = (p, body, headers) => j('POST', p, body, headers);
-const GTD = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'gtd');
+const SNOW = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'snow');
 // Async on purpose: the server runs in this process, so a blocking spawnSync would deadlock on the fetch.
 const cli = (args, env = {}) => new Promise((resolve) => {
-  const e = Object.fromEntries(Object.entries({ ...process.env, GTD_SERVER: base, GTD_ACTOR: undefined, GTD_RUN: undefined, ...env }).filter(([, v]) => v !== undefined));
-  execFile(process.execPath, [GTD, ...args], { encoding: 'utf8', env: e }, (err, stdout, stderr) => resolve({ code: err ? err.code : 0, out: stdout ? safe(stdout) : null, err: stderr ? safe(stderr) : null }));
+  const e = Object.fromEntries(Object.entries({ ...process.env, SNOW_SERVER: base, SNOW_ACTOR: undefined, SNOW_RUN: undefined, GTD_ACTOR: undefined, GTD_RUN: undefined, GTD_SERVER: undefined, ...env }).filter(([, v]) => v !== undefined));
+  execFile(process.execPath, [SNOW, ...args], { encoding: 'utf8', env: e }, (err, stdout, stderr) => resolve({ code: err ? err.code : 0, out: stdout ? safe(stdout) : null, err: stderr ? safe(stderr) : null }));
 });
 const safe = (s) => { try { return JSON.parse(s); } catch { return s; } };
 
@@ -60,12 +61,12 @@ test('captured is idempotent on ref and returns the existing item', async () => 
 test('ai actors need the header and may only write their types', async () => {
   const S = (await j('GET', '/api/state')).body; const item = Object.keys(S.items)[0];
   const noHdr = await post('/api/events', { type: 'clarified', item, actor: 'ai:clarify', payload: { proposal: { kind: 'action', next: 'x', conf: 0.9, why: 'y' } } });
-  assert.equal(noHdr.status, 400); assert.match(noHdr.body.error, /X-GTD-Actor/);
-  const acc = await post('/api/events', { type: 'accepted', item, payload: { kind: 'action', fields: {} } }, { 'x-gtd-actor': 'ai:clarify' });
+  assert.equal(noHdr.status, 400); assert.match(noHdr.body.error, /X-Snow-Actor/);
+  const acc = await post('/api/events', { type: 'accepted', item, payload: { kind: 'action', fields: {} } }, { 'x-snow-actor': 'ai:clarify' });
   assert.equal(acc.status, 400); assert.match(acc.body.errors[0], /may not write accepted/);
-  const badProj = await post('/api/events', { type: 'clarified', item, payload: { proposal: { kind: 'action', next: 'x', project: 'j_zzz', conf: 0.9, why: 'y' } } }, { 'x-gtd-actor': 'ai:clarify' });
+  const badProj = await post('/api/events', { type: 'clarified', item, payload: { proposal: { kind: 'action', next: 'x', project: 'j_zzz', conf: 0.9, why: 'y' } } }, { 'x-snow-actor': 'ai:clarify' });
   assert.equal(badProj.status, 400);
-  const ok = await post('/api/events', { type: 'clarified', item, payload: { proposal: { kind: 'action', next: 'Email Priya', project: 'j_1', conf: 0.9, why: 'y' } } }, { 'x-gtd-actor': 'ai:clarify' });
+  const ok = await post('/api/events', { type: 'clarified', item, payload: { proposal: { kind: 'action', next: 'Email Priya', project: 'j_1', conf: 0.9, why: 'y' } } }, { 'x-snow-actor': 'ai:clarify' });
   assert.equal(ok.status, 200); assert.equal(ok.body.event.actor, 'ai:clarify');
   assert.equal((await j('GET', '/api/state')).body.items[item].p.next, 'Email Priya');
 });
@@ -89,39 +90,64 @@ test('backup commits the data repo', async () => {
   assert.equal((await post('/api/backup', {})).body.committed, false);   // nothing new
 });
 
-test('gtd CLI: health, headless writes need GTD_ACTOR, capture/inbox/propose/guard', async () => {
+test('snow CLI: health, headless writes need SNOW_ACTOR, capture/inbox/propose/guard', async () => {
   assert.equal((await cli(['health'])).out.ok, true);
   const noActor = await cli(['capture', '--source', 'chat', '--raw', 'x']);
-  assert.equal(noActor.code, 4); assert.match(noActor.err.error, /GTD_ACTOR/);
-  const cap = await cli(['capture', '--source', 'chat', '--ref', 'chat:1', '--raw', 'Send the deck to Priya', '--minutes', '15'], { GTD_ACTOR: 'ingest:chat' });
+  assert.equal(noActor.code, 4); assert.match(noActor.err.error, /SNOW_ACTOR/);
+  const cap = await cli(['capture', '--source', 'chat', '--ref', 'chat:1', '--raw', 'Send the deck to Priya', '--minutes', '15'], { SNOW_ACTOR: 'ingest:chat' });
   assert.equal(cap.code, 0); const item = cap.out.item;
-  assert.equal((await cli(['capture', '--source', 'chat', '--ref', 'chat:1', '--raw', 'dup'], { GTD_ACTOR: 'ingest:chat' })).out.existing, true);
+  assert.equal((await cli(['capture', '--source', 'chat', '--ref', 'chat:1', '--raw', 'dup'], { SNOW_ACTOR: 'ingest:chat' })).out.existing, true);
   assert.ok((await cli(['inbox'])).out.some(i => i.id === item));
   const snap = (await cli(['snapshot'])).out; assert.ok(snap.projects.j_1); assert.ok(snap.people.u_priya);
-  const prop = await cli(['propose-clarify', '--item', item, '--json', JSON.stringify({ kind: 'action', next: 'Email Priya the deck', project: 'j_1', ctx: '@quick', min: 5, conf: 0.9, why: 'direct ask' })], { GTD_ACTOR: 'ai:clarify' });
+  const prop = await cli(['propose-clarify', '--item', item, '--json', JSON.stringify({ kind: 'action', next: 'Email Priya the deck', project: 'j_1', ctx: '@quick', min: 5, conf: 0.9, why: 'direct ask' })], { SNOW_ACTOR: 'ai:clarify' });
   assert.equal(prop.code, 0, JSON.stringify(prop.err));
   assert.ok(!(await cli(['inbox'])).out.some(i => i.id === item));
-  assert.equal((await cli(['guard', '--tool', 'mcp__gmail__send_message', '--item', item], { GTD_ACTOR: 'ai:nudge' })).code, 2);
+  assert.equal((await cli(['guard', '--tool', 'mcp__gmail__send_message', '--item', item], { SNOW_ACTOR: 'ai:nudge' })).code, 2);
   await post('/api/events', { type: 'accepted', item, payload: { kind: 'action', fields: { next: 'Email Priya the deck', project: 'j_1' } } });
   await post('/api/events', { type: 'handed_off', item, payload: { cap: 'draft', what: 'Draft it', effect: 'none' } });
-  const d = await cli(['draft', '--kind', 'nudge', '--for', item, '--json', '{"text":"hi"}'], { GTD_ACTOR: 'ai:nudge' });
+  const d = await cli(['draft', '--kind', 'nudge', '--for', item, '--json', '{"text":"hi"}'], { SNOW_ACTOR: 'ai:nudge' });
   assert.equal(d.code, 0, JSON.stringify(d.err));
   assert.equal((await j('GET', '/api/state')).body.items[item].del.status, 'ready');
   await post('/api/events', { type: 'approved', item, payload: { effect: 'sends the draft' } });
-  const g = await cli(['guard', '--tool', 'mcp__gmail__send_message', '--item', item], { GTD_ACTOR: 'ai:nudge' });
+  const g = await cli(['guard', '--tool', 'mcp__gmail__send_message', '--item', item], { SNOW_ACTOR: 'ai:nudge' });
   assert.equal(g.code, 0); assert.equal(g.out.allowed, true);
-  const pa = await cli(['propose-action', '--project', 'j_1', '--json', '{"next":"Book the room","conf":0.8,"why":"nothing scheduled"}'], { GTD_ACTOR: 'ai:suggest', GTD_RUN: 'r_t' });
+  const pa = await cli(['propose-action', '--project', 'j_1', '--json', '{"next":"Book the room","conf":0.8,"why":"nothing scheduled"}'], { SNOW_ACTOR: 'ai:suggest', SNOW_RUN: 'r_t' });
   assert.equal(pa.code, 0, JSON.stringify(pa.err));
   assert.equal((await j('GET', '/api/state')).body.items[pa.out.item].p.project, 'j_1');
   const ex = (await cli(['export'])).out; assert.ok(Array.isArray(ex) && ex.length > 5);
 });
 
-test('gtd init creates and validates a data dir without the server', async () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'gtd-init-'));
-  const r = await cli(['init'], { GTD_DATA: d });
+test('legacy ~/GTD-data is renamed to ~/Snowball once; never when both exist or the folder is explicit', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'snow-home-'));
+  const quiet = { log() {}, warn() {} };
+  const legacy = path.join(home, 'GTD-data'), target = path.join(home, 'Snowball');
+  assert.equal(migrateLegacyDataDir(target, { home, log: quiet }).reason, 'no legacy folder');
+  fs.mkdirSync(path.join(legacy, 'ledger'), { recursive: true }); fs.writeFileSync(path.join(legacy, 'ledger', 'events.jsonl'), '{"x":1}\n');
+  assert.equal(migrateLegacyDataDir(path.join(home, 'elsewhere'), { home, log: quiet }).reason, 'not the default folder');   // explicit SNOW_DATA: untouched
+  assert.ok(fs.existsSync(legacy));
+  const logged = []; const r = migrateLegacyDataDir(target, { home, log: { log: (m) => logged.push(m), warn() {} } });
+  assert.equal(r.moved, true); assert.ok(!fs.existsSync(legacy)); assert.equal(fs.readFileSync(path.join(target, 'ledger', 'events.jsonl'), 'utf8'), '{"x":1}\n');
+  assert.match(logged[0], /moved .*GTD-data → .*Snowball/);
+  fs.mkdirSync(legacy); fs.writeFileSync(path.join(legacy, 'stray'), '');
+  assert.equal(migrateLegacyDataDir(target, { home, log: quiet }).reason, 'both exist'); assert.ok(fs.existsSync(path.join(legacy, 'stray')));   // both present: hands off
+  fs.rmSync(home, { recursive: true, force: true });
+});
+
+test('GTD_* env names still work as fallbacks for SNOW_*', () => {
+  const saved = { ...process.env };
+  delete process.env.SNOW_DATA; process.env.GTD_DATA = '/tmp/legacy-env';
+  const warn = console.warn; const warned = []; console.warn = (m) => warned.push(m);
+  try { assert.equal(envVar('DATA'), '/tmp/legacy-env'); process.env.SNOW_DATA = '/tmp/new-env'; assert.equal(envVar('DATA'), '/tmp/new-env'); }
+  finally { console.warn = warn; process.env = saved; }
+  assert.match(warned[0], /GTD_DATA is deprecated/);
+});
+
+test('snow init creates and validates a data dir without the server', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'snow-init-'));
+  const r = await cli(['init'], { SNOW_DATA: d });
   assert.equal(r.code, 0); assert.equal(r.out.ok, true); assert.ok(r.out.created.includes('config.json'));
   fs.writeFileSync(path.join(d, 'config.json'), JSON.stringify({ ledgerVersion: 99 }));
-  assert.equal((await cli(['init'], { GTD_DATA: d })).code, 5);
+  assert.equal((await cli(['init'], { SNOW_DATA: d })).code, 5);
   assert.throws(() => createApp({ dir: d, port: port + 1, log: { log() {}, warn() {} }, schedule: false }), /newer than this build/);
   fs.rmSync(d, { recursive: true, force: true });
 });
@@ -138,9 +164,9 @@ test('job runner: unknown job 404, missing args 400, mocked claude run writes jo
   await new Promise(res => { const t0 = Date.now(); (function poll() { const done = app.runner.recent.find(x => x.run === r.body.run.run); if (done || Date.now() - t0 > 5000) return res(); setTimeout(poll, 20); })(); });
   const run = app.runner.recent.find(x => x.run === r.body.run.run);
   assert.equal(run.status, 'finished'); assert.equal(run.summary, 'review drafted');
-  assert.equal(calls[0].env.GTD_ACTOR, 'ai:review'); assert.equal(calls[0].env.GTD_SERVER, `http://localhost:${port}`);
-  assert.deepEqual(calls[0].args.slice(0, 4), ['-p', '/gtd-review', '--model', 'opus']);
-  assert.ok(calls[0].args.includes('Bash(gtd *)'));
+  assert.equal(calls[0].env.SNOW_ACTOR, 'ai:review'); assert.equal(calls[0].env.SNOW_SERVER, `http://localhost:${port}`);
+  assert.deepEqual(calls[0].args.slice(0, 4), ['-p', '/snow-review', '--model', 'opus']);
+  assert.ok(calls[0].args.includes('Bash(snow *)'));
   const ev = (await j('GET', '/api/export')).body.filter(e => e.payload?.run === run.run).map(e => e.type);
   assert.deepEqual(ev, ['job_started', 'job_finished']);
   assert.ok(fs.existsSync(run.log));
@@ -158,7 +184,7 @@ test('calendar_synced folds into meetings / calendarAhead / pastMeetings with at
   const people = (await j('GET', '/api/state')).body.people;
   const mk = (id, start, attendees) => ({ id, title: id, start: iso(start), end: iso(start + 36e5), attendees, who: matchAttendees(attendees, people), calendar: 'Work' });
   const events = [mk('past', now - 2 * 864e5, [{ name: 'Priya Natarajan', email: 'PRIYA@example.com' }]), mk('today', now + 60e3, [{ name: 'Nobody', email: 'x@y' }]), mk('ahead', now + 3 * 864e5, [{ name: 'Priya Natarajan', email: null }])];
-  const r = await post('/api/events', { type: 'calendar_synced', payload: { window: { from: iso(now - 7 * 864e5), to: iso(now + 14 * 864e5) }, events, source: 'macos' } }, { 'x-gtd-actor': 'ingest:calendar' });
+  const r = await post('/api/events', { type: 'calendar_synced', payload: { window: { from: iso(now - 7 * 864e5), to: iso(now + 14 * 864e5) }, events, source: 'macos' } }, { 'x-snow-actor': 'ingest:calendar' });
   assert.equal(r.status, 200);
   const S = (await j('GET', '/api/state')).body;
   assert.deepEqual(S.pastMeetings.map(m => m.id), ['past']); assert.deepEqual(S.pastMeetings[0].who, ['u_priya']);
@@ -221,7 +247,7 @@ test('ahead of need: prep and nudge targets, once per target, autonomy gate, don
   const sch = new Scheduler({ schedule: { nudge: '30m', prep: '5m' }, start: (jb, a, o) => app.runner.start(jb, a, o), targets: (jb, n) => app.runner.targets(jb, n), log: { log() {}, warn() {} } });
   sch.tick(now);
   await new Promise(res => { const t0 = Date.now(); (function poll() { if ((app.runner.recent.some(x => x.job === 'nudge') && !app.runner.current && !app.runner.queue.length) || Date.now() - t0 > 5000) return res(); setTimeout(poll, 20); })(); });
-  assert.deepEqual(started.sort(), [`/gtd-nudge ${w1}`, '/gtd-prep today']);   // 'today' starts in 60 s (calendar test above)
+  assert.deepEqual(started.sort(), [`/snow-nudge ${w1}`, '/snow-prep today']);   // 'today' starts in 60 s (calendar test above)
   const done = JSON.parse(fs.readFileSync(path.join(tmp, 'runs', 'done.json'), 'utf8'));
   assert.ok(done.done[`nudge:${w1}`]); assert.ok(done.done['prep:today']); assert.ok(done.nudgeCheckedAt);
   const it = (await j('GET', '/api/state')).body.items[w1]; assert.equal(it.owner, 'ai'); assert.ok(it.del);

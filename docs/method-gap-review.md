@@ -1,13 +1,13 @@
-# GTD gap review — 2026-09-12
+# Method gap review — 2026-09-12
 
-Node-by-node comparison of the prototype against the canonical GTD workflow
+Node-by-node comparison of the prototype against the canonical workflow of the method
 (Stuff → In → What is it? → Is it actionable? → No: trash / incubate / reference;
 Yes: project or next action → do / delegate / defer → calendar or next-action list;
 weekly review).
 
 ## Node-by-node
 
-| GTD node | Status | Notes |
+| Workflow node | Status | Notes |
 |---|---|---|
 | Stuff → IN | ✓ prototype · ◐ system | Capture box works; ingestors are designed, not built |
 | What is it? / Is it actionable? | ✓ | Inbox asks the question literally; AI proposal pre-selected |

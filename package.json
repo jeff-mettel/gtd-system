@@ -1,9 +1,9 @@
 {
-  "name": "gtd-system",
+  "name": "snowball",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Delivery System — GTD commitment ledger for program management (workspace root)",
+  "description": "Snowball — Commitment management for program managers (workspace root)",
   "workspaces": [
     "packages/*",
     "server",
@@ -11,7 +11,7 @@
     "desktop"
   ],
   "bin": {
-    "gtd": "bin/gtd"
+    "snow": "bin/snow"
   },
   "engines": {
     "node": ">=20"
