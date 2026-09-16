@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- App mark: the route (two nodes joined by an arc) that ends in a check, on the accent. Same path as frontend/index.html's .mark. -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#3b45a8"/>
+  <g transform="translate(192 192) scale(26.667)" fill="none" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="17" r="2.2"/>
+    <path d="M8 15.5c2.5-6 6.5-8 10-4.5"/>
+    <circle cx="18" cy="9" r="2.2"/>
+    <path d="m14.5 18 2 2 4-4"/>
+  </g>
+</svg>

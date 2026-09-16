@@ -1,5 +1,13 @@
 # GTD System
 
+## Download
+
+[![Latest release](https://img.shields.io/github/v/release/jeff-mettel/gtd-system?include_prereleases)](https://github.com/jeff-mettel/gtd-system/releases/latest)
+
+**macOS (Apple Silicon): [Delivery-System-macOS.dmg](https://github.com/jeff-mettel/gtd-system/releases/latest/download/Delivery-System-macOS.dmg)** — always the newest build · [all releases](https://github.com/jeff-mettel/gtd-system/releases/latest)
+
+First launch: the app is not notarized yet, so **right-click → Open** (once) instead of double-clicking. Your data lives in `~/GTD-data`, outside the app; see [docs/desktop.md](docs/desktop.md).
+
 An AI-assisted Getting Things Done system for program management. The personal
 system tracks *commitments* — what I owe, what's owed to me, by whom, since when —
 organized as programs → projects → next actions. AI handles the high-volume stages

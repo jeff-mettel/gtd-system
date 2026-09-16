@@ -4,15 +4,26 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Delivery System — GTD commitment ledger for program management (workspace root)",
-  "workspaces": ["packages/*", "server", "frontend"],
-  "bin": { "gtd": "bin/gtd" },
-  "engines": { "node": ">=20" },
+  "workspaces": [
+    "packages/*",
+    "server",
+    "frontend",
+    "desktop"
+  ],
+  "bin": {
+    "gtd": "bin/gtd"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "serve": "npm run serve --workspace server",
     "build": "npm run build --workspace frontend",
     "test": "npm test --workspace server && npm test --workspace frontend",
     "lint": "npm run lint --workspace server && npm run lint --workspace frontend",
     "install-launchd": "npm run install-launchd --workspace server",
-    "uninstall-launchd": "npm run uninstall-launchd --workspace server"
+    "uninstall-launchd": "npm run uninstall-launchd --workspace server",
+    "desktop:dev": "npm run build && npm run prepare-sidecar --workspace desktop && npm run dev --workspace desktop",
+    "desktop:build": "npm run prepare-sidecar --workspace desktop && npm run build && npm run build --workspace desktop && node desktop/scripts/name-dmg.mjs"
   }
 }

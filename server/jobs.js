@@ -5,11 +5,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { newId } from './ledger.js';
 import { readCalendar, matchAttendees } from './calendar-macos.js';
 
 export const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/** Where `claude` is. PATH first (`claude` as spawned), then the usual installs — the desktop app is launched
+ *  by Finder with a minimal PATH, so the fallbacks matter there. Resolved per spawn so a later install is picked up. */
+export function claudeBin(env = process.env) {
+  const dirs = (env.PATH || '').split(path.delimiter).filter(Boolean);
+  for (const d of dirs) { const f = path.join(d, 'claude'); if (isExec(f)) return 'claude'; }
+  for (const f of [path.join(os.homedir(), '.local', 'bin', 'claude'), '/usr/local/bin/claude', '/opt/homebrew/bin/claude']) if (isExec(f)) return f;
+  return 'claude';   // let spawn fail with the "is it on PATH?" message
+}
+function isExec(f) { try { fs.accessSync(f, fs.constants.X_OK); return fs.statSync(f).isFile(); } catch { return false; } }
 
 /** Settings → Models per job stores `claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5`; `claude -p --model` takes an alias. */
 export const MODEL_ALIAS = { 'claude-opus-5': 'opus', 'claude-sonnet-5': 'sonnet', 'claude-haiku-4-5': 'haiku' };
@@ -176,7 +187,7 @@ export class JobRunner {
 
   spawnClaude(args, env, say) {
     return new Promise((resolve, reject) => {
-      const child = spawn('claude', args, { cwd: APP_ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(claudeBin(env), args, { cwd: APP_ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
       let stdout = '', stderr = '';
       child.stdout.on('data', d => { stdout += d; });
       child.stderr.on('data', d => { stderr += d; say(`stderr: ${String(d).trim()}`); });

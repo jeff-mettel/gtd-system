@@ -1,0 +1,123 @@
+# Desktop release: on a `v*` tag, build the macOS (Apple Silicon) app with tauri-action and attach the
+# .dmg to a GitHub Release under a deterministic name, so README's "latest" link never changes:
+#   https://github.com/jeff-mettel/gtd-system/releases/latest/download/Delivery-System-macOS.dmg
+#
+# Releases are published (not draft) and NOT marked prerelease, even for `v0.2.0-beta.1` tags —
+# GitHub's `releases/latest` ignores prereleases, and the README link must resolve. See docs/desktop.md.
+#
+# In-app updates: tauri-action also uploads `Delivery System.app.tar.gz` + `.sig` and `latest.json`
+# (includeUpdaterJson), signed with the updater key. Required secrets:
+#   TAURI_SIGNING_PRIVATE_KEY            contents of ~/.tauri/gtd-updater.key (the private half of the
+#                                        pubkey in desktop/src-tauri/tauri.conf.json)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   its password ("" for the key generated without one)
+#
+# Apple signing is optional. Without the APPLE_* secrets the app is ad-hoc signed (tauri.conf.json →
+# macOS.signingIdentity "-") and the first launch needs right-click → Open (Gatekeeper). To sign and
+# notarize, add these repository secrets and the same build signs automatically:
+#   APPLE_CERTIFICATE            base64 of the Developer ID Application .p12
+#   APPLE_CERTIFICATE_PASSWORD   its password
+#   APPLE_SIGNING_IDENTITY       "Developer ID Application: Name (TEAMID)"
+#   APPLE_ID, APPLE_PASSWORD     Apple ID + app-specific password (notarization)
+#   APPLE_TEAM_ID                the team id
+# and remove `"signingIdentity": "-"` from tauri.conf.json (or override it with APPLE_SIGNING_IDENTITY;
+# an env var wins over the config when set).
+name: Release desktop app
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest          # Apple Silicon (arm64) runner
+            target: aarch64-apple-darwin
+            args: '--target aarch64-apple-darwin'
+          # Intel Mac:
+          # - platform: macos-13
+          #   target: x86_64-apple-darwin
+          #   args: '--target x86_64-apple-darwin'
+          # Windows / Linux are untested; the sidecar script copies the runner's node, so they should
+          # build once `binaries/node-<triple>.exe` naming and the tray/autostart plugins are checked there:
+          # - platform: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   args: ''
+          # - platform: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22          # this Node is what ships inside the app (see desktop/scripts/prepare-sidecar.mjs)
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      # Linux only (uncomment with the ubuntu matrix entry):
+      # - if: matrix.platform == 'ubuntu-22.04'
+      #   run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - run: npm ci
+
+      - name: Bundle Node as the sidecar and build the front-end
+        env:
+          TAURI_TARGET_TRIPLE: ${{ matrix.target }}
+        run: |
+          npm run prepare-sidecar --workspace desktop
+          npm run build
+
+      - name: Version the app from the tag (v1.2.3 → 1.2.3; a -beta.N suffix is kept)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          node -e "const f='desktop/src-tauri/tauri.conf.json',fs=require('fs');const j=JSON.parse(fs.readFileSync(f));j.version=process.argv[1];fs.writeFileSync(f,JSON.stringify(j,null,2)+'\n')" "$V"
+
+      - name: Build and release with tauri-action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional signing (see the header comment). Empty secrets are ignored by tauri-action.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Updater artifacts (.app.tar.gz + .sig + latest.json) are signed with this key.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Delivery System ${{ github.ref_name }}'
+          releaseBody: 'Download **Delivery-System-macOS.dmg**, drag the app to Applications, then right-click → Open the first time (the app is not notarized). Your data stays in ~/GTD-data.'
+          releaseDraft: false
+          prerelease: false        # keep false even for -beta tags so releases/latest resolves (docs/desktop.md)
+          includeUpdaterJson: true # uploads latest.json next to the dmg; the app's updater endpoint reads it
+          # createUpdaterArtifacts is off in tauri.conf.json so local builds work without the private key.
+          args: '${{ matrix.args }} --config src-tauri/tauri.release.conf.json'
+
+      # tauri-action uploads "Delivery System_<version>_aarch64.dmg"; add the stable-name copy the README links to.
+      - name: Upload the deterministically named dmg
+        if: startsWith(github.ref, 'refs/tags/v') && startsWith(matrix.platform, 'macos')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node desktop/scripts/name-dmg.mjs
+          gh release upload "$GITHUB_REF_NAME" "desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/Delivery-System-macOS.dmg" --clobber

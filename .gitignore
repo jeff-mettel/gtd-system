@@ -3,3 +3,5 @@ node_modules/
 *.sqlite
 frontend/dist/
 .claude/worktrees/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
