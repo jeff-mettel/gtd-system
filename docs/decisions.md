@@ -12,8 +12,9 @@ Newest first. One line per decision, with the reason. Add to this as we go.
   in git. **Releases are built by GitHub Actions** on `v*` tags (`release.yml`) and the
   README's Download link always points at the newest `.dmg` (deterministic asset name,
   `releases/latest/download/...`); beta tags publish as full releases so `latest` resolves.
-- Open question: the updater fetch against a private repo is unverified — if it fails,
-  make the repo public or publish releases to a public `gtd-releases` repo.
+- **Repo made public (2026-09-15)**: verified that GitHub's `releases/latest/download/…`
+  returns 404 on a private repo even with a token, which broke both the README link and
+  the updater. Code holds no user data; `~/GTD-data` stays private.
 
 ## 2026-09-14
 
