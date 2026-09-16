@@ -3,12 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Delivery System — Tauri 2 desktop shell around the local service (sidecar Node)",
+  "description": "Delivery System \u2014 Tauri 2 desktop shell around the local service (sidecar Node)",
   "scripts": {
     "prepare-sidecar": "node scripts/prepare-sidecar.mjs",
     "dev": "tauri dev",
     "build": "tauri build",
-    "icon": "tauri icon icon.svg"
+    "icon": "tauri icon icon.svg",
+    "tauri": "tauri"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4"
