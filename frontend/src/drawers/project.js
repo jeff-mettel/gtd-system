@@ -81,7 +81,7 @@ export function addProjectDrawer(gid) {
       <div class="fld"><label for="npCtx">Context</label><select id="npCtx" class="in">${ctxs.map(c => `<option>${c}</option>`).join('')}</select></div>
       <div id="npErr" class="note" style="color:var(--crit)"></div>
     </div>
-    <div class="note">A project needs a written outcome — that's the GTD rule this form enforces. It should also leave here with a first action; skip it and the project is flagged "No next action" until you decide one.</div>`,
+    <div class="note">A project needs a written outcome — that's the rule this form enforces. It should also leave here with a first action; skip it and the project is flagged "No next action" until you decide one.</div>`,
     `<button class="btn" data-close>Cancel</button><button class="btn primary" data-saveproj="${gid}">Create project</button>`);
   $('#npName').focus();
 }

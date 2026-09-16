@@ -1,11 +1,11 @@
-# @gtd/ledger
+# @snowball/ledger
 
 The ledger as code: event schema v1 (`docs/ledger-events.md`), validation, the canonical fold, upcasters,
-ids, and the demo fixture. Plain ESM, zero runtime dependencies, Node ≥ 20. The server, the `gtd` CLI and
+ids, and the demo fixture. Plain ESM, zero runtime dependencies, Node ≥ 20. The server, the `snow` CLI and
 the front-end store all import this package; none of them should reimplement any of it.
 
 ```js
-import { fold, validate, upcast, newId, now, demoEvents, LEDGER_VERSION } from '@gtd/ledger';
+import { fold, validate, upcast, newId, now, demoEvents, LEDGER_VERSION } from '@snowball/ledger';
 // or by file: import { fold } from '../packages/ledger/fold.js';
 ```
 
@@ -96,7 +96,7 @@ packages/ledger/
 
 ## HTTP contract the front-end store codes against
 
-The store (`frontend/src/store.js`) uses server mode when `window.__GTD_SERVER__` is set or `GET /api/health` returns JSON `{ ok:true }`.
+The store (`frontend/src/store.js`) uses server mode when `window.__SNOW_SERVER__` is set or `GET /api/health` returns JSON `{ ok:true }`.
 
 | Route | Request | Response |
 |---|---|---|

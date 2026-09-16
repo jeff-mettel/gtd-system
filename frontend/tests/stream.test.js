@@ -1,6 +1,6 @@
 // Server-mode reconciliation without a server: applying events that arrive on the stream, and the fold cache.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { demoEvents, newId } from '@gtd/ledger';
+import { demoEvents, newId } from '@snowball/ledger';
 import * as store from '../src/store.js';
 import { applyRemote, commit, ledger, load, readCache, writeCache, CACHE_KEY, CACHE_MAX } from '../src/store.js';
 
@@ -39,16 +39,16 @@ describe('fold cache', () => {
   it('writes { events, seq, dataDir } in server mode only and reads it back for the same data folder', async () => {
     await load({ seed: demoEvents() });
     expect(writeCache()).toBe(false);                                  // local mode never caches
-    ledger.mode = 'server'; ledger.dataDir = '/tmp/gtd-a';
+    ledger.mode = 'server'; ledger.dataDir = '/tmp/snow-a';
     expect(writeCache()).toBe(true);
-    const c = JSON.parse(mem[CACHE_KEY]); expect(c.seq).toBe(ledger.seq); expect(c.dataDir).toBe('/tmp/gtd-a'); expect(c.events.length).toBe(ledger.events.length);
-    expect(readCache('/tmp/gtd-a').seq).toBe(ledger.seq);
-    expect(readCache('/tmp/gtd-b')).toBeNull();                        // another data folder: never reuse
+    const c = JSON.parse(mem[CACHE_KEY]); expect(c.seq).toBe(ledger.seq); expect(c.dataDir).toBe('/tmp/snow-a'); expect(c.events.length).toBe(ledger.events.length);
+    expect(readCache('/tmp/snow-a').seq).toBe(ledger.seq);
+    expect(readCache('/tmp/snow-b')).toBeNull();                        // another data folder: never reuse
     ledger.mode = 'local';
   });
   it('skips the cache above the size cap', async () => {
     await load({ seed: demoEvents() });
-    ledger.mode = 'server'; ledger.dataDir = '/tmp/gtd-a';
+    ledger.mode = 'server'; ledger.dataDir = '/tmp/snow-a';
     ledger.events.push(ev(ledger.seq + 1, 'review_completed', { pad: 'x'.repeat(CACHE_MAX) }));
     expect(writeCache()).toBe(false); expect(mem[CACHE_KEY]).toBeUndefined();
     ledger.mode = 'local';

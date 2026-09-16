@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { demoEvents } from '@gtd/ledger';
+import { demoEvents } from '@snowball/ledger';
 import * as store from '../src/store.js';
 import { commit, withTx, load, tick, ledger } from '../src/store.js';
 import { by, mine, nextActionFor, projHealth, projOf } from '../src/model.js';

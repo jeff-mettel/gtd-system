@@ -2,7 +2,7 @@
 // A stand-in for server/ while it is being built: the HTTP contract in README.md over one JSON file.
 //   node packages/ledger/scripts/devserver.js [--port 8787] [--data ./ledger.json] [--demo]
 // --demo seeds the file with demoEvents() when it is empty. CORS is open so `npm run dev` (Vite proxy) or a
-// page with window.__GTD_SERVER__ = 'http://localhost:8787' can talk to it.
+// page with window.__SNOW_SERVER__ = 'http://localhost:8787' can talk to it.
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';

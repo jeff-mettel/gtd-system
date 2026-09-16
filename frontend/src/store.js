@@ -1,7 +1,7 @@
 // The store: every entity the views read is a live binding over `fold(ledger.events)`; every mutation is
 // `commit(type, payload, { item, actor })` — validated, appended through the backend, refolded, rendered.
 //
-// Backends. `server` when window.__GTD_SERVER__ is set or the page is served by the server (GET /api/health answers
+// Backends. `server` when window.__SNOW_SERVER__ is set or the page is served by the server (GET /api/health answers
 // JSON { ok:true }): GET /api/events?since= to load, POST /api/events to write (optimistic: the event is applied
 // locally at once and reconciled with the server's seq/at when the reply lands; the client's id is kept), then
 // GET /api/stream (server-sent events) for everything other writers — the CLI, jobs — append, with a 60 s poll only
@@ -13,12 +13,13 @@
 // Transactions and undo. A click handler runs inside withTx(); commits inside it do not render (the handler
 // renders once), and when it ends the toast grows an Undo that commits the compensating events in reverse.
 
-import { fold, validate, newId, demoEvents, LEDGER_VERSION, LedgerTooNew, defaultProposal } from '@gtd/ledger';
+import { fold, validate, newId, demoEvents, LEDGER_VERSION, LedgerTooNew, defaultProposal } from '@snowball/ledger';
 import { TODAY, clock, setToday } from './lib/dates.js';
 import { isDeferred } from './features/defer.js';
 import * as fixtures from './data/constants.js';
 import { prefs, savePrefs } from './prefs.js';
 
+// Storage keys keep the pre-rename `gtd-` prefix on purpose: renaming them would wipe every demo viewer's local ledger.
 export const LEDGER_KEY = 'gtd-ledger-v1';
 export const CACHE_KEY = 'gtd-cache-v1';
 export const CACHE_MAX = 4e6;        // serialized characters; above this the cache is skipped, not truncated
@@ -88,7 +89,7 @@ export class LedgerError extends Error { constructor(errors) { super(errors.join
  * `captured` with a `ref` already in the ledger is a no-op that returns the existing capture event.
  */
 /* Server mode only: ask the server to run a Claude job (clarify, nudge, prep, suggest, review, compile, ingest-calendar).
-   The job writes its own events through the gtd CLI; the poll picks them up. Local mode has no jobs — callers simulate. */
+   The job writes its own events through the snow CLI; the poll picks them up. Local mode has no jobs — callers simulate. */
 export async function runJob(job, args = {}) {
   if (ledger.mode !== 'server') return null;
   const r = await fetch(ledger.serverUrl + '/api/jobs/' + job, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ args }) });
@@ -279,8 +280,8 @@ function serverBackend(base, health) {
 async function pickBackend() {
   if (typeof window === 'undefined') return memoryBackend();
   /* Inside the desktop shell (Tauri) the page is always served by the sidecar service: server mode, same origin. */
-  if (window.__TAURI__ && !window.__GTD_SERVER__) window.__GTD_SERVER__ = location.origin;
-  const forced = window.__GTD_SERVER__;
+  if (window.__TAURI__ && !window.__SNOW_SERVER__) window.__SNOW_SERVER__ = location.origin;
+  const forced = window.__SNOW_SERVER__;
   const base = typeof forced === 'string' ? forced.replace(/\/$/, '') : '';
   if (forced || location.protocol.startsWith('http')) {
     try {
@@ -295,7 +296,7 @@ async function pickBackend() {
 export async function load({ seed } = {}) {
   backend?.close?.();
   backend = seed ? memoryBackend(seed) : await pickBackend();      // an explicit seed (tests) is authoritative, even when empty
-  ledger.mode = backend.mode; ledger.serverUrl = backend.mode === 'server' ? (typeof window !== 'undefined' && typeof window.__GTD_SERVER__ === 'string' ? window.__GTD_SERVER__ : location.origin) : '';
+  ledger.mode = backend.mode; ledger.serverUrl = backend.mode === 'server' ? (typeof window !== 'undefined' && typeof window.__SNOW_SERVER__ === 'string' ? window.__SNOW_SERVER__ : location.origin) : '';
   ledger.dataDir = backend.health?.dataDir || null; ledger.stub = !!backend.health?.stub; ledger.demo = false; ledger.cached = false;
   ledger.stream = 'off'; ledger.online = true; ledger.lastSync = backend.mode === 'server' ? new Date() : null;
   const demo = typeof location !== 'undefined' && new URLSearchParams(location.search).get('demo') === '1';

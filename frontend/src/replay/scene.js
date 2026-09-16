@@ -1,4 +1,4 @@
-// The three.js scene: balls are items, stations are the GTD lists. Every position is a fold of
+// The three.js scene: balls are items, stations are the lists. Every position is a fold of
 // events ≤ t (fold.js); only motion is tweened. createScene() mounts into `root` (see index.js for
 // the markup it expects) and returns the controls the Flow view uses.
 import { lastReview, people, programs, projects } from '../store.js';

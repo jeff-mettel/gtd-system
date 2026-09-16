@@ -42,7 +42,7 @@ export function viewReview() {
   ];
   const why = {
     inbox: 'Get clear. Nothing else in the review is trustworthy while unclarified items are sitting here — an unprocessed inbox is a list of decisions you haven\'t made yet. Empty it first, then review.',
-    sweep: 'Get clear. Anything still in your head is not in the system, and GTD only works if the system holds everything. Walk the triggers and write down whatever surfaces, without judging or clarifying it — capture now, decide later in the inbox.',
+    sweep: 'Get clear. Anything still in your head is not in the system, and the method only works if the system holds everything. Walk the triggers and write down whatever surfaces, without judging or clarifying it — capture now, decide later in the inbox.',
     pastcal: 'Get current. Meetings generate commitments that rarely get written down in the moment. A meeting with nothing captured usually means loose ends in your head, not a meeting with none — look at each and capture what you promised or were promised.',
     upcoming: 'Get current. Look two weeks ahead so nothing arrives unprepared. Anything that needs prep and doesn\'t yet have a next action is a gap — capture it here and clarify it in the inbox.',
     next: 'Get current. The projects list only moves if every project has a next physical action or a waiting-for. A project without one is stalled, however healthy it looks — decide the action now, or park or drop the project honestly.',

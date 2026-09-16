@@ -2,7 +2,7 @@
 // dismissed view tips, collapsed panels, the Engage grouping, the sidebar state, and the tick-boxes of the review
 // in progress. Everything else the app remembers is an event in the ledger (store.js).
 
-export const PREFS_KEY = 'gtd-prefs-v1';
+export const PREFS_KEY = 'gtd-prefs-v1';   // pre-rename prefix kept on purpose: renaming would reset every viewer's preferences
 
 /* Defaults. `collapsed` is merged key by key with what was saved, so a new default (the Engage filter row starts folded)
    reaches existing browsers; `reviewGuided` is the weekly review's one-step-at-a-time mode; `guidesInit` marks that live

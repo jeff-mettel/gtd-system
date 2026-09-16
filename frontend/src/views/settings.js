@@ -26,7 +26,7 @@ export const EFFORTS = ['low', 'medium', 'high'];
 
 /* Default prompt stubs. The full prompts live with the back-end jobs; these are the editable openings the user owns. */
 export const DEFAULT_PROMPTS = {
-  clarify: 'You clarify one captured item for a program manager. Answer GTD\'s questions: is it actionable; what is the very next physical action; who owns it. Return the schema with a confidence and a one-line rationale. Never invent a project — match an existing one or propose a new one with an outcome.',
+  clarify: 'You clarify one captured item for a program manager. Answer the method\'s questions: is it actionable; what is the very next physical action; who owns it. Return the schema with a confidence and a one-line rationale. Never invent a project — match an existing one or propose a new one with an outcome.',
   suggest: 'Given a project\'s outcome, its open items and its recent history, propose one next physical action, verb-first, that a person could do in one sitting. Say which context it belongs in and why it moves the project.',
   nudge: 'Draft a short follow-up to the person who owes this item. Use the history: what was asked, when, how many nudges so far. Polite, specific, with a date. Nothing sends until the user approves.',
   prep: 'Prepare a one-page brief for this meeting from the ledger and the wiki: related project and its status, open items with the attendees, waiting-fors, the latest decisions and risks. Lead with what the user needs to decide or ask.',
@@ -85,7 +85,7 @@ function dataPanel() {
 export function dataActions(what, el) {
   if (what === 'export') {
     const blob = new Blob([exportJSON()], { type:'application/json' }), url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `gtd-ledger-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const a = document.createElement('a'); a.href = url; a.download = `snowball-ledger-${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
     toast(`Exported ${ledger.events.length} events`);
   }
   else if (what === 'copy') { const txt = exportJSON(); (navigator.clipboard?.writeText(txt) || Promise.reject()).then(() => toast('Ledger JSON copied'), () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Ledger JSON copied'); } catch (e) { toast('Could not copy'); } ta.remove(); }); }
