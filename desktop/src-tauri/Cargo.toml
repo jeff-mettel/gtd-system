@@ -1,0 +1,32 @@
+[package]
+name = "gtd-desktop"
+version = "0.1.0"
+description = "Delivery System — desktop shell around the local GTD service"
+authors = ["Jeff Mettel"]
+edition = "2021"
+publish = false
+
+[lib]
+name = "gtd_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["tray-icon", "image-png"] }
+tauri-plugin-shell = "2.3"
+tauri-plugin-window-state = "2.4"
+tauri-plugin-global-shortcut = "2.3"
+tauri-plugin-autostart = "2.5"
+serde_json = "1"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-dialog = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

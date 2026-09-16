@@ -69,4 +69,6 @@ export function openCapture(text = '') {
 }
 
 export function closeCapture() { if (ovl) ovl.hidden = true; }
+/* Desktop shell hook: the Tauri tray item and the global ⌘⇧K shortcut call this after showing the window. */
+if (typeof window !== 'undefined') window.__gtdOpenCapture = openCapture;
 export const captureOpen = () => !!ovl && !ovl.hidden;

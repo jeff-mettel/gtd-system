@@ -1,0 +1,77 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Delivery System",
+  "version": "0.1.0",
+  "identifier": "com.jeffmettel.deliverysystem",
+  "build": {
+    "frontendDist": "../ui",
+    "beforeBuildCommand": "",
+    "beforeDevCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Delivery System",
+        "url": "index.html",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": false,
+    "category": "Productivity",
+    "shortDescription": "GTD commitment ledger for program management",
+    "copyright": "Jeff Mettel",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/node"],
+    "resources": {
+      "../../server/*.js": "server/",
+      "../../server/package.json": "server/package.json",
+      "../../bin/*": "bin/",
+      "../../packages/ledger/*.js": "packages/ledger/",
+      "../../packages/ledger/package.json": "packages/ledger/package.json",
+      "../../packages/ledger/migrations/*.js": "packages/ledger/migrations/",
+      "../../frontend/dist/index.html": "frontend/dist/index.html",
+      "../../frontend/dist/assets/*.js": "frontend/dist/assets/",
+      "../../frontend/dist/assets/*.css": "frontend/dist/assets/",
+      "../../.claude/settings.json": ".claude/settings.json",
+      "../../.claude/agents": ".claude/agents",
+      "../../.claude/skills": ".claude/skills",
+      "../../package.json": "package.json"
+    },
+    "macOS": {
+      "signingIdentity": "-",
+      "entitlements": "entitlements.plist",
+      "minimumSystemVersion": "12.0",
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "windowSize": { "width": 660, "height": 400 }
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/jeff-mettel/gtd-system/releases/latest/download/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERENUQ3QzUwQ0QyMDg5RTMKUldUamlTRE5VSHhkM2JDRVB0ZmkzUDRDY3FaRGhMMFJnSmpjb1Z5MXdsSTNnL3pRejZTRmU5NEYK"
+    }
+  }
+}

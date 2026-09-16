@@ -2,3 +2,5 @@
 node_modules/
 *.sqlite
 frontend/dist/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/

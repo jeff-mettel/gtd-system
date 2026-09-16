@@ -278,6 +278,8 @@ function serverBackend(base, health) {
 
 async function pickBackend() {
   if (typeof window === 'undefined') return memoryBackend();
+  /* Inside the desktop shell (Tauri) the page is always served by the sidecar service: server mode, same origin. */
+  if (window.__TAURI__ && !window.__GTD_SERVER__) window.__GTD_SERVER__ = location.origin;
   const forced = window.__GTD_SERVER__;
   const base = typeof forced === 'string' ? forced.replace(/\/$/, '') : '';
   if (forced || location.protocol.startsWith('http')) {

@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The main window: the bundled Starting… page and, after navigation, the sidecar's own origin. The front-end only checks that window.__TAURI__ exists (store.js server-mode guard); no commands are exposed beyond core:default.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:*", "http://localhost:*"] },
+  "permissions": ["core:default"]
+}
