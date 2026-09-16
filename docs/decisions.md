@@ -2,6 +2,19 @@
 
 Newest first. One line per decision, with the reason. Add to this as we go.
 
+## 2026-09-15
+
+- **Desktop app (Tauri 2)** in `desktop/`: the Node service runs as a bundled sidecar
+  (Node binary copied at build time); tray menu (open, capture ⌘⇧K, sync calendar, start
+  at login, check for updates, quit); close hides so the scheduler keeps running; data
+  stays in `~/GTD-data`. **In-app updates** via signed GitHub Releases (`latest.json`);
+  the updater private key lives in `~/.tauri/gtd-updater.key` and a repo secret, never
+  in git. **Releases are built by GitHub Actions** on `v*` tags (`release.yml`) and the
+  README's Download link always points at the newest `.dmg` (deterministic asset name,
+  `releases/latest/download/...`); beta tags publish as full releases so `latest` resolves.
+- Open question: the updater fetch against a private repo is unverified — if it fails,
+  make the repo public or publish releases to a public `gtd-releases` repo.
+
 ## 2026-09-14
 
 - **Speed pass adopted.** Goal: the system fades into the background. (1) Global capture
