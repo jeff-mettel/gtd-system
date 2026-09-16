@@ -5,3 +5,4 @@ frontend/dist/
 .claude/worktrees/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
+.playwright-mcp/

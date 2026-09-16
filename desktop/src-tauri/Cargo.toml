@@ -1,6 +1,6 @@
 [package]
 name = "snowball-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Snowball — desktop shell around the local Snowball service"
 authors = ["Jeff Mettel"]
 edition = "2021"

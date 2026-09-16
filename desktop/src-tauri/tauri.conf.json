@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Snowball",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.jeffmettel.snowball",
   "build": {
     "frontendDist": "../ui",
@@ -29,7 +29,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
+    "targets": [
+      "app",
+      "dmg"
+    ],
     "createUpdaterArtifacts": false,
     "category": "Productivity",
     "shortDescription": "Commitment management for program managers",
@@ -41,7 +44,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/node"],
+    "externalBin": [
+      "binaries/node"
+    ],
     "resources": {
       "../../server/*.js": "server/",
       "../../server/package.json": "server/package.json",
@@ -62,15 +67,26 @@
       "entitlements": "entitlements.plist",
       "minimumSystemVersion": "12.0",
       "dmg": {
-        "appPosition": { "x": 180, "y": 170 },
-        "applicationFolderPosition": { "x": 480, "y": 170 },
-        "windowSize": { "width": 660, "height": 400 }
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        },
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        }
       }
     }
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://github.com/jeff-mettel/snowball/releases/latest/download/latest.json"],
+      "endpoints": [
+        "https://github.com/jeff-mettel/snowball/releases/latest/download/latest.json"
+      ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERENUQ3QzUwQ0QyMDg5RTMKUldUamlTRE5VSHhkM2JDRVB0ZmkzUDRDY3FaRGhMMFJnSmpjb1Z5MXdsSTNnL3pRejZTRmU5NEYK"
     }
   }

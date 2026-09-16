@@ -1,9 +1,9 @@
 {
   "name": "snowball",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Snowball — Commitment management for program managers (workspace root)",
+  "description": "Snowball \u2014 Commitment management for program managers (workspace root)",
   "workspaces": [
     "packages/*",
     "server",
